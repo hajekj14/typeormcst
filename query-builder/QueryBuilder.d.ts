@@ -393,6 +393,7 @@ export declare class QueryBuilder<Entity> {
      * Parameters in the query are escaped for the currently used driver.
      */
     getSql(): string;
+    createSpecificExpression(sql: string): string;
     /**
      * Gets generated sql without parameters being replaced.
      */
