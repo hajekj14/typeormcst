@@ -9195,10 +9195,10 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                     if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
                         sql = 'SELECT * FROM (' + sql + ') WHERE ';
                         if (this.expressionMap.offset) {
-                            sql += "\"rn\" > " + this.expressionMap.offset;
+                            sql += "\"RN\" > " + this.expressionMap.offset;
                         }
                         if (this.expressionMap.limit) {
-                            sql += (this.expressionMap.offset ? " AND " : "") + "\"rn\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+                            sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
                         }
                     }
                     return sql;
@@ -9789,7 +9789,7 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                         case "select":
                             var selection = allSelects.map(function (select) { return select.selection + (select.aliasName ? " AS " + ea(select.aliasName) : ""); }).join(", ");
                             if ((this.expressionMap.limit || this.expressionMap.offset) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
-                                return "SELECT ROWNUM \"rn\"," + selection + " FROM " + this.escapeTable(tableName) + " " + ea(aliasName) + lock;
+                                return "SELECT ROWNUM \"RN\"," + selection + " FROM " + this.escapeTable(tableName) + " " + ea(aliasName) + lock;
                             }
                             return "SELECT " + selection + " FROM " + this.escapeTable(tableName) + " " + ea(aliasName) + lock;
                         case "delete":
