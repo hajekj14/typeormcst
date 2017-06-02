@@ -547,7 +547,7 @@ var QueryBuilder = (function () {
                 sql += "\"rn\" > " + this.expressionMap.offset;
             }
             if (this.expressionMap.limit) {
-                sql += (this.expressionMap.offset ? " AND" : "") + "\"rn\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+                sql += (this.expressionMap.offset ? " AND " : "") + "\"rn\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
             }
         }
         return sql;

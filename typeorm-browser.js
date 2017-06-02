@@ -9198,7 +9198,7 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                             sql += "\"rn\" > " + this.expressionMap.offset;
                         }
                         if (this.expressionMap.limit) {
-                            sql += (this.expressionMap.offset ? " AND" : "") + "\"rn\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+                            sql += (this.expressionMap.offset ? " AND " : "") + "\"rn\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
                         }
                     }
                     return sql;
