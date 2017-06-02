@@ -43,10 +43,9 @@ var Broadcaster = (function () {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    function Broadcaster(connection, subscriberMetadatas, entityListeners) {
+    function Broadcaster(connection, subscriberMetadatas) {
         this.connection = connection;
         this.subscriberMetadatas = subscriberMetadatas;
-        this.entityListeners = entityListeners;
     }
     // -------------------------------------------------------------------------
     // Public Methods
@@ -101,20 +100,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastBeforeInsertEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastBeforeInsertEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_INSERT && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_INSERT && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.entity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.beforeInsert; })
                             .map(function (subscriber) { return subscriber.beforeInsert({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.entity
                         }); });
                         return [4 /*yield*/, Promise.all(listeners.concat(subscribers))];
@@ -131,20 +130,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastBeforeUpdateEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastBeforeUpdateEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_UPDATE && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_UPDATE && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.entity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.beforeUpdate; })
                             .map(function (subscriber) { return subscriber.beforeUpdate({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.entity,
                             databaseEntity: subject.databaseEntity,
                             updatedColumns: subject.diffColumns,
@@ -164,20 +163,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastBeforeRemoveEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastBeforeRemoveEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_REMOVE && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.BEFORE_REMOVE && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.databaseEntity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.beforeRemove; })
                             .map(function (subscriber) { return subscriber.beforeRemove({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.hasEntity ? subject.entity : undefined,
                             databaseEntity: subject.databaseEntity,
                             entityId: subject.metadata.getEntityIdMixedMap(subject.databaseEntity)
@@ -196,20 +195,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastAfterInsertEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastAfterInsertEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_INSERT && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_INSERT && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.entity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.afterInsert; })
                             .map(function (subscriber) { return subscriber.afterInsert({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.entity
                         }); });
                         return [4 /*yield*/, Promise.all(listeners.concat(subscribers))];
@@ -226,20 +225,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastAfterUpdateEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastAfterUpdateEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_UPDATE && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_UPDATE && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.entity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.afterUpdate; })
                             .map(function (subscriber) { return subscriber.afterUpdate({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.entity,
                             databaseEntity: subject.databaseEntity,
                             updatedColumns: subject.diffColumns,
@@ -259,20 +258,20 @@ var Broadcaster = (function () {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    Broadcaster.prototype.broadcastAfterRemoveEvent = function (entityManager, subject) {
+    Broadcaster.prototype.broadcastAfterRemoveEvent = function (manager, subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             var listeners, subscribers;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_REMOVE && _this.isAllowedListener(listener, subject.entity); })
+                        listeners = subject.metadata.listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_REMOVE && listener.isAllowed(subject.entity); })
                             .map(function (entityListener) { return subject.entity[entityListener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, subject.entityTarget) && subscriber.afterRemove; })
                             .map(function (subscriber) { return subscriber.afterRemove({
-                            entityManager: entityManager,
+                            manager: manager,
                             entity: subject.hasEntity ? subject.entity : undefined,
                             databaseEntity: subject.databaseEntity,
                             entityId: subject.metadata.getEntityIdMixedMap(subject.databaseEntity)
@@ -331,8 +330,8 @@ var Broadcaster = (function () {
                             }
                             return promises;
                         }, []);
-                        listeners = this.entityListeners
-                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_LOAD && _this.isAllowedListener(listener, entity); })
+                        listeners = this.connection.getMetadata(target).listeners
+                            .filter(function (listener) { return listener.type === EventListenerTypes_1.EventListenerTypes.AFTER_LOAD && listener.isAllowed(entity); })
                             .map(function (listener) { return entity[listener.propertyName](); });
                         subscribers = this.subscriberMetadatas
                             .filter(function (subscriber) { return _this.isAllowedSubscriber(subscriber, target) && subscriber.afterLoad; })
@@ -348,14 +347,6 @@ var Broadcaster = (function () {
     // -------------------------------------------------------------------------
     // Protected Methods
     // -------------------------------------------------------------------------
-    /**
-     * Checks if entity listener is allowed to be executed on the given entity.
-     */
-    Broadcaster.prototype.isAllowedListener = function (listener, entity) {
-        // todo: create in entity metadata method like isInherited
-        return listener.target === entity.constructor ||
-            (listener.target instanceof Function && entity.constructor.prototype instanceof listener.target); // todo: also need to implement entity schema inheritance
-    };
     /**
      * Checks if subscriber's methods can be executed by checking if its don't listen to the particular entity,
      * or listens our entity.

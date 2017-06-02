@@ -1,176 +1,179 @@
-import { ColumnMetadataArgs } from "../metadata-args/ColumnMetadataArgs";
 import { ColumnType } from "./types/ColumnTypes";
 import { EntityMetadata } from "./EntityMetadata";
 import { EmbeddedMetadata } from "./EmbeddedMetadata";
 import { RelationMetadata } from "./RelationMetadata";
-/**
- * Kinda type of the column. Not a type in the database, but locally used type to determine what kind of column
- * we are working with.
- * For example, "primary" means that it will be a primary column, or "createDate" means that it will create a create
- * date column.
- */
-export declare type ColumnMode = "regular" | "virtual" | "createDate" | "updateDate" | "version" | "treeChildrenCount" | "treeLevel" | "discriminator" | "parentId" | "objectId" | "array";
+import { ObjectLiteral } from "../common/ObjectLiteral";
+import { NamingStrategyInterface } from "../naming-strategy/NamingStrategyInterface";
+import { ColumnMetadataArgs } from "../metadata-args/ColumnMetadataArgs";
 /**
  * This metadata contains all information about entity's column.
  */
 export declare class ColumnMetadata {
     /**
      * Entity metadata where this column metadata is.
+     *
+     * For example for @Column() name: string in Post, entityMetadata will be metadata of Post entity.
      */
     entityMetadata: EntityMetadata;
     /**
      * Embedded metadata where this column metadata is.
+     * If this column is not in embed then this property value is undefined.
      */
-    embeddedMetadata: EmbeddedMetadata;
+    embeddedMetadata?: EmbeddedMetadata;
     /**
-     * If this column is foreign key of some relation then this relation's metadata will be here.
+     * If column is a foreign key of some relation then this relation's metadata will be there.
+     * If this column does not have a foreign key then this property value is undefined.
      */
-    relationMetadata: RelationMetadata;
+    relationMetadata?: RelationMetadata;
     /**
-     * Target class to which metadata is applied.
+     * Class's property name on which this column is applied.
      */
-    readonly target: Function | string | "__virtual__";
-    /**
-     * Target's property name to which this metadata is applied.
-     */
-    readonly propertyName: string;
-    /**
-     * The real reflected property type.
-     */
+    propertyName: string;
     /**
      * The database type of the column.
      */
-    readonly type: ColumnType;
-    /**
-     * Column's mode in which this column is working.
-     */
-    readonly mode: ColumnMode;
+    type: ColumnType;
     /**
      * Type's length in the database.
      */
-    readonly length: string;
+    length: string;
     /**
      * Indicates if this column is a primary key.
      */
-    readonly isPrimary: boolean;
+    isPrimary: boolean;
     /**
      * Indicates if this column is generated (auto increment or generated other way).
      */
-    readonly isGenerated: boolean;
+    isGenerated: boolean;
     /**
-     * Indicates if value in the database should be unique or not.
+     * Indicates if column value in the database should be unique or not.
      */
-    readonly isUnique: boolean;
+    isUnique: boolean;
     /**
      * Indicates if column can contain nulls or not.
      */
-    readonly isNullable: boolean;
+    isNullable: boolean;
     /**
      * Column comment.
+     * This feature is not supported by all databases.
      */
-    readonly comment: string;
+    comment: string;
     /**
      * Default database value.
      */
-    readonly default: any;
+    default?: any;
     /**
-     * The precision for a decimal (exact numeric) column (applies only for decimal column), which is the maximum
-     * number of digits that are stored for the values.
+     * The precision for a decimal (exact numeric) column (applies only for decimal column),
+     * which is the maximum number of digits that are stored for the values.
      */
-    readonly precision: number;
+    precision?: number;
     /**
-     * The scale for a decimal (exact numeric) column (applies only for decimal column), which represents the number
-     * of digits to the right of the decimal point and must not be greater than precision.
+     * The scale for a decimal (exact numeric) column (applies only for decimal column),
+     * which represents the number of digits to the right of the decimal point and must not be greater than precision.
      */
-    readonly scale: number;
+    scale?: number;
     /**
-     * Indicates if this date column will contain a timezone.
+     * Indicates if date column will contain a timezone.
      * Used only for date-typed column types.
      * Note that timezone option is not supported by all databases (only postgres for now).
      */
-    readonly timezone: boolean;
+    timezone: boolean;
     /**
      * Indicates if date object must be stored in given date's timezone.
      * By default date is saved in UTC timezone.
      * Works only with "datetime" columns.
      */
-    readonly localTimezone?: boolean;
+    localTimezone: boolean;
     /**
      * Indicates if column's type will be set as a fixed-length data type.
      * Works only with "string" columns.
      */
-    readonly fixedLength?: boolean;
+    fixedLength: boolean;
     /**
-     * Column name to be used in the database.
+     * Gets full path to this column property (including column property name).
+     * Full path is relevant when column is used in embeds (one or multiple nested).
+     * For example it will return "counters.subcounters.likes".
+     * If property is not in embeds then it returns just property name of the column.
      */
-    private _name;
-    constructor(args: ColumnMetadataArgs);
+    propertyPath: string;
     /**
-     * Gets column's entity target.
-     * Original target returns target of the class where column is.
-     * This class can be an abstract class, but column even is from that class,
-     * but its more related to a specific entity. That's why we need this field.
+     * Complete column name in the database including its embedded prefixes.
      */
-    readonly entityTarget: Function | string;
+    databaseName: string;
     /**
-     * Column name in the database.
-     *
-     * todo: rename to originalName
+     * Database name in the database without embedded prefixes applied.
      */
-    readonly name: string;
+    databaseNameWithoutPrefixes: string;
     /**
-     * Column name in the database including its embedded prefixes.
-     *
-     * todo: rename to databaseName
+     * Database name set by entity metadata builder, not yet passed naming strategy process and without embedded prefixes.
      */
-    readonly fullName: string;
-    /**
-     * Indicates if this column is in embedded, not directly in the table.
-     */
-    readonly isInEmbedded: boolean;
+    givenDatabaseName?: string;
     /**
      * Indicates if column is virtual. Virtual columns are not mapped to the entity.
      */
-    readonly isVirtual: boolean;
-    /**
-     * Indicates if column is array.
-     * Array columns are now only supported by Mongodb driver.
-     *
-     * todo: implement array serialization functionality for relational databases as well
-     */
-    readonly isArray: boolean;
+    isVirtual: boolean;
     /**
      * Indicates if column is a parent id. Parent id columns are not mapped to the entity.
      */
-    readonly isParentId: boolean;
+    isParentId: boolean;
     /**
      * Indicates if column is discriminator. Discriminator columns are not mapped to the entity.
      */
-    readonly isDiscriminator: boolean;
+    isDiscriminator: boolean;
+    /**
+     * Indicates if column is tree-level column. Tree-level columns are used in closure entities.
+     */
+    isTreeLevel: boolean;
     /**
      * Indicates if this column contains an entity creation date.
      */
-    readonly isCreateDate: boolean;
+    isCreateDate: boolean;
     /**
      * Indicates if this column contains an entity update date.
      */
-    readonly isUpdateDate: boolean;
+    isUpdateDate: boolean;
     /**
      * Indicates if this column contains an entity version.
      */
-    readonly isVersion: boolean;
+    isVersion: boolean;
     /**
      * Indicates if this column contains an object id.
      */
-    readonly isObjectId: boolean;
+    isObjectId: boolean;
     /**
-     * If this column references some column, it gets the first referenced column of this column.
+     * If this column is foreign key then it references some other column,
+     * and this property will contain reference to this column.
      */
-    readonly referencedColumn: ColumnMetadata | undefined;
+    referencedColumn: ColumnMetadata | undefined;
+    constructor(options: {
+        entityMetadata: EntityMetadata;
+        embeddedMetadata?: EmbeddedMetadata;
+        referencedColumn?: ColumnMetadata;
+        args: ColumnMetadataArgs;
+    });
     /**
-     * Gets embedded property in which column is.
+     * Creates entity id map from the given entity ids array.
      */
-    readonly embeddedProperty: string;
-    hasEntityValue(entity: any): boolean;
-    getEntityValue(entity: any): any;
+    createValueMap(value: any): any;
+    /**
+     * Extracts column value and returns its column name with this value in a literal object.
+     * If column is in embedded (or recursive embedded) it returns complex literal object.
+     *
+     * Examples what this method can return depend if this column is in embeds.
+     * { id: 1 } or { title: "hello" }, { counters: { code: 1 } }, { data: { information: { counters: { code: 1 } } } }
+     */
+    getEntityValueMap(entity: ObjectLiteral): ObjectLiteral;
+    /**
+     * Extracts column value from the given entity.
+     * If column is in embedded (or recursive embedded) it extracts its value from there.
+     */
+    getEntityValue(entity: ObjectLiteral): any | undefined;
+    /**
+     * Sets given entity's column value.
+     * Using of this method helps to set entity relation's value of the lazy and non-lazy relations.
+     */
+    setEntityValue(entity: ObjectLiteral, value: any): void;
+    build(namingStrategy: NamingStrategyInterface): this;
+    protected buildPropertyPath(): string;
+    protected buildDatabaseName(namingStrategy: NamingStrategyInterface): string;
 }

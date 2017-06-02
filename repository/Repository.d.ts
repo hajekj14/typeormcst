@@ -1,4 +1,3 @@
-import { Connection } from "../connection/Connection";
 import { EntityMetadata } from "../metadata/EntityMetadata";
 import { QueryBuilder } from "../query-builder/QueryBuilder";
 import { FindManyOptions } from "../find-options/FindManyOptions";
@@ -6,16 +5,17 @@ import { ObjectLiteral } from "../common/ObjectLiteral";
 import { QueryRunnerProvider } from "../query-runner/QueryRunnerProvider";
 import { FindOneOptions } from "../find-options/FindOneOptions";
 import { DeepPartial } from "../common/DeepPartial";
-import { PersistOptions } from "./PersistOptions";
+import { SaveOptions } from "./SaveOptions";
 import { RemoveOptions } from "./RemoveOptions";
+import { EntityManager } from "../entity-manager/EntityManager";
 /**
  * Repository is supposed to work with your entity objects. Find entities, insert, update, delete, etc.
  */
 export declare class Repository<Entity extends ObjectLiteral> {
     /**
-     * Connection used by this repository.
+     * Entity Manager used by this repository.
      */
-    protected connection: Connection;
+    protected manager: EntityManager;
     /**
      * Entity metadata of the entity current repository manages.
      */
@@ -32,7 +32,7 @@ export declare class Repository<Entity extends ObjectLiteral> {
     readonly target: Function | string;
     /**
      * Checks if entity has an id.
-     * If entity contains compose ids, then it checks them all.
+     * If entity composite compose ids, it will check them all.
      */
     hasId(entity: Entity): boolean;
     /**
@@ -72,27 +72,37 @@ export declare class Repository<Entity extends ObjectLiteral> {
      */
     preload(entityLike: DeepPartial<Entity>): Promise<Entity | undefined>;
     /**
-     * Persists (saves) all given entities in the database.
+     * Saves all given entities in the database.
      * If entities do not exist in the database then inserts, otherwise updates.
      */
-    persist(entities: Entity[], options?: PersistOptions): Promise<Entity[]>;
+    save(entities: Entity[], options?: SaveOptions): Promise<Entity[]>;
     /**
-     * Persists (saves) a given entity in the database.
+     * Saves a given entity in the database.
      * If entity does not exist in the database then inserts, otherwise updates.
      */
-    persist(entity: Entity, options?: PersistOptions): Promise<Entity>;
+    save(entity: Entity, options?: SaveOptions): Promise<Entity>;
+    /**
+     * Saves all given entities in the database.
+     * If entities do not exist in the database then inserts, otherwise updates.
+     */
+    persist(entities: Entity[], options?: SaveOptions): Promise<Entity[]>;
+    /**
+     * Saves a given entity in the database.
+     * If entity does not exist in the database then inserts, otherwise updates.
+     */
+    persist(entity: Entity, options?: SaveOptions): Promise<Entity>;
     /**
      * Updates entity partially. Entity can be found by a given conditions.
      */
-    update(conditions: Partial<Entity>, partialEntity: DeepPartial<Entity>, options?: PersistOptions): Promise<void>;
+    update(conditions: Partial<Entity>, partialEntity: DeepPartial<Entity>, options?: SaveOptions): Promise<void>;
     /**
      * Updates entity partially. Entity can be found by a given find options.
      */
-    update(findOptions: FindOneOptions<Entity>, partialEntity: DeepPartial<Entity>, options?: PersistOptions): Promise<void>;
+    update(findOptions: FindOneOptions<Entity>, partialEntity: DeepPartial<Entity>, options?: SaveOptions): Promise<void>;
     /**
      * Updates entity partially. Entity will be found by a given id.
      */
-    updateById(id: any, partialEntity: DeepPartial<Entity>, options?: PersistOptions): Promise<void>;
+    updateById(id: any, partialEntity: DeepPartial<Entity>, options?: SaveOptions): Promise<void>;
     /**
      * Removes a given entities from the database.
      */
@@ -166,18 +176,6 @@ export declare class Repository<Entity extends ObjectLiteral> {
      * Raw query execution is supported only by relational databases (MongoDB is not supported).
      */
     query(query: string, parameters?: any[]): Promise<any>;
-    /**
-     * Wraps given function execution (and all operations made there) in a transaction.
-     * All database operations must be executed using provided repository.
-     *
-     * Most important, you should execute all your database operations using provided repository instance,
-     * all other operations would not be included in the transaction.
-     * If you want to execute transaction and persist multiple different entity types, then
-     * use EntityManager.transaction method instead.
-     *
-     * Transactions are supported only by relational databases (MongoDB is not supported).
-     */
-    transaction(runInTransaction: (repository: Repository<Entity>) => Promise<any> | any): Promise<any>;
     /**
      * Clears all the data from the given table/collection (truncates/drops it).
      */

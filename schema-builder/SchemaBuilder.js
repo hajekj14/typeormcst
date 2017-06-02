@@ -115,10 +115,10 @@ var SchemaBuilder = (function () {
                         return [4 /*yield*/, this.updatePrimaryKeys()];
                     case 10:
                         _c.sent();
-                        return [4 /*yield*/, this.createForeignKeys()];
-                    case 11:
-                        _c.sent();
                         return [4 /*yield*/, this.createIndices()];
+                    case 11:
+                        _c.sent(); // we need to create indices before foreign keys because foreign keys rely on unique indices
+                        return [4 /*yield*/, this.createForeignKeys()];
                     case 12:
                         _c.sent();
                         return [4 /*yield*/, this.queryRunner.commitTransaction()];
@@ -145,7 +145,7 @@ var SchemaBuilder = (function () {
         // Private Methods
         // -------------------------------------------------------------------------
         get: function () {
-            return this.entityMetadatas.filter(function (metadata) { return !metadata.table.skipSchemaSync; });
+            return this.entityMetadatas.filter(function (metadata) { return !metadata.skipSchemaSync && metadata.tableType !== "single-table-child"; });
         },
         enumerable: true,
         configurable: true
@@ -154,7 +154,7 @@ var SchemaBuilder = (function () {
      * Loads all table schemas from the database.
      */
     SchemaBuilder.prototype.loadTableSchemas = function () {
-        var tableNames = this.entityToSyncMetadatas.map(function (metadata) { return metadata.table.name; });
+        var tableNames = this.entityToSyncMetadatas.map(function (metadata) { return metadata.tableName; });
         return this.queryRunner.loadTableSchemas(tableNames);
     };
     /**
@@ -170,7 +170,7 @@ var SchemaBuilder = (function () {
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
-                                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                                         if (!tableSchema)
                                             return [2 /*return*/];
                                         foreignKeySchemasToDrop = tableSchema.foreignKeys.filter(function (foreignKeySchema) {
@@ -212,11 +212,11 @@ var SchemaBuilder = (function () {
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
-                                        existTableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                                        existTableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                                         if (existTableSchema)
                                             return [2 /*return*/];
-                                        this.logger.logSchemaBuild("creating a new table: " + metadata.table.name);
-                                        tableSchema = new TableSchema_1.TableSchema(metadata.table.name, this.metadataColumnsToColumnSchemas(metadata.columns), true);
+                                        this.logger.logSchemaBuild("creating a new table: " + metadata.tableName);
+                                        tableSchema = new TableSchema_1.TableSchema(metadata.tableName, this.metadataColumnsToColumnSchemas(metadata.columns), true);
                                         this.tableSchemas.push(tableSchema);
                                         return [4 /*yield*/, this.queryRunner.createTable(tableSchema)];
                                     case 1:
@@ -244,24 +244,24 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         droppedColumnSchemas = tableSchema.columns.filter(function (columnSchema) {
-                            return !metadata.columns.find(function (columnMetadata) { return columnMetadata.fullName === columnSchema.name; });
+                            return !metadata.columns.find(function (columnMetadata) { return columnMetadata.databaseName === columnSchema.name; });
                         });
                         if (droppedColumnSchemas.length === 0)
                             return [2 /*return*/];
                         // drop all foreign keys that has column to be removed in its columns
                         return [4 /*yield*/, Promise.all(droppedColumnSchemas.map(function (droppedColumnSchema) {
-                                return _this.dropColumnReferencedForeignKeys(metadata.table.name, droppedColumnSchema.name);
+                                return _this.dropColumnReferencedForeignKeys(metadata.tableName, droppedColumnSchema.name);
                             }))];
                     case 1:
                         // drop all foreign keys that has column to be removed in its columns
                         _a.sent();
                         // drop all indices that point to this column
                         return [4 /*yield*/, Promise.all(droppedColumnSchemas.map(function (droppedColumnSchema) {
-                                return _this.dropColumnReferencedIndices(metadata.table.name, droppedColumnSchema.name);
+                                return _this.dropColumnReferencedIndices(metadata.tableName, droppedColumnSchema.name);
                             }))];
                     case 2:
                         // drop all indices that point to this column
@@ -291,15 +291,15 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         newColumnMetadatas = metadata.columns.filter(function (columnMetadata) {
-                            return !tableSchema.columns.find(function (columnSchema) { return columnSchema.name === columnMetadata.fullName; });
+                            return !tableSchema.columns.find(function (columnSchema) { return columnSchema.name === columnMetadata.databaseName; });
                         });
                         if (newColumnMetadatas.length === 0)
                             return [2 /*return*/];
-                        this.logger.logSchemaBuild("new columns added: " + newColumnMetadatas.map(function (column) { return column.fullName; }).join(", "));
+                        this.logger.logSchemaBuild("new columns added: " + newColumnMetadatas.map(function (column) { return column.databaseName; }).join(", "));
                         newColumnSchemas = this.metadataColumnsToColumnSchemas(newColumnMetadatas);
                         return [4 /*yield*/, this.queryRunner.addColumns(tableSchema, newColumnSchemas)];
                     case 1:
@@ -322,7 +322,7 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         updatedColumnSchemas = tableSchema.findChangedColumns(this.queryRunner, metadata.columns);
@@ -330,23 +330,23 @@ var SchemaBuilder = (function () {
                             return [2 /*return*/];
                         this.logger.logSchemaBuild("columns changed in " + tableSchema.name + ". updating: " + updatedColumnSchemas.map(function (column) { return column.name; }).join(", "));
                         dropRelatedForeignKeysPromises = updatedColumnSchemas
-                            .filter(function (changedColumnSchema) { return !!metadata.columns.find(function (columnMetadata) { return columnMetadata.fullName === changedColumnSchema.name; }); })
-                            .map(function (changedColumnSchema) { return _this.dropColumnReferencedForeignKeys(metadata.table.name, changedColumnSchema.name); });
+                            .filter(function (changedColumnSchema) { return !!metadata.columns.find(function (columnMetadata) { return columnMetadata.databaseName === changedColumnSchema.name; }); })
+                            .map(function (changedColumnSchema) { return _this.dropColumnReferencedForeignKeys(metadata.tableName, changedColumnSchema.name); });
                         // wait until all related foreign keys are dropped
                         return [4 /*yield*/, Promise.all(dropRelatedForeignKeysPromises)];
                     case 1:
                         // wait until all related foreign keys are dropped
                         _a.sent();
                         dropRelatedIndicesPromises = updatedColumnSchemas
-                            .filter(function (changedColumnSchema) { return !!metadata.columns.find(function (columnMetadata) { return columnMetadata.fullName === changedColumnSchema.name; }); })
-                            .map(function (changedColumnSchema) { return _this.dropColumnReferencedIndices(metadata.table.name, changedColumnSchema.name); });
+                            .filter(function (changedColumnSchema) { return !!metadata.columns.find(function (columnMetadata) { return columnMetadata.databaseName === changedColumnSchema.name; }); })
+                            .map(function (changedColumnSchema) { return _this.dropColumnReferencedIndices(metadata.tableName, changedColumnSchema.name); });
                         // wait until all related indices are dropped
                         return [4 /*yield*/, Promise.all(dropRelatedIndicesPromises)];
                     case 2:
                         // wait until all related indices are dropped
                         _a.sent();
                         newAndOldColumnSchemas = updatedColumnSchemas.map(function (changedColumnSchema) {
-                            var columnMetadata = metadata.columns.find(function (column) { return column.fullName === changedColumnSchema.name; });
+                            var columnMetadata = metadata.columns.find(function (column) { return column.databaseName === changedColumnSchema.name; });
                             var newColumnSchema = ColumnSchema_1.ColumnSchema.create(columnMetadata, _this.queryRunner.normalizeType(columnMetadata));
                             tableSchema.replaceColumn(changedColumnSchema, newColumnSchema);
                             return {
@@ -369,17 +369,17 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name && !table.justCreated; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName && !table.justCreated; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         metadataPrimaryColumns = metadata.columns.filter(function (column) { return column.isPrimary && !column.isGenerated; });
                         addedKeys = metadataPrimaryColumns
                             .filter(function (primaryKey) {
-                            return !tableSchema.primaryKeysWithoutGenerated.find(function (dbPrimaryKey) { return dbPrimaryKey.columnName === primaryKey.fullName; });
+                            return !tableSchema.primaryKeysWithoutGenerated.find(function (dbPrimaryKey) { return dbPrimaryKey.columnName === primaryKey.databaseName; });
                         })
-                            .map(function (primaryKey) { return new PrimaryKeySchema_1.PrimaryKeySchema("", primaryKey.fullName); });
+                            .map(function (primaryKey) { return new PrimaryKeySchema_1.PrimaryKeySchema("", primaryKey.databaseName); });
                         droppedKeys = tableSchema.primaryKeysWithoutGenerated.filter(function (primaryKeySchema) {
-                            return !metadataPrimaryColumns.find(function (primaryKeyMetadata) { return primaryKeyMetadata.fullName === primaryKeySchema.columnName; });
+                            return !metadataPrimaryColumns.find(function (primaryKeyMetadata) { return primaryKeyMetadata.databaseName === primaryKeySchema.columnName; });
                         });
                         if (addedKeys.length === 0 && droppedKeys.length === 0)
                             return [2 /*return*/];
@@ -404,7 +404,7 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         newKeys = metadata.foreignKeys.filter(function (foreignKey) {
@@ -436,7 +436,7 @@ var SchemaBuilder = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.table.name; });
+                        tableSchema = this.tableSchemas.find(function (table) { return table.name === metadata.tableName; });
                         if (!tableSchema)
                             return [2 /*return*/];
                         dropQueries = tableSchema.indices
@@ -447,7 +447,7 @@ var SchemaBuilder = (function () {
                                     case 0:
                                         this.logger.logSchemaBuild("dropping an index: " + indexSchema.name);
                                         tableSchema.removeIndex(indexSchema);
-                                        return [4 /*yield*/, this.queryRunner.dropIndex(metadata.table.name, indexSchema.name)];
+                                        return [4 /*yield*/, this.queryRunner.dropIndex(metadata.tableName, indexSchema.name)];
                                     case 1:
                                         _a.sent();
                                         return [2 /*return*/];
@@ -494,7 +494,7 @@ var SchemaBuilder = (function () {
                         if (!tableSchema)
                             return [2 /*return*/];
                         dependIndices = allIndexMetadatas.filter(function (indexMetadata) {
-                            return indexMetadata.tableName === tableName && indexMetadata.columns.indexOf(columnName) !== -1;
+                            return indexMetadata.tableName === tableName && !!indexMetadata.columns.find(function (column) { return column.databaseName === columnName; });
                         });
                         if (!dependIndices.length)
                             return [2 /*return*/];
@@ -532,12 +532,12 @@ var SchemaBuilder = (function () {
                         dependForeignKeys = allForeignKeyMetadatas.filter(function (foreignKey) {
                             if (foreignKey.tableName === tableName) {
                                 return !!foreignKey.columns.find(function (fkColumn) {
-                                    return fkColumn.fullName === columnName;
+                                    return fkColumn.databaseName === columnName;
                                 });
                             }
                             else if (foreignKey.referencedTableName === tableName) {
                                 return !!foreignKey.referencedColumns.find(function (fkColumn) {
-                                    return fkColumn.fullName === columnName;
+                                    return fkColumn.databaseName === columnName;
                                 });
                             }
                             return false;

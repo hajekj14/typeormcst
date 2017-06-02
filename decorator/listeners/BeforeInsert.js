@@ -12,7 +12,7 @@ function BeforeInsert() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.BEFORE_INSERT
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.BeforeInsert = BeforeInsert;

@@ -17,7 +17,7 @@ var MissingJoinColumnError = (function (_super) {
     function MissingJoinColumnError(entityMetadata, relation) {
         var _this = _super.call(this) || this;
         _this.name = "MissingJoinColumnError";
-        if (relation.hasInverseSide) {
+        if (relation.inverseRelation) {
             _this.message = "JoinColumn is missing on both sides of " + entityMetadata.name + "#" + relation.propertyName + " and " +
                 (relation.inverseEntityMetadata.name + "#" + relation.inverseRelation.propertyName + " one-to-one relationship. ") +
                 "You need to put JoinColumn decorator on one of the sides.";

@@ -1,19 +1,46 @@
 import { RelationCountMetadataArgs } from "../metadata-args/RelationCountMetadataArgs";
+import { EntityMetadata } from "./EntityMetadata";
+import { QueryBuilder } from "../query-builder/QueryBuilder";
+import { RelationMetadata } from "./RelationMetadata";
 /**
  * Contains all information about entity's relation count.
  */
 export declare class RelationCountMetadata {
     /**
-     * Relation which need to count.
+     * Entity metadata where this column metadata is.
      */
-    readonly relation: string | ((object: any) => any);
+    entityMetadata: EntityMetadata;
+    /**
+     * Relation which needs to be counted.
+     */
+    relation: RelationMetadata;
+    /**
+     * Relation name which need to count.
+     */
+    relationNameOrFactory: string | ((object: any) => any);
     /**
      * Target class to which metadata is applied.
      */
-    readonly target: Function | string;
+    target: Function | string;
     /**
      * Target's property name to which this metadata is applied.
      */
-    readonly propertyName: string;
-    constructor(args: RelationCountMetadataArgs);
+    propertyName: string;
+    /**
+     * Alias of the joined (destination) table.
+     */
+    alias?: string;
+    /**
+     * Extra condition applied to "ON" section of join.
+     */
+    queryBuilderFactory?: (qb: QueryBuilder<any>) => QueryBuilder<any>;
+    constructor(options: {
+        entityMetadata: EntityMetadata;
+        args: RelationCountMetadataArgs;
+    });
+    /**
+     * Builds some depend relation count metadata properties.
+     * This builder method should be used only after entity metadata, its properties map and all relations are build.
+     */
+    build(): void;
 }

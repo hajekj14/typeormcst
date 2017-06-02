@@ -9,7 +9,7 @@ function Index(nameOrFieldsOrOptions, maybeFieldsOrOptions, maybeOptions) {
     var fields = typeof nameOrFieldsOrOptions === "string" ? maybeFieldsOrOptions : nameOrFieldsOrOptions;
     var options = (typeof nameOrFieldsOrOptions === "object" && !Array.isArray(nameOrFieldsOrOptions)) ? nameOrFieldsOrOptions : maybeOptions;
     if (!options)
-        options = (typeof maybeFieldsOrOptions === "object" && !Array.isArray(maybeFieldsOrOptions)) ? nameOrFieldsOrOptions : maybeOptions;
+        options = (typeof maybeFieldsOrOptions === "object" && !Array.isArray(maybeFieldsOrOptions)) ? maybeFieldsOrOptions : maybeOptions;
     return function (clsOrObject, propertyName) {
         var args = {
             target: propertyName ? clsOrObject.constructor : clsOrObject,
@@ -17,7 +17,7 @@ function Index(nameOrFieldsOrOptions, maybeFieldsOrOptions, maybeOptions) {
             columns: propertyName ? [propertyName] : fields,
             unique: options && options.unique ? true : false
         };
-        index_1.getMetadataArgsStorage().indices.add(args);
+        index_1.getMetadataArgsStorage().indices.push(args);
     };
 }
 exports.Index = Index;

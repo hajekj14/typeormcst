@@ -24,11 +24,11 @@ var PlainObjectToNewEntityTransformer = (function () {
     PlainObjectToNewEntityTransformer.prototype.groupAndTransform = function (entity, object, metadata) {
         var _this = this;
         // copy regular column properties from the given object
-        metadata.allColumns
+        metadata.columns
             .filter(function (column) { return object.hasOwnProperty(column.propertyName); })
             .forEach(function (column) { return entity[column.propertyName] = object[column.propertyName]; }); // todo: also need to be sure that type is correct
         // if relation is loaded then go into it recursively and transform its values too
-        metadata.allRelations
+        metadata.relations
             .filter(function (relation) { return object.hasOwnProperty(relation.propertyName); })
             .forEach(function (relation) {
             var relationMetadata = relation.inverseEntityMetadata;
@@ -41,7 +41,7 @@ var PlainObjectToNewEntityTransformer = (function () {
                         // todo: support custom initial fields here
                         if (entity[relation.propertyName] instanceof Array) {
                             var existRelation = entity[relation.propertyName].find(function (subEntity) {
-                                return subEntity[relation.referencedColumnName] === subObject[relation.referencedColumnName];
+                                return subEntity[relation.propertyName] === subObject[relation.propertyName];
                             });
                             if (existRelation)
                                 _this.groupAndTransform(subEntity, existRelation, relationMetadata);

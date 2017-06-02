@@ -1,5 +1,4 @@
 import { EntitySubscriberInterface } from "./EntitySubscriberInterface";
-import { EntityListenerMetadata } from "../metadata/EntityListenerMetadata";
 import { ObjectLiteral } from "../common/ObjectLiteral";
 import { Subject } from "../persistence/Subject";
 import { Connection } from "../connection/Connection";
@@ -10,8 +9,7 @@ import { EntityManager } from "../entity-manager/EntityManager";
 export declare class Broadcaster {
     private connection;
     private subscriberMetadatas;
-    private entityListeners;
-    constructor(connection: Connection, subscriberMetadatas: EntitySubscriberInterface<any>[], entityListeners: EntityListenerMetadata[]);
+    constructor(connection: Connection, subscriberMetadatas: EntitySubscriberInterface<any>[]);
     /**
      * Broadcasts "BEFORE_INSERT", "BEFORE_UPDATE", "BEFORE_REMOVE" events for all given subjects.
      */
@@ -26,42 +24,42 @@ export declare class Broadcaster {
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastBeforeInsertEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastBeforeInsertEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "BEFORE_UPDATE" event.
      * Before update event is executed before entity is being updated in the database.
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastBeforeUpdateEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastBeforeUpdateEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "BEFORE_REMOVE" event.
      * Before remove event is executed before entity is being removed from the database.
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastBeforeRemoveEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastBeforeRemoveEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "AFTER_INSERT" event.
      * After insert event is executed after entity is being persisted to the database for the first time.
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastAfterInsertEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastAfterInsertEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "AFTER_UPDATE" event.
      * After update event is executed after entity is being updated in the database.
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastAfterUpdateEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastAfterUpdateEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "AFTER_REMOVE" event.
      * After remove event is executed after entity is being removed from the database.
      * All subscribers and entity listeners who listened to this event will be executed at this point.
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
-    broadcastAfterRemoveEvent(entityManager: EntityManager, subject: Subject): Promise<void>;
+    broadcastAfterRemoveEvent(manager: EntityManager, subject: Subject): Promise<void>;
     /**
      * Broadcasts "AFTER_LOAD" event for all given entities, and their sub-entities.
      * After load event is executed after entity has been loaded from the database.
@@ -76,10 +74,6 @@ export declare class Broadcaster {
      * Subscribers and entity listeners can return promises, it will wait until they are resolved.
      */
     broadcastLoadEvents(target: Function | string, entity: ObjectLiteral): Promise<void>;
-    /**
-     * Checks if entity listener is allowed to be executed on the given entity.
-     */
-    protected isAllowedListener(listener: EntityListenerMetadata, entity: ObjectLiteral): boolean;
     /**
      * Checks if subscriber's methods can be executed by checking if its don't listen to the particular entity,
      * or listens our entity.

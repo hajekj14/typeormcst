@@ -12,7 +12,7 @@ function SingleEntityChild() {
             type: "single-table-child",
             orderBy: undefined
         };
-        index_1.getMetadataArgsStorage().tables.add(args);
+        index_1.getMetadataArgsStorage().tables.push(args);
     };
 }
 exports.SingleEntityChild = SingleEntityChild;

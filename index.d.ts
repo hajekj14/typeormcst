@@ -64,6 +64,7 @@ export * from "./schema-builder/schema/ForeignKeySchema";
 export * from "./schema-builder/schema/IndexSchema";
 export * from "./schema-builder/schema/PrimaryKeySchema";
 export * from "./schema-builder/schema/TableSchema";
+export * from "./driver/mongodb/typings";
 export { Connection } from "./connection/Connection";
 export { ConnectionManager } from "./connection/ConnectionManager";
 export { ConnectionOptions } from "./connection/ConnectionOptions";
@@ -85,6 +86,7 @@ export { InsertEvent } from "./subscriber/event/InsertEvent";
 export { UpdateEvent } from "./subscriber/event/UpdateEvent";
 export { RemoveEvent } from "./subscriber/event/RemoveEvent";
 export { EntitySubscriberInterface } from "./subscriber/EntitySubscriberInterface";
+export { EntityModel } from "./repository/EntityModel";
 /**
  * Gets metadata args storage.
  */

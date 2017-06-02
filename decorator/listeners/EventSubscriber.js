@@ -10,7 +10,7 @@ function EventSubscriber() {
         var args = {
             target: target
         };
-        index_1.getMetadataArgsStorage().entitySubscribers.add(args);
+        index_1.getMetadataArgsStorage().entitySubscribers.push(args);
     };
 }
 exports.EventSubscriber = EventSubscriber;

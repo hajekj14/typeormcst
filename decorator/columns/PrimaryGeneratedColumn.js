@@ -16,8 +16,7 @@ function PrimaryGeneratedColumn(options) {
         if (!options)
             options = {};
         // check if there is no type in column options then set the int type - by default for auto generated column
-        if (!options.type)
-            options = Object.assign({ type: "int" }, options);
+        options = Object.assign({ type: "int" }, options);
         // check if column is not nullable, because we cannot allow a primary key to be nullable
         if (options.nullable)
             throw new PrimaryColumnCannotBeNullableError_1.PrimaryColumnCannotBeNullableError(object, propertyName);
@@ -31,7 +30,7 @@ function PrimaryGeneratedColumn(options) {
             mode: "regular",
             options: options
         };
-        index_1.getMetadataArgsStorage().columns.add(args);
+        index_1.getMetadataArgsStorage().columns.push(args);
     };
 }
 exports.PrimaryGeneratedColumn = PrimaryGeneratedColumn;

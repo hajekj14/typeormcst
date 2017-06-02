@@ -6,16 +6,18 @@ var index_1 = require("../../index");
  * It also can be used on both one-to-one and many-to-one relations to specify custom column name
  * or custom referenced column.
  */
-function JoinColumn(options) {
+function JoinColumn(optionsOrOptionsArray) {
     return function (object, propertyName) {
-        options = options || {};
-        var args = {
-            target: object.constructor,
-            propertyName: propertyName,
-            name: options.name,
-            referencedColumnName: options.referencedColumnName
-        };
-        index_1.getMetadataArgsStorage().joinColumns.add(args);
+        var options = optionsOrOptionsArray instanceof Array ? optionsOrOptionsArray : [optionsOrOptionsArray || {}];
+        options.forEach(function (options) {
+            var args = {
+                target: object.constructor,
+                propertyName: propertyName,
+                name: options.name,
+                referencedColumnName: options.referencedColumnName
+            };
+            index_1.getMetadataArgsStorage().joinColumns.push(args);
+        });
     };
 }
 exports.JoinColumn = JoinColumn;

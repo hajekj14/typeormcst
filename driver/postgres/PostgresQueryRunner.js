@@ -231,14 +231,14 @@ var PostgresQueryRunner = (function () {
                         columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
                         values = keys.map(function (key, index) { return "$" + (index + 1); }).join(",");
                         sql = columns.length > 0
-                            ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") VALUES (" + values + ") " + (generatedColumn ? " RETURNING " + this.driver.escapeColumnName(generatedColumn.fullName) : "")
-                            : "INSERT INTO " + this.driver.escapeTableName(tableName) + " DEFAULT VALUES " + (generatedColumn ? " RETURNING " + this.driver.escapeColumnName(generatedColumn.fullName) : "");
+                            ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") VALUES (" + values + ") " + (generatedColumn ? " RETURNING " + this.driver.escapeColumnName(generatedColumn.databaseName) : "")
+                            : "INSERT INTO " + this.driver.escapeTableName(tableName) + " DEFAULT VALUES " + (generatedColumn ? " RETURNING " + this.driver.escapeColumnName(generatedColumn.databaseName) : "");
                         parameters = keys.map(function (key) { return keyValues[key]; });
                         return [4 /*yield*/, this.query(sql, parameters)];
                     case 1:
                         result = _a.sent();
                         if (generatedColumn)
-                            return [2 /*return*/, result[0][generatedColumn.fullName]];
+                            return [2 /*return*/, result[0][generatedColumn.databaseName]];
                         return [2 /*return*/, result];
                 }
             });
@@ -463,7 +463,10 @@ var PostgresQueryRunner = (function () {
                         if (this.isReleased)
                             throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                         columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column, false); }).join(", ");
-                        sql = "CREATE SCHEMA IF NOT EXISTS \"" + this.schemaName + "\";CREATE TABLE \"" + table.name + "\" (" + columnDefinitions;
+                        return [4 /*yield*/, this.query("CREATE SCHEMA IF NOT EXISTS \"" + this.schemaName + "\"")];
+                    case 1:
+                        _a.sent();
+                        sql = "CREATE TABLE \"" + table.name + "\" (" + columnDefinitions;
                         sql += table.columns
                             .filter(function (column) { return column.isUnique; })
                             .map(function (column) { return ", CONSTRAINT \"uk_" + table.name + "_" + column.name + "\" UNIQUE (\"" + column.name + "\")"; })
@@ -473,25 +476,7 @@ var PostgresQueryRunner = (function () {
                             sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
                         sql += ")";
                         return [4 /*yield*/, this.query(sql)];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Drops the table.
-     */
-    PostgresQueryRunner.prototype.dropTable = function (tableName) {
-        return __awaiter(this, void 0, void 0, function () {
-            var sql;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        sql = "DROP TABLE \"" + tableName + "\"";
-                        return [4 /*yield*/, this.query(sql)];
-                    case 1:
+                    case 2:
                         _a.sent();
                         return [2 /*return*/];
                 }

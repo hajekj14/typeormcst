@@ -17,7 +17,7 @@ var MissingJoinTableError = (function (_super) {
     function MissingJoinTableError(entityMetadata, relation) {
         var _this = _super.call(this) || this;
         _this.name = "MissingJoinTableError";
-        if (relation.hasInverseSide) {
+        if (relation.inverseRelation) {
             _this.message = "JoinTable is missing on both sides of " + entityMetadata.name + "#" + relation.propertyName + " and " +
                 (relation.inverseEntityMetadata.name + "#" + relation.inverseRelation.propertyName + " many-to-many relationship. ") +
                 "You need to put decorator decorator on one of the sides.";

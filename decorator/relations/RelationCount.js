@@ -4,17 +4,16 @@ var index_1 = require("../../index");
 /**
  * Holds a number of children in the closure table of the column.
  */
-function RelationCount(relation) {
+function RelationCount(relation, alias, queryBuilderFactory) {
     return function (object, propertyName) {
-        // todo: need to check if property type is number?
-        // const reflectedType = ColumnTypes.typeToString((Reflect as any).getMetadata("design:type", object, propertyName));
-        // create and register a new column metadata
         var args = {
             target: object.constructor,
             propertyName: propertyName,
-            relation: relation
+            relation: relation,
+            alias: alias,
+            queryBuilderFactory: queryBuilderFactory
         };
-        index_1.getMetadataArgsStorage().relationCounts.add(args);
+        index_1.getMetadataArgsStorage().relationCounts.push(args);
     };
 }
 exports.RelationCount = RelationCount;

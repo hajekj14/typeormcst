@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var RelationTypes_1 = require("../../metadata/types/RelationTypes");
 var index_1 = require("../../index");
 /**
  * One-to-one relation allows to create direct relation between two entities. Entity1 have only one Entity2.
@@ -29,12 +28,12 @@ function OneToOne(typeFunction, inverseSideOrOptions, options) {
             propertyName: propertyName,
             // propertyType: reflectedType,
             isLazy: isLazy,
-            relationType: RelationTypes_1.RelationTypes.ONE_TO_ONE,
+            relationType: "one-to-one",
             type: typeFunction,
             inverseSideProperty: inverseSideProperty,
             options: options
         };
-        index_1.getMetadataArgsStorage().relations.add(args);
+        index_1.getMetadataArgsStorage().relations.push(args);
     };
 }
 exports.OneToOne = OneToOne;

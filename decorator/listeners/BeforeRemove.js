@@ -12,7 +12,7 @@ function BeforeRemove() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.BEFORE_REMOVE
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.BeforeRemove = BeforeRemove;

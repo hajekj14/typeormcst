@@ -105,12 +105,12 @@ var TreeRepository = (function (_super) {
     TreeRepository.prototype.createDescendantsQueryBuilder = function (alias, closureTableAlias, entity) {
         var _this = this;
         // create shortcuts for better readability
-        var escapeAlias = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
-        var escapeColumn = function (column) { return _this.connection.driver.escapeColumnName(column); };
-        var joinCondition = escapeAlias(alias) + "." + escapeColumn(this.metadata.firstPrimaryColumn.fullName) + "=" + escapeAlias(closureTableAlias) + "." + escapeColumn("descendant");
+        var escapeAlias = function (alias) { return _this.manager.connection.driver.escapeAliasName(alias); };
+        var escapeColumn = function (column) { return _this.manager.connection.driver.escapeColumnName(column); };
+        var joinCondition = escapeAlias(alias) + "." + escapeColumn(this.metadata.primaryColumns[0].databaseName) + "=" + escapeAlias(closureTableAlias) + "." + escapeColumn("descendant");
         return this.createQueryBuilder(alias)
-            .innerJoin(this.metadata.closureJunctionTable.table.name, closureTableAlias, joinCondition)
-            .where(escapeAlias(closureTableAlias) + "." + escapeColumn("ancestor") + "=" + this.metadata.getEntityIdMap(entity)[this.metadata.firstPrimaryColumn.propertyName]);
+            .innerJoin(this.metadata.closureJunctionTable.tableName, closureTableAlias, joinCondition)
+            .where(escapeAlias(closureTableAlias) + "." + escapeColumn("ancestor") + "=" + this.metadata.getEntityIdMap(entity)[this.metadata.primaryColumns[0].propertyName]);
     };
     /**
      * Gets all children (descendants) of the given entity. Returns them all in a flat array.
@@ -149,12 +149,12 @@ var TreeRepository = (function (_super) {
     TreeRepository.prototype.createAncestorsQueryBuilder = function (alias, closureTableAlias, entity) {
         var _this = this;
         // create shortcuts for better readability
-        var escapeAlias = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
-        var escapeColumn = function (column) { return _this.connection.driver.escapeColumnName(column); };
-        var joinCondition = escapeAlias(alias) + "." + escapeColumn(this.metadata.firstPrimaryColumn.fullName) + "=" + escapeAlias(closureTableAlias) + "." + escapeColumn("ancestor");
+        var escapeAlias = function (alias) { return _this.manager.connection.driver.escapeAliasName(alias); };
+        var escapeColumn = function (column) { return _this.manager.connection.driver.escapeColumnName(column); };
+        var joinCondition = escapeAlias(alias) + "." + escapeColumn(this.metadata.primaryColumns[0].databaseName) + "=" + escapeAlias(closureTableAlias) + "." + escapeColumn("ancestor");
         return this.createQueryBuilder(alias)
-            .innerJoin(this.metadata.closureJunctionTable.table.name, closureTableAlias, joinCondition)
-            .where(escapeAlias(closureTableAlias) + "." + escapeColumn("descendant") + "=" + this.metadata.getEntityIdMap(entity)[this.metadata.firstPrimaryColumn.propertyName]);
+            .innerJoin(this.metadata.closureJunctionTable.tableName, closureTableAlias, joinCondition)
+            .where(escapeAlias(closureTableAlias) + "." + escapeColumn("descendant") + "=" + this.metadata.getEntityIdMap(entity)[this.metadata.primaryColumns[0].propertyName]);
     };
     /**
      * Gets all parents (ancestors) of the given entity. Returns them all in a flat array.
@@ -200,18 +200,18 @@ var TreeRepository = (function (_super) {
         var _this = this;
         return rawResults.map(function (rawResult) {
             return {
-                id: rawResult[alias + "_" + _this.metadata.firstPrimaryColumn.fullName],
-                parentId: rawResult[alias + "_" + _this.metadata.treeParentRelation.name]
+                id: rawResult[alias + "_" + _this.metadata.primaryColumns[0].databaseName],
+                parentId: rawResult[alias + "_" + _this.metadata.treeParentRelation.joinColumns[0].referencedColumn.databaseName]
             };
         });
     };
     TreeRepository.prototype.buildChildrenEntityTree = function (entity, entities, relationMaps) {
         var _this = this;
         var childProperty = this.metadata.treeChildrenRelation.propertyName;
-        var parentEntityId = entity[this.metadata.firstPrimaryColumn.propertyName];
+        var parentEntityId = this.metadata.primaryColumns[0].getEntityValue(entity);
         var childRelationMaps = relationMaps.filter(function (relationMap) { return relationMap.parentId === parentEntityId; });
         var childIds = childRelationMaps.map(function (relationMap) { return relationMap.id; });
-        entity[childProperty] = entities.filter(function (entity) { return childIds.indexOf(entity[_this.metadata.firstPrimaryColumn.propertyName]) !== -1; });
+        entity[childProperty] = entities.filter(function (entity) { return childIds.indexOf(_this.metadata.primaryColumns[0].getEntityValue(entity)) !== -1; });
         entity[childProperty].forEach(function (childEntity) {
             _this.buildChildrenEntityTree(childEntity, entities, relationMaps);
         });
@@ -219,12 +219,12 @@ var TreeRepository = (function (_super) {
     TreeRepository.prototype.buildParentEntityTree = function (entity, entities, relationMaps) {
         var _this = this;
         var parentProperty = this.metadata.treeParentRelation.propertyName;
-        var entityId = entity[this.metadata.firstPrimaryColumn.propertyName];
+        var entityId = this.metadata.primaryColumns[0].getEntityValue(entity);
         var parentRelationMap = relationMaps.find(function (relationMap) { return relationMap.id === entityId; });
         var parentEntity = entities.find(function (entity) {
             if (!parentRelationMap)
                 return false;
-            return entity[_this.metadata.firstPrimaryColumn.propertyName] === parentRelationMap.parentId;
+            return entity[_this.metadata.primaryColumns[0].propertyName] === parentRelationMap.parentId;
         });
         if (parentEntity) {
             entity[parentProperty] = parentEntity;

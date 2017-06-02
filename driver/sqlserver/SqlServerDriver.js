@@ -233,6 +233,8 @@ var SqlServerDriver = (function () {
                 return value ? true : false;
             case ColumnTypes_1.ColumnTypes.DATETIME:
                 return DataTransformationUtils_1.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
+            case ColumnTypes_1.ColumnTypes.DATE:
+                return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDateString(value);
             case ColumnTypes_1.ColumnTypes.TIME:
                 return DataTransformationUtils_1.DataTransformationUtils.mixedTimeToString(value);
             case ColumnTypes_1.ColumnTypes.JSON:

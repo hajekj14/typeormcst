@@ -175,9 +175,8 @@ var MongoDriver = (function () {
                         promises = [];
                         return [4 /*yield*/, Promise.all(entityMetadatas.map(function (metadata) {
                                 metadata.indices.forEach(function (index) {
-                                    var columns = index.buildColumnsAsMap(1);
                                     var options = { name: index.name };
-                                    promises.push(queryRunner.createCollectionIndex(metadata.table.name, columns, options));
+                                    promises.push(queryRunner.createCollectionIndex(metadata.tableName, index.columnNamesWithOrderingMap, options));
                                 });
                             }))];
                     case 2:

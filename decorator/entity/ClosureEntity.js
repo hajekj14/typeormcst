@@ -13,7 +13,7 @@ function ClosureEntity(name, options) {
             orderBy: options && options.orderBy ? options.orderBy : undefined,
             skipSchemaSync: !!(options && options.skipSchemaSync === true)
         };
-        index_1.getMetadataArgsStorage().tables.add(args);
+        index_1.getMetadataArgsStorage().tables.push(args);
     };
 }
 exports.ClosureEntity = ClosureEntity;

@@ -11,7 +11,7 @@ function DiscriminatorValue(value) {
             target: target,
             value: value
         };
-        index_1.getMetadataArgsStorage().discriminatorValues.add(args);
+        index_1.getMetadataArgsStorage().discriminatorValues.push(args);
     };
 }
 exports.DiscriminatorValue = DiscriminatorValue;

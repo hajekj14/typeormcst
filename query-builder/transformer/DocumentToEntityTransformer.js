@@ -8,9 +8,9 @@ var DocumentToEntityTransformer = (function () {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    function DocumentToEntityTransformer(// private aliasMap: AliasMap,
+    function DocumentToEntityTransformer(// private selectionMap: AliasMap,
         // private joinMappings: JoinMapping[],
-        // private relationCountMetas: RelationCountMeta[],
+        // private relationCountMetas: RelationCountAttribute[],
         enableRelationIdValues) {
         if (enableRelationIdValues === void 0) { enableRelationIdValues = false; }
         this.enableRelationIdValues = enableRelationIdValues;
@@ -26,17 +26,17 @@ var DocumentToEntityTransformer = (function () {
         var entity = metadata.create();
         var hasData = false;
         // handle _id property the special way
-        if (metadata.hasObjectIdColumn && document[metadata.objectIdColumn.name]) {
+        if (metadata.objectIdColumn && document[metadata.objectIdColumn.databaseNameWithoutPrefixes]) {
             // todo: we can't use driver in this class
             // do we really need prepare hydrated value here? If no then no problem. If yes then think maybe prepareHydratedValue process should be extracted out of driver class?
             // entity[metadata.objectIdColumn.propertyName] = this.driver.prepareHydratedValue(document[metadata.objectIdColumn.name"], metadata.objectIdColumn);
-            entity[metadata.objectIdColumn.propertyName] = document[metadata.objectIdColumn.name];
+            entity[metadata.objectIdColumn.propertyName] = document[metadata.objectIdColumn.databaseNameWithoutPrefixes];
             hasData = true;
         }
         // add special columns that contains relation ids
         if (this.enableRelationIdValues) {
             metadata.columns.filter(function (column) { return !!column.relationMetadata; }).forEach(function (column) {
-                var valueInObject = document[column.name];
+                var valueInObject = document[column.databaseNameWithoutPrefixes];
                 if (valueInObject !== undefined && valueInObject !== null && column.propertyName) {
                     // todo: we can't use driver in this class
                     // const value = this.driver.prepareHydratedValue(valueInObject, column);
@@ -46,9 +46,9 @@ var DocumentToEntityTransformer = (function () {
             });
         }
         /*this.joinMappings
-            .filter(joinMapping => joinMapping.parentName === alias.name && !joinMapping.alias.parentAliasName && joinMapping.alias.target)
+            .filter(joinMapping => joinMapping.parentName === alias.name && !joinMapping.alias.relationOwnerSelection && joinMapping.alias.target)
             .map(joinMapping => {
-                const relatedEntities = this.transformIntoSingleResult(rawSqlResults, joinMapping.alias);
+                const relatedEntities = this.transformRawResultsGroup(rawSqlResults, joinMapping.alias);
                 const isResultArray = joinMapping.isMany;
                 const result = !isResultArray ? relatedEntities[0] : relatedEntities;
 
@@ -58,8 +58,8 @@ var DocumentToEntityTransformer = (function () {
                 }
             });*/
         // get value from columns selections and put them into object
-        metadata.columnsWithoutEmbeddeds.forEach(function (column) {
-            var valueInObject = document[column.name];
+        metadata.ownColumns.forEach(function (column) {
+            var valueInObject = document[column.databaseNameWithoutPrefixes];
             if (valueInObject !== undefined &&
                 valueInObject !== null &&
                 column.propertyName &&
@@ -79,14 +79,14 @@ var DocumentToEntityTransformer = (function () {
                     entity[embedded.propertyName] = document[embedded.prefix].map(function (subValue) {
                         var newItem = embedded.create();
                         embedded.columns.forEach(function (column) {
-                            newItem[column.propertyName] = subValue[column.name];
+                            newItem[column.propertyName] = subValue[column.databaseNameWithoutPrefixes];
                         });
                         return newItem;
                     });
                 }
                 else {
                     embedded.columns.forEach(function (column) {
-                        var value = document[embedded.prefix][column.name];
+                        var value = document[embedded.prefix][column.databaseNameWithoutPrefixes];
                         if (!value)
                             return;
                         if (!entity[embedded.propertyName])
@@ -100,10 +100,10 @@ var DocumentToEntityTransformer = (function () {
         addEmbeddedValuesRecursively(entity, document, metadata.embeddeds);
         // if relation is loaded then go into it recursively and transform its values too
         /*metadata.relations.forEach(relation => {
-            const relationAlias = this.aliasMap.findAliasByParent(alias.name, relation.propertyName);
+            const relationAlias = this.selectionMap.findSelectionByParent(alias.name, relation.propertyName);
             if (relationAlias) {
                 const joinMapping = this.joinMappings.find(joinMapping => joinMapping.type === "join" && joinMapping.alias === relationAlias);
-                const relatedEntities = this.transformIntoSingleResult(rawSqlResults, relationAlias);
+                const relatedEntities = this.transformRawResultsGroup(rawSqlResults, relationAlias);
                 const isResultArray = relation.isManyToMany || relation.isOneToMany;
                 const result = !isResultArray ? relatedEntities[0] : relatedEntities;
 

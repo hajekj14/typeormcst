@@ -7,95 +7,85 @@ var IndexMetadata = (function () {
     // ---------------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------------
-    function IndexMetadata(args) {
-        this.target = args.target;
-        this._columns = args.columns;
-        this._name = args.name;
-        this.isUnique = args.unique;
+    function IndexMetadata(options) {
+        /**
+         * Indicates if this index must be unique.
+         */
+        this.isUnique = false;
+        /**
+         * Indexed columns.
+         */
+        this.columns = [];
+        /**
+         * Map of column names with order set.
+         * Used only by MongoDB driver.
+         */
+        this.columnNamesWithOrderingMap = {};
+        this.entityMetadata = options.entityMetadata;
+        if (options.columns)
+            this.columns = options.columns;
+        if (options.args) {
+            this.target = options.args.target;
+            this.isUnique = options.args.unique;
+            this.givenName = options.args.name;
+            this.givenColumnNames = options.args.columns;
+        }
     }
-    Object.defineProperty(IndexMetadata.prototype, "name", {
-        // ---------------------------------------------------------------------
-        // Accessors
-        // ---------------------------------------------------------------------
-        /**
-         * Gets index's name.
-         */
-        get: function () {
-            return this.entityMetadata.namingStrategy.indexName(this._name, this.entityMetadata.table.name, this.columns);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(IndexMetadata.prototype, "tableName", {
-        /**
-         * Gets the table name on which index is applied.
-         */
-        get: function () {
-            return this.entityMetadata.table.name;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(IndexMetadata.prototype, "columns", {
-        /**
-         * Gets the column names which are in this index.
-         */
-        get: function () {
-            var _this = this;
-            // if columns already an array of string then simply return it
-            var columnPropertyNames = [];
-            if (this._columns instanceof Array) {
-                columnPropertyNames = this._columns;
+    // ---------------------------------------------------------------------
+    // Public Build Methods
+    // ---------------------------------------------------------------------
+    /**
+     * Builds some depend index properties.
+     * Must be called after all entity metadata's properties map, columns and relations are built.
+     */
+    IndexMetadata.prototype.build = function (namingStrategy) {
+        var _this = this;
+        var map = {};
+        this.tableName = this.entityMetadata.tableName;
+        // if columns already an array of string then simply return it
+        if (this.givenColumnNames) {
+            var columnPropertyNames_1 = [];
+            if (this.givenColumnNames instanceof Array) {
+                columnPropertyNames_1 = this.givenColumnNames;
+                columnPropertyNames_1.forEach(function (name) { return map[name] = 1; });
             }
             else {
                 // if columns is a function that returns array of field names then execute it and get columns names from it
-                var propertiesMap = this.entityMetadata.createPropertiesMap();
-                var columnsFnResult = this._columns(propertiesMap);
-                var columnsNamesFromFnResult = columnsFnResult instanceof Array ? columnsFnResult : Object.keys(columnsFnResult);
-                columnPropertyNames = columnsNamesFromFnResult.map(function (i) { return String(i); });
+                var columnsFnResult_1 = this.givenColumnNames(this.entityMetadata.propertiesMap);
+                if (columnsFnResult_1 instanceof Array) {
+                    columnPropertyNames_1 = columnsFnResult_1.map(function (i) { return String(i); });
+                    columnPropertyNames_1.forEach(function (name) { return map[name] = 1; });
+                }
+                else {
+                    columnPropertyNames_1 = Object.keys(columnsFnResult_1).map(function (i) { return String(i); });
+                    Object.keys(columnsFnResult_1).forEach(function (columnName) { return map[columnName] = columnsFnResult_1[columnName]; });
+                }
             }
-            var columns = this.entityMetadata.columns.filter(function (column) { return columnPropertyNames.indexOf(column.propertyName) !== -1; });
-            var missingColumnNames = columnPropertyNames.filter(function (columnPropertyName) { return !_this.entityMetadata.columns.find(function (column) { return column.propertyName === columnPropertyName; }); });
+            // console.log("columnPropertyNames:", columnPropertyNames);
+            // console.log("this.entityMetadata.columns:", this.entityMetadata.columns);
+            var columns_1 = this.entityMetadata.columns.filter(function (column) { return columnPropertyNames_1.indexOf(column.propertyPath) !== -1; });
+            // console.log("columns:", columns);
+            this.entityMetadata.relations
+                .filter(function (relation) { return relation.isWithJoinColumn && columnPropertyNames_1.indexOf(relation.propertyName) !== -1; })
+                .forEach(function (relation) { return columns_1.push.apply(columns_1, relation.joinColumns); });
+            // todo: better to extract all validation into single place if possible
+            var missingColumnNames = columnPropertyNames_1.filter(function (columnPropertyName) {
+                return !_this.entityMetadata.columns.find(function (column) { return column.propertyPath === columnPropertyName; }) &&
+                    !_this.entityMetadata.relations.find(function (relation) { return relation.isWithJoinColumn && relation.propertyPath === columnPropertyName; });
+            });
             if (missingColumnNames.length > 0) {
-                // console.log(this.entityMetadata.columns);
-                throw new Error("Index " + (this._name ? "\"" + this._name + "\" " : "") + "contains columns that are missing in the entity: " + missingColumnNames.join(", "));
+                throw new Error("Index " + (this.givenName ? "\"" + this.givenName + "\" " : "") + "contains columns that are missing in the entity: " + missingColumnNames.join(", "));
             }
-            return columns.map(function (column) { return column.fullName; });
-        },
-        enumerable: true,
-        configurable: true
-    });
-    /**
-     * Builds columns as a map of values where column name is key of object and value is a value provided by
-     * function or default value given to this function.
-     */
-    IndexMetadata.prototype.buildColumnsAsMap = function (defaultValue) {
-        var _this = this;
-        if (defaultValue === void 0) { defaultValue = 0; }
-        var map = {};
-        // if columns already an array of string then simply create a map from it
-        if (this._columns instanceof Array) {
-            this._columns.forEach(function (columnName) { return map[columnName] = defaultValue; });
+            this.columns = columns_1;
         }
-        else {
-            // if columns is a function that returns array of field names then execute it and get columns names from it
-            var propertiesMap = this.entityMetadata.createPropertiesMap();
-            var columnsFnResult_1 = this._columns(propertiesMap);
-            if (columnsFnResult_1 instanceof Array) {
-                columnsFnResult_1.forEach(function (columnName) { return map[columnName] = defaultValue; });
-            }
-            else {
-                Object.keys(columnsFnResult_1).forEach(function (columnName) { return map[columnName] = columnsFnResult_1[columnName]; });
-            }
-        }
-        // replace each propertyNames with column names
-        return Object.keys(map).reduce(function (updatedMap, key) {
-            var column = _this.entityMetadata.columns.find(function (column) { return column.propertyName === key; });
-            if (!column)
-                throw new Error("Index " + (_this._name ? "\"" + _this._name + "\" " : "") + "contains columns that are missing in the entity: " + key);
-            updatedMap[column.name] = map[key];
+        this.columnNamesWithOrderingMap = Object.keys(map).reduce(function (updatedMap, key) {
+            var column = _this.entityMetadata.columns.find(function (column) { return column.propertyPath === key; });
+            if (column)
+                updatedMap[column.databaseName] = map[key];
             return updatedMap;
         }, {});
+        this.name = namingStrategy.indexName(this.givenName ? this.givenName : undefined, this.entityMetadata.tableName, this.columns.map(function (column) { return column.databaseName; }));
+        return this;
     };
     return IndexMetadata;
 }());

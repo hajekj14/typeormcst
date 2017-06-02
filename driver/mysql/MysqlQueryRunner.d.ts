@@ -91,10 +91,6 @@ export declare class MysqlQueryRunner implements QueryRunner {
      */
     createTable(table: TableSchema): Promise<void>;
     /**
-     * Drop the table.
-     */
-    dropTable(tableName: String): Promise<void>;
-    /**
      * Checks if column with the given name exist in the given table.
      */
     hasColumn(tableName: string, columnName: string): Promise<boolean>;

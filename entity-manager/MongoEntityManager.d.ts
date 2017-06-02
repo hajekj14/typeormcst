@@ -3,8 +3,11 @@ import { QueryRunnerProvider } from "../query-runner/QueryRunnerProvider";
 import { EntityManager } from "./EntityManager";
 import { QueryBuilder } from "../query-builder/QueryBuilder";
 import { ObjectType } from "../common/ObjectType";
-import { Cursor, Collection, MongoCountPreferences, CollectionAggregationOptions, AggregationCursor, CollectionBluckWriteOptions, BulkWriteOpResultObject, IndexOptions, CollectionOptions, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, ReadPreference, Code, OrderedBulkOperation, UnorderedBulkOperation, InsertWriteOpResult, CollectionInsertManyOptions, CollectionInsertOneOptions, InsertOneWriteOpResult, CommandCursor, MapReduceOptions, ParallelCollectionScanOptions, ReplaceOneOptions, UpdateWriteOpResult, CollStats } from "mongodb";
+import { AggregationCursor, BulkWriteOpResultObject, Code, Collection, CollectionAggregationOptions, CollectionBluckWriteOptions, CollectionInsertManyOptions, CollectionInsertOneOptions, CollectionOptions, CollStats, CommandCursor, Cursor, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, InsertOneWriteOpResult, InsertWriteOpResult, MapReduceOptions, MongoCountPreferences, MongodbIndexOptions, OrderedBulkOperation, ParallelCollectionScanOptions, ReadPreference, ReplaceOneOptions, UnorderedBulkOperation, UpdateWriteOpResult } from "../driver/mongodb/typings";
 import { ObjectLiteral } from "../common/ObjectLiteral";
+import { MongoQueryRunner } from "../driver/mongodb/MongoQueryRunner";
+import { FindManyOptions } from "../find-options/FindManyOptions";
+import { FindOneOptions } from "../find-options/FindOneOptions";
 /**
  * Entity manager supposed to work with any entity, automatically find its repository and call its methods,
  * whatever entity type are you passing.
@@ -27,6 +30,30 @@ export declare class MongoEntityManager extends EntityManager {
      * Calling this method will return an error.
      */
     createQueryBuilder<Entity>(entityClassOrName: ObjectType<Entity> | string, alias: string, queryRunnerProvider?: QueryRunnerProvider): QueryBuilder<Entity>;
+    /**
+     * Finds entities that match given find options or conditions.
+     */
+    find<Entity>(entityClassOrName: ObjectType<Entity> | string, optionsOrConditions?: FindManyOptions<Entity> | Partial<Entity>): Promise<Entity[]>;
+    /**
+     * Finds entities that match given find options or conditions.
+     * Also counts all entities that match given conditions,
+     * but ignores pagination settings (from and take options).
+     */
+    findAndCount<Entity>(entityClassOrName: ObjectType<Entity> | string, optionsOrConditions?: FindManyOptions<Entity> | Partial<Entity>): Promise<[Entity[], number]>;
+    /**
+     * Finds entities by ids.
+     * Optionally find options can be applied.
+     */
+    findByIds<Entity>(entityClassOrName: ObjectType<Entity> | string, ids: any[], optionsOrConditions?: FindManyOptions<Entity> | Partial<Entity>): Promise<Entity[]>;
+    /**
+     * Finds first entity that matches given conditions and/or find options.
+     */
+    findOne<Entity>(entityClassOrName: ObjectType<Entity> | string, optionsOrConditions?: FindOneOptions<Entity> | Partial<Entity>): Promise<Entity | undefined>;
+    /**
+     * Finds entity by given id.
+     * Optionally find options or conditions can be applied.
+     */
+    findOneById<Entity>(entityClassOrName: ObjectType<Entity> | string, id: any, optionsOrConditions?: FindOneOptions<Entity> | Partial<Entity>): Promise<Entity | undefined>;
     /**
      * Creates a cursor for a query that can be used to iterate over results from MongoDB.
      */
@@ -51,7 +78,7 @@ export declare class MongoEntityManager extends EntityManager {
     /**
      * Creates an index on the db and collection.
      */
-    createCollectionIndex<Entity>(entityClassOrName: ObjectType<Entity> | string, fieldOrSpec: string | any, options?: IndexOptions): Promise<string>;
+    createCollectionIndex<Entity>(entityClassOrName: ObjectType<Entity> | string, fieldOrSpec: string | any, options?: MongodbIndexOptions): Promise<string>;
     /**
      * Creates multiple indexes in the collection, this method is only supported for MongoDB 2.6 or higher.
      * Earlier version of MongoDB will throw a command not supported error.
@@ -193,4 +220,10 @@ export declare class MongoEntityManager extends EntityManager {
      * Update a single document on MongoDB.
      */
     updateOne<Entity>(entityClassOrName: ObjectType<Entity> | string, query: ObjectLiteral, update: ObjectLiteral, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult>;
+    protected readonly queryRunner: MongoQueryRunner;
+    protected convertFindManyOptionsOrConditionsToMongodbQuery<Entity>(optionsOrConditions: FindOneOptions<Entity> | Partial<Entity> | undefined): ObjectLiteral | undefined;
+    protected convertFindOneOptionsOrConditionsToMongodbQuery<Entity>(optionsOrConditions: FindOneOptions<Entity> | Partial<Entity> | undefined): ObjectLiteral | undefined;
+    protected convertFindOptionsOrderToOrderCriteria<Entity, P>(order: {
+        [P in keyof Entity]?: "ASC" | "DESC";
+    }): ObjectLiteral;
 }

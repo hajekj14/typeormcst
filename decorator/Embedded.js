@@ -5,6 +5,8 @@ var index_1 = require("../index");
  * Property in entity can be marked as Embedded, and on persist all columns from the embedded are mapped to the
  * single table of the entity where Embedded is used. And on hydration all columns which supposed to be in the
  * embedded will be mapped to it from the single table.
+ *
+ * Array option works only in monogodb.
  */
 function Embedded(typeFunction, options) {
     return function (object, propertyName) {
@@ -17,7 +19,7 @@ function Embedded(typeFunction, options) {
             prefix: options && options.prefix !== undefined ? options.prefix : undefined,
             type: typeFunction
         };
-        index_1.getMetadataArgsStorage().embeddeds.add(args);
+        index_1.getMetadataArgsStorage().embeddeds.push(args);
     };
 }
 exports.Embedded = Embedded;

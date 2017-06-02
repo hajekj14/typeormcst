@@ -35,9 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var Repository_1 = require("../repository/Repository");
 var RepositoryNotFoundError_1 = require("./error/RepositoryNotFoundError");
-var EntityListenerMetadata_1 = require("../metadata/EntityListenerMetadata");
 var EntityManager_1 = require("../entity-manager/EntityManager");
 var DirectoryExportedClassesLoader_1 = require("../util/DirectoryExportedClassesLoader");
 var index_1 = require("../index");
@@ -59,12 +57,10 @@ var EntityMetadataNotFound_1 = require("../metadata-args/error/EntityMetadataNot
 var MigrationExecutor_1 = require("../migration/MigrationExecutor");
 var CannotRunMigrationNotConnectedError_1 = require("./error/CannotRunMigrationNotConnectedError");
 var PlatformTools_1 = require("../platform/PlatformTools");
-var AbstractRepository_1 = require("../repository/AbstractRepository");
-var CustomRepositoryNotFoundError_1 = require("../repository/error/CustomRepositoryNotFoundError");
-var CustomRepositoryReusedError_1 = require("../repository/error/CustomRepositoryReusedError");
-var CustomRepositoryCannotInheritRepositoryError_1 = require("../repository/error/CustomRepositoryCannotInheritRepositoryError");
 var MongoDriver_1 = require("../driver/mongodb/MongoDriver");
 var MongoEntityManager_1 = require("../entity-manager/MongoEntityManager");
+var EntitySchemaTransformer_1 = require("../entity-schema/EntitySchemaTransformer");
+var EntityMetadataValidator_1 = require("../metadata-builder/EntityMetadataValidator");
 /**
  * Connection is a single database connection to a specific database of a database management system.
  * You can have multiple connections to multiple databases in your application.
@@ -86,10 +82,6 @@ var Connection = (function () {
          * Stores all entity repository instances.
          */
         this.entityRepositories = [];
-        /**
-         * Entity listeners that are registered for this connection.
-         */
-        this.entityListeners = [];
         /**
          * Entity subscribers that are registered for this connection.
          */
@@ -121,7 +113,7 @@ var Connection = (function () {
         this.name = name;
         this.driver = driver;
         this.logger = logger;
-        this._entityManager = this.createEntityManager();
+        this.manager = this.createEntityManager();
         this.broadcaster = this.createBroadcaster();
     }
     Object.defineProperty(Connection.prototype, "isConnected", {
@@ -140,11 +132,11 @@ var Connection = (function () {
     Object.defineProperty(Connection.prototype, "entityManager", {
         /**
          * Gets entity manager that allows to perform repository operations with any entity in this connection.
+         *
+         * @deprecated use manager instead.
          */
         get: function () {
-            // if (!this.isConnected)
-            //     throw new CannotGetEntityManagerNotConnectedError(this.name);
-            return this._entityManager;
+            return this.manager;
         },
         enumerable: true,
         configurable: true
@@ -155,9 +147,9 @@ var Connection = (function () {
          * with any entity in this connection.
          */
         get: function () {
-            if (!(this._entityManager instanceof MongoEntityManager_1.MongoEntityManager))
+            if (!(this.manager instanceof MongoEntityManager_1.MongoEntityManager))
                 throw new Error("MongoEntityManager is only available for MongoDB databases.");
-            return this._entityManager;
+            return this.manager;
         },
         enumerable: true,
         configurable: true
@@ -480,58 +472,7 @@ var Connection = (function () {
      * Gets custom entity repository marked with @EntityRepository decorator.
      */
     Connection.prototype.getCustomRepository = function (customRepository) {
-        var entityRepositoryMetadataArgs = index_1.getMetadataArgsStorage().entityRepositories.toArray().find(function (repository) {
-            return repository.target === (customRepository instanceof Function ? customRepository : customRepository.constructor);
-        });
-        if (!entityRepositoryMetadataArgs)
-            throw new CustomRepositoryNotFoundError_1.CustomRepositoryNotFoundError(customRepository);
-        var entityRepositoryInstance = this.entityRepositories.find(function (entityRepository) { return entityRepository.constructor === customRepository; });
-        if (!entityRepositoryInstance) {
-            if (entityRepositoryMetadataArgs.useContainer) {
-                entityRepositoryInstance = index_1.getFromContainer(entityRepositoryMetadataArgs.target);
-                // if we get custom entity repository from container then there is a risk that it already was used
-                // in some different connection. If it was used there then we check it and throw an exception
-                // because we cant override its connection there again
-                if (entityRepositoryInstance instanceof AbstractRepository_1.AbstractRepository || entityRepositoryInstance instanceof Repository_1.Repository) {
-                    // NOTE: dynamic access to protected properties. We need this to prevent unwanted properties in those classes to be exposed,
-                    // however we need these properties for internal work of the class
-                    if (entityRepositoryInstance["connection"] && entityRepositoryInstance["connection"] !== this)
-                        throw new CustomRepositoryReusedError_1.CustomRepositoryReusedError(customRepository);
-                }
-            }
-            else {
-                entityRepositoryInstance = new entityRepositoryMetadataArgs.target();
-            }
-            if (entityRepositoryInstance instanceof AbstractRepository_1.AbstractRepository) {
-                // NOTE: dynamic access to protected properties. We need this to prevent unwanted properties in those classes to be exposed,
-                // however we need these properties for internal work of the class
-                if (!entityRepositoryInstance["connection"])
-                    entityRepositoryInstance["connection"] = this;
-            }
-            if (entityRepositoryInstance instanceof Repository_1.Repository) {
-                if (!entityRepositoryMetadataArgs.entity)
-                    throw new CustomRepositoryCannotInheritRepositoryError_1.CustomRepositoryCannotInheritRepositoryError(customRepository);
-                // NOTE: dynamic access to protected properties. We need this to prevent unwanted properties in those classes to be exposed,
-                // however we need these properties for internal work of the class
-                entityRepositoryInstance["connection"] = this;
-                entityRepositoryInstance["metadata"] = this.getMetadata(entityRepositoryMetadataArgs.entity);
-            }
-            // register entity repository
-            this.entityRepositories.push(entityRepositoryInstance);
-        }
-        return entityRepositoryInstance;
-    };
-    /**
-     * Gets custom repository's managed entity.
-     * If given custom repository does not manage any entity then undefined will be returned.
-     */
-    Connection.prototype.getCustomRepositoryTarget = function (customRepository) {
-        var entityRepositoryMetadataArgs = index_1.getMetadataArgsStorage().entityRepositories.toArray().find(function (repository) {
-            return repository.target === (customRepository instanceof Function ? customRepository : customRepository.constructor);
-        });
-        if (!entityRepositoryMetadataArgs)
-            throw new CustomRepositoryNotFoundError_1.CustomRepositoryNotFoundError(customRepository);
-        return entityRepositoryMetadataArgs.entity;
+        return this.manager.getCustomRepository(customRepository);
     };
     // -------------------------------------------------------------------------
     // Protected Methods
@@ -556,33 +497,23 @@ var Connection = (function () {
     Connection.prototype.buildMetadatas = function () {
         var _this = this;
         this.entitySubscribers.length = 0;
-        this.entityListeners.length = 0;
         this.repositoryAggregators.length = 0;
         this.entityMetadatas.length = 0;
-        var namingStrategy = this.createNamingStrategy();
-        this.driver.namingStrategy = namingStrategy;
-        var lazyRelationsWrapper = this.createLazyRelationsWrapper();
+        this.driver.namingStrategy = this.createNamingStrategy(); // todo: why they are in the driver
+        this.driver.lazyRelationsWrapper = this.createLazyRelationsWrapper(); // todo: why they are in the driver
+        var entityMetadataValidator = new EntityMetadataValidator_1.EntityMetadataValidator();
         // take imported event subscribers
         if (this.subscriberClasses && this.subscriberClasses.length && !PlatformTools_1.PlatformTools.getEnvVariable("SKIP_SUBSCRIBERS_LOADING")) {
             index_1.getMetadataArgsStorage()
-                .entitySubscribers
-                .filterByTargets(this.subscriberClasses)
-                .toArray()
+                .filterSubscribers(this.subscriberClasses)
                 .map(function (metadata) { return index_1.getFromContainer(metadata.target); })
                 .forEach(function (subscriber) { return _this.entitySubscribers.push(subscriber); });
         }
         // take imported entity listeners
         if (this.entityClasses && this.entityClasses.length) {
-            index_1.getMetadataArgsStorage()
-                .entityListeners
-                .filterByTargets(this.entityClasses)
-                .toArray()
-                .forEach(function (metadata) { return _this.entityListeners.push(new EntityListenerMetadata_1.EntityListenerMetadata(metadata)); });
-        }
-        // build entity metadatas from metadata args storage (collected from decorators)
-        if (this.entityClasses && this.entityClasses.length) {
-            index_1.getFromContainer(EntityMetadataBuilder_1.EntityMetadataBuilder)
-                .buildFromMetadataArgsStorage(this.driver, lazyRelationsWrapper, namingStrategy, this.entityClasses)
+            // build entity metadatas from metadata args storage (collected from decorators)
+            new EntityMetadataBuilder_1.EntityMetadataBuilder(this, index_1.getMetadataArgsStorage())
+                .build(this.entityClasses)
                 .forEach(function (metadata) {
                 _this.entityMetadatas.push(metadata);
                 _this.repositoryAggregators.push(new RepositoryAggregator_1.RepositoryAggregator(_this, metadata));
@@ -590,13 +521,15 @@ var Connection = (function () {
         }
         // build entity metadatas from given entity schemas
         if (this.entitySchemas && this.entitySchemas.length) {
-            index_1.getFromContainer(EntityMetadataBuilder_1.EntityMetadataBuilder)
-                .buildFromSchemas(this.driver, lazyRelationsWrapper, namingStrategy, this.entitySchemas)
+            var metadataArgsStorage = index_1.getFromContainer(EntitySchemaTransformer_1.EntitySchemaTransformer).transform(this.entitySchemas);
+            new EntityMetadataBuilder_1.EntityMetadataBuilder(this, metadataArgsStorage)
+                .build()
                 .forEach(function (metadata) {
                 _this.entityMetadatas.push(metadata);
                 _this.repositoryAggregators.push(new RepositoryAggregator_1.RepositoryAggregator(_this, metadata));
             });
         }
+        entityMetadataValidator.validateMany(this.entityMetadatas);
     };
     /**
      * Creates a naming strategy to be used for this connection.
@@ -608,9 +541,7 @@ var Connection = (function () {
             return index_1.getFromContainer(DefaultNamingStrategy_1.DefaultNamingStrategy);
         // try to find used naming strategy in the list of loaded naming strategies
         var namingMetadata = index_1.getMetadataArgsStorage()
-            .namingStrategies
-            .filterByTargets(this.namingStrategyClasses)
-            .toArray()
+            .filterNamingStrategies(this.namingStrategyClasses)
             .find(function (strategy) {
             if (typeof _this.usedNamingStrategy === "string") {
                 return strategy.name === _this.usedNamingStrategy;
@@ -637,7 +568,7 @@ var Connection = (function () {
      * Creates a new entity broadcaster using in this connection.
      */
     Connection.prototype.createBroadcaster = function () {
-        return new Broadcaster_1.Broadcaster(this, this.entitySubscribers, this.entityListeners);
+        return new Broadcaster_1.Broadcaster(this, this.entitySubscribers);
     };
     /**
      * Creates a schema builder used to build a database schema for the entities of the current connection.

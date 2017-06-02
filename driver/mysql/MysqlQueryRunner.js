@@ -482,24 +482,6 @@ var MysqlQueryRunner = (function () {
         });
     };
     /**
-     * Drop the table.
-     */
-    MysqlQueryRunner.prototype.dropTable = function (tableName) {
-        return __awaiter(this, void 0, void 0, function () {
-            var sql;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        sql = "DROP TABLE `" + tableName + "`";
-                        return [4 /*yield*/, this.query(sql)];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
      * Checks if column with the given name exist in the given table.
      */
     MysqlQueryRunner.prototype.hasColumn = function (tableName, columnName) {
@@ -707,14 +689,14 @@ var MysqlQueryRunner = (function () {
                         if (this.isReleased)
                             throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                         if (!!tableSchema.hasGeneratedColumn) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.query("ALTER TABLE " + tableSchema.name + " DROP PRIMARY KEY")];
+                        return [4 /*yield*/, this.query("ALTER TABLE `" + tableSchema.name + "` DROP PRIMARY KEY")];
                     case 1:
                         _a.sent();
                         _a.label = 2;
                     case 2:
                         primaryColumnNames = tableSchema.columns.filter(function (column) { return column.isPrimary && !column.isGenerated; }).map(function (column) { return "`" + column.name + "`"; });
                         if (!(primaryColumnNames.length > 0)) return [3 /*break*/, 4];
-                        return [4 /*yield*/, this.query("ALTER TABLE " + tableSchema.name + " ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
+                        return [4 /*yield*/, this.query("ALTER TABLE `" + tableSchema.name + "` ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
                     case 3:
                         _a.sent();
                         _a.label = 4;

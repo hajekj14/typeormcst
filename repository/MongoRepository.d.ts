@@ -3,23 +3,22 @@ import { Repository } from "./Repository";
 import { QueryRunnerProvider } from "../query-runner/QueryRunnerProvider";
 import { QueryBuilder } from "../query-builder/QueryBuilder";
 import { FindManyOptions } from "../find-options/FindManyOptions";
-import { MongoQueryRunner } from "../driver/mongodb/MongoQueryRunner";
 import { FindOneOptions } from "../find-options/FindOneOptions";
-import { Cursor, Collection, MongoCountPreferences, CollectionAggregationOptions, AggregationCursor, CollectionBluckWriteOptions, BulkWriteOpResultObject, IndexOptions, CollectionOptions, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, ReadPreference, Code, OrderedBulkOperation, UnorderedBulkOperation, InsertWriteOpResult, CollectionInsertManyOptions, CollectionInsertOneOptions, InsertOneWriteOpResult, CommandCursor, MapReduceOptions, ParallelCollectionScanOptions, ReplaceOneOptions, UpdateWriteOpResult, CollStats } from "mongodb";
+import { AggregationCursor, BulkWriteOpResultObject, Code, Collection, CollectionAggregationOptions, CollectionBluckWriteOptions, CollectionInsertManyOptions, CollectionInsertOneOptions, CollectionOptions, CollStats, CommandCursor, Cursor, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, InsertOneWriteOpResult, InsertWriteOpResult, MapReduceOptions, MongoCountPreferences, MongodbIndexOptions, OrderedBulkOperation, ParallelCollectionScanOptions, ReadPreference, ReplaceOneOptions, UnorderedBulkOperation, UpdateWriteOpResult } from "../driver/mongodb/typings";
+import { MongoEntityManager } from "../entity-manager/MongoEntityManager";
 /**
  * Repository used to manage mongodb documents of a single entity type.
  */
 export declare class MongoRepository<Entity extends ObjectLiteral> extends Repository<Entity> {
     /**
+     * Entity Manager used by this repository.
+     */
+    protected manager: MongoEntityManager;
+    /**
      * Raw SQL query execution is not supported by MongoDB.
      * Calling this method will return an error.
      */
     query(query: string, parameters?: any[]): Promise<any>;
-    /**
-     * Transactions are not supported by MongoDB.
-     * Calling this method will return an error.
-     */
-    transaction(runInTransaction: (repository: Repository<Entity>) => Promise<any> | any): Promise<any>;
     /**
      * Using Query Builder with MongoDB is not supported yet.
      * Calling this method will return an error.
@@ -73,7 +72,7 @@ export declare class MongoRepository<Entity extends ObjectLiteral> extends Repos
     /**
      * Creates an index on the db and collection.
      */
-    createCollectionIndex(fieldOrSpec: string | any, options?: IndexOptions): Promise<string>;
+    createCollectionIndex(fieldOrSpec: string | any, options?: MongodbIndexOptions): Promise<string>;
     /**
      * Creates multiple indexes in the collection, this method is only supported for MongoDB 2.6 or higher.
      * Earlier version of MongoDB will throw a command not supported error.
@@ -215,10 +214,4 @@ export declare class MongoRepository<Entity extends ObjectLiteral> extends Repos
      * Update a single document on MongoDB.
      */
     updateOne(query: ObjectLiteral, update: ObjectLiteral, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult>;
-    protected readonly queryRunner: MongoQueryRunner;
-    protected convertFindManyOptionsOrConditionsToMongodbQuery(optionsOrConditions: FindOneOptions<Entity> | Partial<Entity> | undefined): ObjectLiteral | undefined;
-    protected convertFindOneOptionsOrConditionsToMongodbQuery(optionsOrConditions: FindOneOptions<Entity> | Partial<Entity> | undefined): ObjectLiteral | undefined;
-    protected convertFindOptionsOrderToOrderCriteria<P>(order: {
-        [P in keyof Entity]?: "ASC" | "DESC";
-    }): ObjectLiteral;
 }

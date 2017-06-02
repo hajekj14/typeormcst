@@ -9,7 +9,7 @@ import { TableSchema } from "../../schema-builder/schema/TableSchema";
 import { ForeignKeySchema } from "../../schema-builder/schema/ForeignKeySchema";
 import { IndexSchema } from "../../schema-builder/schema/IndexSchema";
 import { ColumnType } from "../../metadata/types/ColumnTypes";
-import { Cursor, Collection, MongoCountPreferences, CollectionAggregationOptions, AggregationCursor, CollectionBluckWriteOptions, BulkWriteOpResultObject, IndexOptions, CollectionOptions, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, ReadPreference, Code, OrderedBulkOperation, UnorderedBulkOperation, InsertWriteOpResult, CollectionInsertManyOptions, CollectionInsertOneOptions, InsertOneWriteOpResult, CommandCursor, MapReduceOptions, ParallelCollectionScanOptions, ReplaceOneOptions, UpdateWriteOpResult, CollStats } from "mongodb";
+import { Cursor, Collection, MongoCountPreferences, CollectionAggregationOptions, AggregationCursor, CollectionBluckWriteOptions, BulkWriteOpResultObject, MongodbIndexOptions, CollectionOptions, DeleteWriteOpResultObject, FindAndModifyWriteOpResultObject, FindOneAndReplaceOption, GeoHaystackSearchOptions, GeoNearOptions, ReadPreference, Code, OrderedBulkOperation, UnorderedBulkOperation, InsertWriteOpResult, CollectionInsertManyOptions, CollectionInsertOneOptions, InsertOneWriteOpResult, CommandCursor, MapReduceOptions, ParallelCollectionScanOptions, ReplaceOneOptions, UpdateWriteOpResult, CollStats } from "./typings";
 /**
  * Runs queries on a single MongoDB connection.
  */
@@ -37,7 +37,7 @@ export declare class MongoQueryRunner implements QueryRunner {
     /**
      * Creates an index on the db and collection.
      */
-    createCollectionIndex(collectionName: string, fieldOrSpec: string | any, options?: IndexOptions): Promise<string>;
+    createCollectionIndex(collectionName: string, fieldOrSpec: string | any, options?: MongodbIndexOptions): Promise<string>;
     /**
      * Creates multiple indexes in the collection, this method is only supported for MongoDB 2.6 or higher.
      * Earlier version of MongoDB will throw a command not supported error. Index specifications are defined at http://docs.mongodb.org/manual/reference/command/createIndexes/.
@@ -244,10 +244,6 @@ export declare class MongoQueryRunner implements QueryRunner {
      * Creates a new table from the given table schema and column schemas inside it.
      */
     createTable(table: TableSchema): Promise<void>;
-    /**
-     * Drops the table.
-     */
-    dropTable(tableName: string): Promise<void>;
     /**
      * Checks if column with the given name exist in the given table.
      */

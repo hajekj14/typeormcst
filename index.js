@@ -7,7 +7,7 @@ var ConnectionManager_1 = require("./connection/ConnectionManager");
 var MetadataArgsStorage_1 = require("./metadata-args/MetadataArgsStorage");
 var container_1 = require("./container");
 var PlatformTools_1 = require("./platform/PlatformTools");
-// -----------------------------------------------------------------   --------
+// -------------------------------------------------------------------------
 // Commonly Used exports
 // -------------------------------------------------------------------------
 __export(require("./container"));
@@ -59,6 +59,7 @@ __export(require("./schema-builder/schema/ForeignKeySchema"));
 __export(require("./schema-builder/schema/IndexSchema"));
 __export(require("./schema-builder/schema/PrimaryKeySchema"));
 __export(require("./schema-builder/schema/TableSchema"));
+__export(require("./driver/mongodb/typings"));
 var Connection_1 = require("./connection/Connection");
 exports.Connection = Connection_1.Connection;
 var ConnectionManager_2 = require("./connection/ConnectionManager");
@@ -79,6 +80,8 @@ var SpecificRepository_1 = require("./repository/SpecificRepository");
 exports.SpecificRepository = SpecificRepository_1.SpecificRepository;
 var MongoRepository_1 = require("./repository/MongoRepository");
 exports.MongoRepository = MongoRepository_1.MongoRepository;
+var EntityModel_1 = require("./repository/EntityModel");
+exports.EntityModel = EntityModel_1.EntityModel;
 // -------------------------------------------------------------------------
 // Deprecated
 // -------------------------------------------------------------------------
@@ -139,7 +142,7 @@ exports.getConnection = getConnection;
  */
 function getEntityManager(connectionName) {
     if (connectionName === void 0) { connectionName = "default"; }
-    return getConnectionManager().get(connectionName).entityManager;
+    return getConnectionManager().get(connectionName).manager;
 }
 exports.getEntityManager = getEntityManager;
 /**

@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var RelationTypes_1 = require("../../metadata/types/RelationTypes");
 var index_1 = require("../../index");
 /**
  * Many-to-one relation allows to create type of relation when Entity1 can have single instance of Entity2, but
@@ -29,13 +28,13 @@ function ManyToOne(typeFunction, inverseSideOrOptions, options) {
             target: object.constructor,
             propertyName: propertyName,
             // propertyType: reflectedType,
-            relationType: RelationTypes_1.RelationTypes.MANY_TO_ONE,
+            relationType: "many-to-one",
             isLazy: isLazy,
             type: typeFunction,
             inverseSideProperty: inverseSideProperty,
             options: options
         };
-        index_1.getMetadataArgsStorage().relations.add(args);
+        index_1.getMetadataArgsStorage().relations.push(args);
     };
 }
 exports.ManyToOne = ManyToOne;

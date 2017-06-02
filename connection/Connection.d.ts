@@ -44,7 +44,7 @@ export declare class Connection {
     /**
      * Gets EntityManager of this connection.
      */
-    private readonly _entityManager;
+    readonly manager: EntityManager;
     /**
      * Stores all registered repositories.
      */
@@ -53,10 +53,6 @@ export declare class Connection {
      * Stores all entity repository instances.
      */
     private readonly entityRepositories;
-    /**
-     * Entity listeners that are registered for this connection.
-     */
-    private readonly entityListeners;
     /**
      * Entity subscribers that are registered for this connection.
      */
@@ -96,6 +92,8 @@ export declare class Connection {
     readonly isConnected: boolean;
     /**
      * Gets entity manager that allows to perform repository operations with any entity in this connection.
+     *
+     * @deprecated use manager instead.
      */
     readonly entityManager: EntityManager;
     /**
@@ -271,18 +269,13 @@ export declare class Connection {
      */
     getCustomRepository<T>(customRepository: ObjectType<T>): T;
     /**
-     * Gets custom repository's managed entity.
-     * If given custom repository does not manage any entity then undefined will be returned.
-     */
-    getCustomRepositoryTarget<T>(customRepository: any): Function | string | undefined;
-    /**
      * Finds repository aggregator of the given entity class or name.
      */
     protected findRepositoryAggregator(entityClassOrName: ObjectType<any> | string): RepositoryAggregator;
     /**
      * Builds all registered metadatas.
      */
-    protected buildMetadatas(): void;
+    buildMetadatas(): void;
     /**
      * Creates a naming strategy to be used for this connection.
      */

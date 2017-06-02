@@ -262,12 +262,12 @@ var SqlServerQueryRunner = (function () {
                         values = keys.map(function (key, index) { return "@" + index; }).join(",");
                         parameters = keys.map(function (key) { return keyValues[key]; });
                         sql = columns.length > 0
-                            ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.fullName + " " : "") + "VALUES (" + values + ")"
-                            : "INSERT INTO " + this.driver.escapeTableName(tableName) + " " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.fullName + " " : "") + "DEFAULT VALUES ";
+                            ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "VALUES (" + values + ")"
+                            : "INSERT INTO " + this.driver.escapeTableName(tableName) + " " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "DEFAULT VALUES ";
                         return [4 /*yield*/, this.query(sql, parameters)];
                     case 1:
                         result = _a.sent();
-                        return [2 /*return*/, generatedColumn ? result instanceof Array ? result[0][generatedColumn.fullName] : result[generatedColumn.fullName] : undefined];
+                        return [2 /*return*/, generatedColumn ? result instanceof Array ? result[0][generatedColumn.databaseName] : result[generatedColumn.databaseName] : undefined];
                 }
             });
         });
@@ -517,24 +517,6 @@ var SqlServerQueryRunner = (function () {
                         if (primaryKeyColumns.length > 0)
                             sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
                         sql += ")";
-                        return [4 /*yield*/, this.query(sql)];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Drops the table.
-     */
-    SqlServerQueryRunner.prototype.dropTable = function (tableName) {
-        return __awaiter(this, void 0, void 0, function () {
-            var sql;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        sql = "DROP TABLE \"" + tableName + "\"";
                         return [4 /*yield*/, this.query(sql)];
                     case 1:
                         _a.sent();

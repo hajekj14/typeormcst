@@ -17,17 +17,17 @@ var RepositoryFactory = (function () {
     /**
      * Creates a regular repository.
      */
-    RepositoryFactory.prototype.createRepository = function (connection, metadata, queryRunnerProvider) {
+    RepositoryFactory.prototype.createRepository = function (manager, metadata, queryRunnerProvider) {
         // NOTE: dynamic access to protected properties. We need this to prevent unwanted properties in those classes to be exposed,
         // however we need these properties for internal work of the class
         var repository;
-        if (connection.driver instanceof MongoDriver_1.MongoDriver) {
+        if (manager.connection.driver instanceof MongoDriver_1.MongoDriver) {
             repository = new MongoRepository_1.MongoRepository();
         }
         else {
             repository = new Repository_1.Repository();
         }
-        repository["connection"] = connection;
+        repository["manager"] = manager;
         repository["metadata"] = metadata;
         repository["queryRunnerProvider"] = queryRunnerProvider;
         return repository;
@@ -35,11 +35,11 @@ var RepositoryFactory = (function () {
     /**
      * Creates a tree repository.
      */
-    RepositoryFactory.prototype.createTreeRepository = function (connection, metadata, queryRunnerProvider) {
+    RepositoryFactory.prototype.createTreeRepository = function (manager, metadata, queryRunnerProvider) {
         // NOTE: dynamic access to protected properties. We need this to prevent unwanted properties in those classes to be exposed,
         // however we need these properties for internal work of the class
         var repository = new TreeRepository_1.TreeRepository();
-        repository["connection"] = connection;
+        repository["manager"] = manager;
         repository["metadata"] = metadata;
         repository["queryRunnerProvider"] = queryRunnerProvider;
         return repository;

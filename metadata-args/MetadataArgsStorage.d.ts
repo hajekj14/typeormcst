@@ -1,5 +1,3 @@
-import { TargetMetadataArgsCollection } from "./collection/TargetMetadataArgsCollection";
-import { PropertyMetadataArgsCollection } from "./collection/PropertyMetadataArgsCollection";
 import { RelationMetadataArgs } from "./RelationMetadataArgs";
 import { ColumnMetadataArgs } from "./ColumnMetadataArgs";
 import { RelationCountMetadataArgs } from "./RelationCountMetadataArgs";
@@ -17,80 +15,52 @@ import { DiscriminatorValueMetadataArgs } from "./DiscriminatorValueMetadataArgs
 import { EntityRepositoryMetadataArgs } from "./EntityRepositoryMetadataArgs";
 import { TransactionEntityMetadataArgs } from "./TransactionEntityMetadataArgs";
 /**
- * Storage all metadatas of all available types: tables, fields, subscribers, relations, etc.
- * Each metadata represents some specifications of what it represents.
+ * Storage all metadatas args of all available types: tables, columns, subscribers, relations, etc.
+ * Each metadata args represents some specifications of what it represents.
+ * MetadataArgs used to create a real Metadata objects.
  */
 export declare class MetadataArgsStorage {
-    readonly tables: TargetMetadataArgsCollection<TableMetadataArgs>;
-    readonly entityRepositories: TargetMetadataArgsCollection<EntityRepositoryMetadataArgs>;
-    readonly transactionEntityManagers: TargetMetadataArgsCollection<TransactionEntityMetadataArgs>;
-    readonly namingStrategies: TargetMetadataArgsCollection<NamingStrategyMetadataArgs>;
-    readonly entitySubscribers: TargetMetadataArgsCollection<EntitySubscriberMetadataArgs>;
-    readonly indices: PropertyMetadataArgsCollection<IndexMetadataArgs>;
-    readonly columns: PropertyMetadataArgsCollection<ColumnMetadataArgs>;
-    readonly relations: PropertyMetadataArgsCollection<RelationMetadataArgs>;
-    readonly joinColumns: PropertyMetadataArgsCollection<JoinColumnMetadataArgs>;
-    readonly joinTables: PropertyMetadataArgsCollection<JoinTableMetadataArgs>;
-    readonly entityListeners: PropertyMetadataArgsCollection<EntityListenerMetadataArgs>;
-    readonly relationCounts: PropertyMetadataArgsCollection<RelationCountMetadataArgs>;
-    readonly relationIds: PropertyMetadataArgsCollection<RelationIdMetadataArgs>;
-    readonly embeddeds: PropertyMetadataArgsCollection<EmbeddedMetadataArgs>;
-    readonly inheritances: TargetMetadataArgsCollection<InheritanceMetadataArgs>;
-    readonly discriminatorValues: TargetMetadataArgsCollection<DiscriminatorValueMetadataArgs>;
-    /**
-     * Gets merged (with all abstract classes) table metadatas for the given classes.
-     */
-    getMergedTableMetadatas(classes?: Function[]): {
-        table: TableMetadataArgs;
-        parent: undefined;
-        inheritance: InheritanceMetadataArgs | undefined;
-        children: TableMetadataArgs[];
-        indices: PropertyMetadataArgsCollection<IndexMetadataArgs>;
-        columns: PropertyMetadataArgsCollection<ColumnMetadataArgs>;
-        relations: PropertyMetadataArgsCollection<RelationMetadataArgs>;
-        joinColumns: PropertyMetadataArgsCollection<JoinColumnMetadataArgs>;
-        joinTables: PropertyMetadataArgsCollection<JoinTableMetadataArgs>;
-        entityListeners: PropertyMetadataArgsCollection<EntityListenerMetadataArgs>;
-        relationCounts: PropertyMetadataArgsCollection<RelationCountMetadataArgs>;
-        relationIds: PropertyMetadataArgsCollection<RelationIdMetadataArgs>;
-        embeddeds: PropertyMetadataArgsCollection<EmbeddedMetadataArgs>;
-        discriminatorValues: DiscriminatorValueMetadataArgs[];
-    }[];
-    /**
-     * Gets merged (with all abstract classes) embeddable table metadatas for the given classes.
-     */
-    getMergedEmbeddableTableMetadatas(classes?: Function[]): {
-        table: TableMetadataArgs;
-        columns: PropertyMetadataArgsCollection<ColumnMetadataArgs>;
-        embeddeds: PropertyMetadataArgsCollection<EmbeddedMetadataArgs>;
-    }[];
-    /**
-     */
-    protected mergeWithAbstract(allTableMetadatas: TargetMetadataArgsCollection<TableMetadataArgs>, table: TableMetadataArgs): {
-        table: TableMetadataArgs;
-        parent: undefined;
-        inheritance: InheritanceMetadataArgs | undefined;
-        children: TableMetadataArgs[];
-        indices: PropertyMetadataArgsCollection<IndexMetadataArgs>;
-        columns: PropertyMetadataArgsCollection<ColumnMetadataArgs>;
-        relations: PropertyMetadataArgsCollection<RelationMetadataArgs>;
-        joinColumns: PropertyMetadataArgsCollection<JoinColumnMetadataArgs>;
-        joinTables: PropertyMetadataArgsCollection<JoinTableMetadataArgs>;
-        entityListeners: PropertyMetadataArgsCollection<EntityListenerMetadataArgs>;
-        relationCounts: PropertyMetadataArgsCollection<RelationCountMetadataArgs>;
-        relationIds: PropertyMetadataArgsCollection<RelationIdMetadataArgs>;
-        embeddeds: PropertyMetadataArgsCollection<EmbeddedMetadataArgs>;
-        discriminatorValues: DiscriminatorValueMetadataArgs[];
-    };
-    /**
-     */
-    protected mergeWithEmbeddable(allTableMetadatas: TargetMetadataArgsCollection<TableMetadataArgs>, tableMetadata: TableMetadataArgs): {
-        table: TableMetadataArgs;
-        columns: PropertyMetadataArgsCollection<ColumnMetadataArgs>;
-        embeddeds: PropertyMetadataArgsCollection<EmbeddedMetadataArgs>;
-    };
-    /**
-     * Checks if this table is inherited from another table.
-     */
-    protected isInherited(target1: Function, target2: Function): boolean;
+    readonly tables: TableMetadataArgs[];
+    readonly entityRepositories: EntityRepositoryMetadataArgs[];
+    readonly transactionEntityManagers: TransactionEntityMetadataArgs[];
+    readonly namingStrategies: NamingStrategyMetadataArgs[];
+    readonly entitySubscribers: EntitySubscriberMetadataArgs[];
+    readonly indices: IndexMetadataArgs[];
+    readonly columns: ColumnMetadataArgs[];
+    readonly relations: RelationMetadataArgs[];
+    readonly joinColumns: JoinColumnMetadataArgs[];
+    readonly joinTables: JoinTableMetadataArgs[];
+    readonly entityListeners: EntityListenerMetadataArgs[];
+    readonly relationCounts: RelationCountMetadataArgs[];
+    readonly relationIds: RelationIdMetadataArgs[];
+    readonly embeddeds: EmbeddedMetadataArgs[];
+    readonly inheritances: InheritanceMetadataArgs[];
+    readonly discriminatorValues: DiscriminatorValueMetadataArgs[];
+    filterTables(target?: Function | string): TableMetadataArgs[];
+    filterTables(target?: (Function | string)[]): TableMetadataArgs[];
+    filterColumns(target: Function | string): ColumnMetadataArgs[];
+    filterColumns(target: (Function | string)[]): ColumnMetadataArgs[];
+    filterRelations(target: Function | string): RelationMetadataArgs[];
+    filterRelations(target: (Function | string)[]): RelationMetadataArgs[];
+    filterRelationIds(target: Function | string): RelationIdMetadataArgs[];
+    filterRelationIds(target: (Function | string)[]): RelationIdMetadataArgs[];
+    filterRelationCounts(target: Function | string): RelationCountMetadataArgs[];
+    filterRelationCounts(target: (Function | string)[]): RelationCountMetadataArgs[];
+    filterIndices(target: Function | string): IndexMetadataArgs[];
+    filterIndices(target: (Function | string)[]): IndexMetadataArgs[];
+    filterListeners(target: Function | string): EntityListenerMetadataArgs[];
+    filterListeners(target: (Function | string)[]): EntityListenerMetadataArgs[];
+    filterEmbeddeds(target: Function | string): EmbeddedMetadataArgs[];
+    filterEmbeddeds(target: (Function | string)[]): EmbeddedMetadataArgs[];
+    findJoinTable(target: Function | string, propertyName: string): JoinTableMetadataArgs | undefined;
+    filterJoinColumns(target: Function | string, propertyName: string): JoinColumnMetadataArgs[];
+    filterSubscribers(target: Function | string): EntitySubscriberMetadataArgs[];
+    filterSubscribers(target: (Function | string)[]): EntitySubscriberMetadataArgs[];
+    filterNamingStrategies(target: Function | string): NamingStrategyMetadataArgs[];
+    filterNamingStrategies(target: (Function | string)[]): NamingStrategyMetadataArgs[];
+    filterTransactionEntityManagers(target: Function | string): TransactionEntityMetadataArgs[];
+    filterTransactionEntityManagers(target: (Function | string)[]): TransactionEntityMetadataArgs[];
+    filterSingleTableChildren(target: Function | string): TableMetadataArgs[];
+    findInheritanceType(target: Function | string): InheritanceMetadataArgs | undefined;
+    findDiscriminatorValue(target: Function | string): DiscriminatorValueMetadataArgs | undefined;
 }

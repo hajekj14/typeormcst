@@ -35,13 +35,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var QueryBuilder_1 = require("../query-builder/QueryBuilder");
-var PlainObjectToNewEntityTransformer_1 = require("../query-builder/transformer/PlainObjectToNewEntityTransformer");
-var PlainObjectToDatabaseEntityTransformer_1 = require("../query-builder/transformer/PlainObjectToDatabaseEntityTransformer");
-var FindOptionsUtils_1 = require("../find-options/FindOptionsUtils");
-var QueryRunnerProvider_1 = require("../query-runner/QueryRunnerProvider");
-var SubjectOperationExecutor_1 = require("../persistence/SubjectOperationExecutor");
-var SubjectBuilder_1 = require("../persistence/SubjectBuilder");
 /**
  * Repository is supposed to work with your entity objects. Find entities, insert, update, delete, etc.
  */
@@ -65,49 +58,40 @@ var Repository = (function () {
     });
     /**
      * Checks if entity has an id.
-     * If entity contains compose ids, then it checks them all.
+     * If entity composite compose ids, it will check them all.
      */
     Repository.prototype.hasId = function (entity) {
-        return this.metadata.hasId(entity);
+        return this.manager.hasId(this.metadata.target, entity);
     };
     /**
      * Gets entity mixed id.
      */
     Repository.prototype.getId = function (entity) {
-        return this.metadata.getEntityIdMixedMap(entity);
+        return this.manager.getId(this.metadata.target, entity);
     };
     /**
      * Creates a new query builder that can be used to build a sql query.
      */
     Repository.prototype.createQueryBuilder = function (alias, queryRunnerProvider) {
-        return new QueryBuilder_1.QueryBuilder(this.connection, queryRunnerProvider || this.queryRunnerProvider)
-            .select(alias)
-            .from(this.metadata.target, alias);
+        return this.manager.createQueryBuilder(this.metadata.target, alias, queryRunnerProvider);
     };
     /**
      * Creates a new entity instance or instances.
      * Can copy properties from the given object into new entities.
      */
     Repository.prototype.create = function (plainEntityLikeOrPlainEntityLikes) {
-        var _this = this;
-        if (!plainEntityLikeOrPlainEntityLikes)
-            return this.metadata.create();
-        if (plainEntityLikeOrPlainEntityLikes instanceof Array)
-            return plainEntityLikeOrPlainEntityLikes.map(function (plainEntityLike) { return _this.create(plainEntityLike); });
-        return this.merge(this.metadata.create(), plainEntityLikeOrPlainEntityLikes);
+        return this.manager.create(this.metadata.target, plainEntityLikeOrPlainEntityLikes);
     };
     /**
      * Merges multiple entities (or entity-like objects) into a given entity.
      */
     Repository.prototype.merge = function (mergeIntoEntity) {
-        var _this = this;
         var entityLikes = [];
         for (var _i = 1; _i < arguments.length; _i++) {
             entityLikes[_i - 1] = arguments[_i];
         }
-        var plainObjectToEntityTransformer = new PlainObjectToNewEntityTransformer_1.PlainObjectToNewEntityTransformer();
-        entityLikes.forEach(function (object) { return plainObjectToEntityTransformer.transform(mergeIntoEntity, object, _this.metadata); });
-        return mergeIntoEntity;
+        return (_a = this.manager).merge.apply(_a, [this.metadata.target, mergeIntoEntity].concat(entityLikes));
+        var _a;
     };
     /**
      * Creates a new entity from the given plan javascript object. If entity already exist in the database, then
@@ -120,60 +104,28 @@ var Repository = (function () {
      */
     Repository.prototype.preload = function (entityLike) {
         return __awaiter(this, void 0, void 0, function () {
-            var plainObjectToDatabaseEntityTransformer, transformedEntity;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        plainObjectToDatabaseEntityTransformer = new PlainObjectToDatabaseEntityTransformer_1.PlainObjectToDatabaseEntityTransformer(this.connection.entityManager);
-                        return [4 /*yield*/, plainObjectToDatabaseEntityTransformer.transform(entityLike, this.metadata)];
-                    case 1:
-                        transformedEntity = _a.sent();
-                        if (transformedEntity)
-                            return [2 /*return*/, this.merge(transformedEntity, entityLike)];
-                        return [2 /*return*/, undefined];
-                }
+                return [2 /*return*/, this.manager.preload(this.metadata.target, entityLike)];
             });
         });
     };
     /**
-     * Persists one or many given entities.
+     * Saves one or many given entities.
+     */
+    Repository.prototype.save = function (entityOrEntities, options) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.manager.save(this.metadata.target, entityOrEntities, options)];
+            });
+        });
+    };
+    /**
+     * Saves one or many given entities.
      */
     Repository.prototype.persist = function (entityOrEntities, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            var queryRunnerProvider, transactionEntityManager, databaseEntityLoader, executor;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        // if for some reason non empty entity was passed then return it back without having to do anything
-                        if (!entityOrEntities)
-                            return [2 /*return*/, entityOrEntities];
-                        // if multiple entities given then go throw all of them and save them
-                        if (entityOrEntities instanceof Array)
-                            return [2 /*return*/, Promise.all(entityOrEntities.map(function (entity) { return _this.persist(entity); }))];
-                        queryRunnerProvider = this.queryRunnerProvider || new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver, true);
-                        _a.label = 1;
-                    case 1:
-                        _a.trys.push([1, , 4, 7]);
-                        transactionEntityManager = this.connection.createEntityManagerWithSingleDatabaseConnection(queryRunnerProvider);
-                        databaseEntityLoader = new SubjectBuilder_1.SubjectBuilder(this.connection, queryRunnerProvider);
-                        return [4 /*yield*/, databaseEntityLoader.persist(entityOrEntities, this.metadata)];
-                    case 2:
-                        _a.sent();
-                        executor = new SubjectOperationExecutor_1.SubjectOperationExecutor(this.connection, transactionEntityManager, queryRunnerProvider);
-                        return [4 /*yield*/, executor.execute(databaseEntityLoader.operateSubjects)];
-                    case 3:
-                        _a.sent();
-                        return [2 /*return*/, entityOrEntities];
-                    case 4:
-                        if (!!this.queryRunnerProvider) return [3 /*break*/, 6];
-                        return [4 /*yield*/, queryRunnerProvider.releaseReused()];
-                    case 5:
-                        _a.sent();
-                        _a.label = 6;
-                    case 6: return [7 /*endfinally*/];
-                    case 7: return [2 /*return*/];
-                }
+                return [2 /*return*/, this.save(entityOrEntities, options)];
             });
         });
     };
@@ -191,7 +143,7 @@ var Repository = (function () {
                         if (!entity)
                             throw new Error("Cannot find entity to update by a given criteria");
                         Object.assign(entity, partialEntity);
-                        return [4 /*yield*/, this.persist(entity, options)];
+                        return [4 /*yield*/, this.save(entity, options)];
                     case 2:
                         _a.sent();
                         return [2 /*return*/];
@@ -204,20 +156,8 @@ var Repository = (function () {
      */
     Repository.prototype.updateById = function (id, partialEntity, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var entity;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.findOneById(id)];
-                    case 1:
-                        entity = _a.sent();
-                        if (!entity)
-                            throw new Error("Cannot find entity to update by a id");
-                        Object.assign(entity, partialEntity);
-                        return [4 /*yield*/, this.persist(entity, options)];
-                    case 2:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
+                return [2 /*return*/, this.manager.updateById(this.metadata.target, id, partialEntity, options)];
             });
         });
     };
@@ -226,40 +166,8 @@ var Repository = (function () {
      */
     Repository.prototype.remove = function (entityOrEntities, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            var queryRunnerProvider, transactionEntityManager, databaseEntityLoader, executor;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        // if for some reason non empty entity was passed then return it back without having to do anything
-                        if (!entityOrEntities)
-                            return [2 /*return*/, entityOrEntities];
-                        // if multiple entities given then go throw all of them and save them
-                        if (entityOrEntities instanceof Array)
-                            return [2 /*return*/, Promise.all(entityOrEntities.map(function (entity) { return _this.remove(entity); }))];
-                        queryRunnerProvider = this.queryRunnerProvider || new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver, true);
-                        _a.label = 1;
-                    case 1:
-                        _a.trys.push([1, , 4, 7]);
-                        transactionEntityManager = this.connection.createEntityManagerWithSingleDatabaseConnection(queryRunnerProvider);
-                        databaseEntityLoader = new SubjectBuilder_1.SubjectBuilder(this.connection, queryRunnerProvider);
-                        return [4 /*yield*/, databaseEntityLoader.remove(entityOrEntities, this.metadata)];
-                    case 2:
-                        _a.sent();
-                        executor = new SubjectOperationExecutor_1.SubjectOperationExecutor(this.connection, transactionEntityManager, queryRunnerProvider);
-                        return [4 /*yield*/, executor.execute(databaseEntityLoader.operateSubjects)];
-                    case 3:
-                        _a.sent();
-                        return [2 /*return*/, entityOrEntities];
-                    case 4:
-                        if (!!this.queryRunnerProvider) return [3 /*break*/, 6];
-                        return [4 /*yield*/, queryRunnerProvider.releaseReused()];
-                    case 5:
-                        _a.sent();
-                        _a.label = 6;
-                    case 6: return [7 /*endfinally*/];
-                    case 7: return [2 /*return*/];
-                }
+                return [2 /*return*/, this.manager.remove(this.metadata.target, entityOrEntities, options)];
             });
         });
     };
@@ -268,19 +176,8 @@ var Repository = (function () {
      */
     Repository.prototype.removeById = function (id, options) {
         return __awaiter(this, void 0, void 0, function () {
-            var entity;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.findOneById(id)];
-                    case 1:
-                        entity = _a.sent();
-                        if (!entity)
-                            throw new Error("Cannot find entity to remove by a given id");
-                        return [4 /*yield*/, this.remove(entity, options)];
-                    case 2:
-                        _a.sent();
-                        return [2 /*return*/];
-                }
+                return [2 /*return*/, this.manager.removeById(this.metadata.target, id, options)];
             });
         });
     };
@@ -288,15 +185,13 @@ var Repository = (function () {
      * Counts entities that match given find options or conditions.
      */
     Repository.prototype.count = function (optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindManyOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindManyOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions).getCount();
+        return this.manager.count(this.metadata.target, optionsOrConditions);
     };
     /**
      * Finds entities that match given find options or conditions.
      */
     Repository.prototype.find = function (optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindManyOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindManyOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions).getMany();
+        return this.manager.find(this.metadata.target, optionsOrConditions);
     };
     /**
      * Finds entities that match given find options or conditions.
@@ -304,35 +199,27 @@ var Repository = (function () {
      * but ignores pagination settings (from and take options).
      */
     Repository.prototype.findAndCount = function (optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindManyOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindManyOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions).getManyAndCount();
+        return this.manager.findAndCount(this.metadata.target, optionsOrConditions);
     };
     /**
      * Finds entities by ids.
      * Optionally find options can be applied.
      */
     Repository.prototype.findByIds = function (ids, optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindManyOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindManyOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions)
-            .andWhereInIds(ids)
-            .getMany();
+        return this.manager.findByIds(this.metadata.target, optionsOrConditions);
     };
     /**
      * Finds first entity that matches given conditions.
      */
     Repository.prototype.findOne = function (optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindOneOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindOneOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions).getOne();
+        return this.manager.findOne(this.metadata.target, optionsOrConditions);
     };
     /**
      * Finds entity by given id.
      * Optionally find options or conditions can be applied.
      */
     Repository.prototype.findOneById = function (id, optionsOrConditions) {
-        var qb = this.createQueryBuilder(FindOptionsUtils_1.FindOptionsUtils.extractFindOneOptionsAlias(optionsOrConditions) || this.metadata.table.name);
-        return FindOptionsUtils_1.FindOptionsUtils.applyFindOneOptionsOrConditionsToQueryBuilder(qb, optionsOrConditions)
-            .andWhereInIds([id])
-            .getOne();
+        return this.manager.findOneById(this.metadata.target, id, optionsOrConditions);
     };
     /**
      * Executes a raw SQL query and returns a raw database results.
@@ -340,83 +227,8 @@ var Repository = (function () {
      */
     Repository.prototype.query = function (query, parameters) {
         return __awaiter(this, void 0, void 0, function () {
-            var queryRunnerProvider, queryRunner;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        queryRunnerProvider = this.queryRunnerProvider || new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
-                        return [4 /*yield*/, queryRunnerProvider.provide()];
-                    case 1:
-                        queryRunner = _a.sent();
-                        _a.label = 2;
-                    case 2:
-                        _a.trys.push([2, , 4, 6]);
-                        return [4 /*yield*/, queryRunner.query(query, parameters)];
-                    case 3: return [2 /*return*/, _a.sent()]; // await is needed here because we are using finally
-                    case 4: return [4 /*yield*/, queryRunnerProvider.release(queryRunner)];
-                    case 5:
-                        _a.sent();
-                        return [7 /*endfinally*/];
-                    case 6: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Wraps given function execution (and all operations made there) in a transaction.
-     * All database operations must be executed using provided repository.
-     *
-     * Most important, you should execute all your database operations using provided repository instance,
-     * all other operations would not be included in the transaction.
-     * If you want to execute transaction and persist multiple different entity types, then
-     * use EntityManager.transaction method instead.
-     *
-     * Transactions are supported only by relational databases (MongoDB is not supported).
-     */
-    Repository.prototype.transaction = function (runInTransaction) {
-        return __awaiter(this, void 0, void 0, function () {
-            var queryRunnerProvider, queryRunner, transactionRepository, result, err_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        queryRunnerProvider = this.queryRunnerProvider || new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver, true);
-                        return [4 /*yield*/, queryRunnerProvider.provide()];
-                    case 1:
-                        queryRunner = _a.sent();
-                        transactionRepository = new Repository();
-                        transactionRepository["connection"] = this.connection;
-                        transactionRepository["metadata"] = this.metadata;
-                        transactionRepository["queryRunnerProvider"] = queryRunnerProvider;
-                        _a.label = 2;
-                    case 2:
-                        _a.trys.push([2, 6, 8, 12]);
-                        return [4 /*yield*/, queryRunner.beginTransaction()];
-                    case 3:
-                        _a.sent();
-                        return [4 /*yield*/, runInTransaction(transactionRepository)];
-                    case 4:
-                        result = _a.sent();
-                        return [4 /*yield*/, queryRunner.commitTransaction()];
-                    case 5:
-                        _a.sent();
-                        return [2 /*return*/, result];
-                    case 6:
-                        err_1 = _a.sent();
-                        return [4 /*yield*/, queryRunner.rollbackTransaction()];
-                    case 7:
-                        _a.sent();
-                        throw err_1;
-                    case 8: return [4 /*yield*/, queryRunnerProvider.release(queryRunner)];
-                    case 9:
-                        _a.sent();
-                        if (!!this.queryRunnerProvider) return [3 /*break*/, 11];
-                        return [4 /*yield*/, queryRunnerProvider.releaseReused()];
-                    case 10:
-                        _a.sent();
-                        _a.label = 11;
-                    case 11: return [7 /*endfinally*/];
-                    case 12: return [2 /*return*/];
-                }
+                return [2 /*return*/, this.manager.query(query, parameters)];
             });
         });
     };
@@ -425,25 +237,8 @@ var Repository = (function () {
      */
     Repository.prototype.clear = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var queryRunnerProvider, queryRunner;
             return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        queryRunnerProvider = this.queryRunnerProvider || new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
-                        return [4 /*yield*/, queryRunnerProvider.provide()];
-                    case 1:
-                        queryRunner = _a.sent();
-                        _a.label = 2;
-                    case 2:
-                        _a.trys.push([2, , 4, 6]);
-                        return [4 /*yield*/, queryRunner.truncate(this.metadata.table.name)];
-                    case 3: return [2 /*return*/, _a.sent()]; // await is needed here because we are using finally
-                    case 4: return [4 /*yield*/, queryRunnerProvider.release(queryRunner)];
-                    case 5:
-                        _a.sent();
-                        return [7 /*endfinally*/];
-                    case 6: return [2 /*return*/];
-                }
+                return [2 /*return*/, this.manager.clear(this.metadata.target)];
             });
         });
     };

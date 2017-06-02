@@ -47,7 +47,7 @@ function PrimaryColumn(typeOrOptions, options) {
             mode: "regular",
             options: options
         };
-        index_1.getMetadataArgsStorage().columns.add(args);
+        index_1.getMetadataArgsStorage().columns.push(args);
     };
 }
 exports.PrimaryColumn = PrimaryColumn;

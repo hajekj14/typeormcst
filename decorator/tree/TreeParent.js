@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var index_1 = require("../../index");
-var RelationTypes_1 = require("../../metadata/types/RelationTypes");
 /**
  * Marks a specific property of the class as a parent of the tree.
  */
@@ -22,11 +21,11 @@ function TreeParent(options) {
             propertyName: propertyName,
             // propertyType: reflectedType,
             isLazy: isLazy,
-            relationType: RelationTypes_1.RelationTypes.MANY_TO_ONE,
+            relationType: "many-to-one",
             type: function () { return object.constructor; },
             options: options
         };
-        index_1.getMetadataArgsStorage().relations.add(args);
+        index_1.getMetadataArgsStorage().relations.push(args);
     };
 }
 exports.TreeParent = TreeParent;

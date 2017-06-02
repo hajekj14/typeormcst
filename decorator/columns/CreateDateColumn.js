@@ -23,7 +23,7 @@ function CreateDateColumn(options) {
             mode: "createDate",
             options: options
         };
-        index_1.getMetadataArgsStorage().columns.add(args);
+        index_1.getMetadataArgsStorage().columns.push(args);
     };
 }
 exports.CreateDateColumn = CreateDateColumn;

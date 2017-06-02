@@ -1,101 +1,51 @@
-import { Alias } from "./alias/Alias";
-import { AliasMap } from "./alias/AliasMap";
 import { EntityMetadata } from "../metadata/EntityMetadata";
 import { ObjectLiteral } from "../common/ObjectLiteral";
 import { QueryRunner } from "../query-runner/QueryRunner";
-import { OrderByCondition } from "../find-options/OrderByCondition";
 import { Connection } from "../connection/Connection";
 import { JoinOptions } from "./JoinOptions";
 import { QueryRunnerProvider } from "../query-runner/QueryRunnerProvider";
-/**
- */
-export interface Join {
-    alias: Alias;
-    type: "LEFT" | "INNER";
-    condition?: string;
-    tableName: string;
-    mapToProperty?: string;
-    isMappingMany: boolean;
-    options?: JoinOptions;
-}
-export interface JoinRelationId {
-    alias: Alias;
-    type: "LEFT" | "INNER";
-    condition?: string;
-    mapToProperty?: string;
-}
-export interface RelationCountMeta {
-    alias: Alias;
-    condition?: string;
-    mapToProperty?: string;
-    entities: {
-        entity: any;
-        metadata: EntityMetadata;
-    }[];
-}
-/**
- */
-export interface JoinMapping {
-    type: "join" | "relationId";
-    alias: Alias;
-    parentName: string;
-    propertyName: string;
-    isMany: boolean;
-}
+import { QueryExpressionMap } from "./QueryExpressionMap";
+import { SelectQuery } from "./SelectQuery";
+import { RelationIdLoadResult } from "./relation-id/RelationIdLoadResult";
+import { RelationCountLoadResult } from "./relation-count/RelationCountLoadResult";
 /**
  * Allows to build complex sql queries in a fashion way and execute those queries.
  */
 export declare class QueryBuilder<Entity> {
     protected connection: Connection;
     protected queryRunnerProvider: QueryRunnerProvider;
-    protected aliasMap: AliasMap;
-    protected type: "select" | "update" | "delete";
-    protected selects: string[];
-    protected fromEntity: {
-        alias: Alias;
-    };
-    protected fromTableName: string;
-    protected fromTableAlias: string;
-    protected updateQuerySet: Object;
-    protected joins: Join[];
-    protected joinRelationIds: JoinRelationId[];
-    protected relationCountMetas: RelationCountMeta[];
-    protected groupBys: string[];
-    protected wheres: {
-        type: "simple" | "and" | "or";
-        condition: string;
-    }[];
-    protected havings: {
-        type: "simple" | "and" | "or";
-        condition: string;
-    }[];
-    protected orderBys: OrderByCondition;
-    protected parameters: ObjectLiteral;
-    protected limit: number;
-    protected offset: number;
-    protected lockMode: "optimistic" | "pessimistic_read" | "pessimistic_write";
-    protected lockVersion?: number | Date;
-    protected skipNumber: number;
-    protected takeNumber: number;
-    protected enableQuoting: boolean;
-    protected ignoreParentTablesJoins: boolean;
     /**
-     * Indicates if virtual columns should be included in entity result.
+     * Contains all properties of the QueryBuilder that needs to be build a final query.
      */
-    protected enableRelationIdValues: boolean;
+    protected expressionMap: QueryExpressionMap;
     constructor(connection: Connection, queryRunnerProvider?: QueryRunnerProvider);
     /**
      * Gets the main alias string used in this query builder.
      */
     readonly alias: string;
     /**
-     * Disable escaping.
+     * Creates SELECT query.
+     * Replaces all previous selections if they exist.
      */
-    disableQuoting(): this;
+    select(): this;
     /**
-     * Creates DELETE query.
+     * Creates SELECT query and selects given data.
+     * Replaces all previous selections if they exist.
      */
-    delete(): this;
+    select(selection: string, selectionAliasName?: string): this;
+    /**
+     * Creates SELECT query and selects given data.
+     * Replaces all previous selections if they exist.
+     */
+    select(selection: string[]): this;
+    /**
+     * Adds new selection to the SELECT query.
+     */
+    addSelect(selection: string, selectionAliasName?: string): this;
+    /**
+     * Adds new selection to the SELECT query.
+     */
+    addSelect(selection: string[]): this;
     /**
      * Creates UPDATE query and applies given update values.
      */
@@ -103,141 +53,101 @@ export declare class QueryBuilder<Entity> {
     /**
      * Creates UPDATE query for the given entity and applies given update values.
      */
-    update(entity: Function, updateSet: ObjectLiteral): this;
+    update(entity: Function | string, updateSet: ObjectLiteral): this;
     /**
      * Creates UPDATE query for the given table name and applies given update values.
      */
     update(tableName: string, updateSet: ObjectLiteral): this;
     /**
-     * Creates SELECT query.
-     * Replaces all old selections if they exist.
+     * Creates DELETE query.
      */
-    select(): this;
-    /**
-     * Creates SELECT query and selects given data.
-     * Replaces all old selections if they exist.
-     */
-    select(selection: string): this;
-    /**
-     * Creates SELECT query and selects given data.
-     * Replaces all old selections if they exist.
-     */
-    select(selection: string[]): this;
-    /**
-     * Creates SELECT query and selects given data.
-     * Replaces all old selections if they exist.
-     */
-    select(...selection: string[]): this;
-    /**
-     * Adds new selection to the SELECT query.
-     */
-    addSelect(selection: string): this;
-    /**
-     * Adds new selection to the SELECT query.
-     */
-    addSelect(selection: string[]): this;
-    /**
-     * Adds new selection to the SELECT query.
-     */
-    addSelect(...selection: string[]): this;
-    /**
-     * Sets locking mode.
-     */
-    setLock(lockMode: "optimistic", lockVersion: number): this;
-    /**
-     * Sets locking mode.
-     */
-    setLock(lockMode: "optimistic", lockVersion: Date): this;
-    /**
-     * Sets locking mode.
-     */
-    setLock(lockMode: "pessimistic_read" | "pessimistic_write"): this;
+    delete(): this;
     /**
      * Specifies FROM which entity's table select/update/delete will be executed.
      * Also sets a main string alias of the selection data.
      */
-    from(entityTarget: Function | string, alias: string): this;
+    from(entityTarget: Function | string, aliasName: string): this;
     /**
      * Specifies FROM which table select/update/delete will be executed.
      * Also sets a main string alias of the selection data.
      */
-    fromTable(tableName: string, alias: string): this;
+    fromTable(tableName: string, aliasName: string): this;
     /**
      * INNER JOINs (without selection) entity's property.
      * Given entity property should be a relation.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoin(property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoin(property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs (without selection) given entity's table.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoin(entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoin(entity: Function | string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs (without selection) given table.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoin(tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoin(tableName: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs (without selection) entity's property.
      * Given entity property should be a relation.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoin(property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoin(property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs (without selection) entity's table.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoin(entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoin(entity: Function | string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs (without selection) given table.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoin(tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoin(tableName: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity's property and adds all selection properties to SELECT.
      * Given entity property should be a relation.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndSelect(property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndSelect(property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity and adds all selection properties to SELECT.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndSelect(entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndSelect(entity: Function | string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs table and adds all selection properties to SELECT.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndSelect(tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndSelect(tableName: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity's property and adds all selection properties to SELECT.
      * Given entity property should be a relation.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndSelect(property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndSelect(property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity and adds all selection properties to SELECT.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndSelect(entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndSelect(entity: Function | string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs table and adds all selection properties to SELECT.
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndSelect(tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndSelect(tableName: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity's property, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -246,7 +156,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapMany(mapToProperty: string, property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapMany(mapToProperty: string, property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity's table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -254,7 +164,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapMany(mapToProperty: string, entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapMany(mapToProperty: string, entity: Function | string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * INNER JOINs table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -262,7 +172,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapMany(mapToProperty: string, tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapMany(mapToProperty: string, tableName: string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity's property, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -271,7 +181,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapOne(mapToProperty: string, property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapOne(mapToProperty: string, property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * INNER JOINs entity's table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -279,7 +189,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapOne(mapToProperty: string, entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapOne(mapToProperty: string, entity: Function | string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * INNER JOINs table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -287,7 +197,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    innerJoinAndMapOne(mapToProperty: string, tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    innerJoinAndMapOne(mapToProperty: string, tableName: string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity's property, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -296,7 +206,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapMany(mapToProperty: string, property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndMapMany(mapToProperty: string, property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity's table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -304,7 +214,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapMany(mapToProperty: string, entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndMapMany(mapToProperty: string, entity: Function | string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -312,7 +222,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapMany(mapToProperty: string, tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndMapMany(mapToProperty: string, tableName: string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity's property, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -321,7 +231,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapOne(mapToProperty: string, property: string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndMapOne(mapToProperty: string, property: string, aliasName: string, condition?: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs entity's table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -329,7 +239,7 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapOne(mapToProperty: string, entity: Function | string, alias: string, condition?: string, options?: JoinOptions): this;
+    leftJoinAndMapOne(mapToProperty: string, entity: Function | string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs table, SELECTs the data returned by a join and MAPs all that data to some entity's property.
      * This is extremely useful when you want to select some data and map it to some virtual property.
@@ -337,49 +247,29 @@ export declare class QueryBuilder<Entity> {
      * You also need to specify an alias of the joined data.
      * Optionally, you can add condition and parameters used in condition.
      */
-    leftJoinAndMapOne(mapToProperty: string, tableName: string, alias: string, condition?: string, options?: JoinOptions): this;
-    /**
-     * LEFT JOINs relation id.
-     * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
-     */
-    leftJoinRelationId(property: string, condition?: string): this;
-    /**
-     * INNER JOINs relation id.
-     * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
-     */
-    innerJoinRelationId(property: string, condition?: string): this;
+    leftJoinAndMapOne(mapToProperty: string, tableName: string, aliasName: string, condition: string, options?: JoinOptions): this;
     /**
      * LEFT JOINs relation id and maps it into some entity's property.
      * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
      */
-    leftJoinRelationIdAndMap(mapToProperty: string, property: string, condition?: string): this;
+    loadRelationIdAndMap(mapToProperty: string, relationName: string): this;
     /**
-     * INNER JOINs relation id and maps it into some entity's property.
+     * LEFT JOINs relation id and maps it into some entity's property.
      * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
      */
-    innerJoinRelationIdAndMap(mapToProperty: string, property: string, condition?: string): this;
+    loadRelationIdAndMap(mapToProperty: string, relationName: string, options: {
+        disableMixedMap: boolean;
+    }): this;
     /**
-     * Counts number of entities of entity's relation.
+     * LEFT JOINs relation id and maps it into some entity's property.
      * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
      */
-    countRelation(property: string, condition?: string): this;
+    loadRelationIdAndMap(mapToProperty: string, relationName: string, aliasName: string, queryBuilderFactory: (qb: QueryBuilder<any>) => QueryBuilder<any>): this;
     /**
      * Counts number of entities of entity's relation and maps the value into some entity's property.
      * Optionally, you can add condition and parameters used in condition.
-     *
-     * @experimental
      */
-    countRelationAndMap(mapProperty: string, property: string, condition?: string): this;
+    loadRelationCountAndMap(mapToProperty: string, relationName: string, aliasName?: string, queryBuilderFactory?: (qb: QueryBuilder<any>) => QueryBuilder<any>): this;
     /**
      * Sets WHERE condition in the query builder.
      * If you had previously WHERE expression defined,
@@ -393,22 +283,10 @@ export declare class QueryBuilder<Entity> {
      */
     andWhere(where: string, parameters?: ObjectLiteral): this;
     /**
-     * Adds new AND WHERE with conditions for the given ids.
-     *
-     * @experimental Maybe this method should be moved to repository?
-     */
-    andWhereInIds(ids: any[]): this;
-    /**
      * Adds new OR WHERE condition in the query builder.
      * Additionally you can add parameters used in where expression.
      */
     orWhere(where: string, parameters?: ObjectLiteral): this;
-    /**
-     * Adds new OR WHERE with conditions for the given ids.
-     *
-     * @experimental Maybe this method should be moved to repository?
-     */
-    orWhereInIds(ids: any[]): this;
     /**
      * Sets HAVING condition in the query builder.
      * If you had previously HAVING expression defined,
@@ -443,6 +321,12 @@ export declare class QueryBuilder<Entity> {
      */
     orderBy(sort: string, order?: "ASC" | "DESC"): this;
     /**
+     * Sets ORDER BY condition in the query builder.
+     * If you had previously ORDER BY expression defined,
+     * calling this function will override previously set ORDER BY conditions.
+     */
+    orderBy(sort: undefined): this;
+    /**
      * Adds ORDER BY condition in the query builder.
      */
     addOrderBy(sort: string, order?: "ASC" | "DESC"): this;
@@ -450,40 +334,56 @@ export declare class QueryBuilder<Entity> {
      * Set's LIMIT - maximum number of rows to be selected.
      * NOTE that it may not work as you expect if you are using joins.
      * If you want to implement pagination, and you are having join in your query,
-     * then use instead setMaxResults instead.
+     * then use instead take method instead.
      */
-    setLimit(limit: number): this;
+    setLimit(limit?: number): this;
     /**
      * Set's OFFSET - selection offset.
      * NOTE that it may not work as you expect if you are using joins.
      * If you want to implement pagination, and you are having join in your query,
-     * then use instead setFirstResult instead.
+     * then use instead skip method instead.
      */
-    setOffset(offset: number): this;
+    setOffset(offset?: number): this;
     /**
      * Sets maximal number of entities to take.
      */
-    take(take: number): this;
+    take(take?: number): this;
     /**
-     * Sets number of entities to skip
+     * Sets number of entities to skip.
      */
-    skip(skip: number): this;
+    skip(skip?: number): this;
+    /**
+     * Sets maximal number of entities to take.
+     *
+     * @deprecated use take method instead
+     */
+    setMaxResults(take?: number): this;
+    /**
+     * Sets number of entities to skip.
+     *
+     * @deprecated use skip method instead
+     */
+    setFirstResult(skip?: number): this;
+    /**
+     * Sets locking mode.
+     */
+    setLock(lockMode: "optimistic", lockVersion: number): this;
+    /**
+     * Sets locking mode.
+     */
+    setLock(lockMode: "optimistic", lockVersion: Date): this;
+    /**
+     * Sets locking mode.
+     */
+    setLock(lockMode: "pessimistic_read" | "pessimistic_write"): this;
     /**
      * Sets given parameter's value.
      */
     setParameter(key: string, value: any): this;
     /**
      * Adds all parameters from the given object.
-     * Unlike setParameters method it does not clear all previously set parameters.
      */
     setParameters(parameters: ObjectLiteral): this;
-    /**
-     * Adds all parameters from the given object.
-     * Unlike setParameters method it does not clear all previously set parameters.
-     *
-     * @deprecated use setParameters instead
-     */
-    addParameters(parameters: ObjectLiteral): this;
     /**
      * Gets all parameters.
      */
@@ -495,14 +395,10 @@ export declare class QueryBuilder<Entity> {
     getSql(): string;
     /**
      * Gets generated sql without parameters being replaced.
-     *
-     * @experimental
      */
     getGeneratedQuery(): string;
     /**
      * Gets sql to be executed with all parameters used in it.
-     *
-     * @experimental
      */
     getSqlWithParameters(options?: {
         skipOrderBy?: boolean;
@@ -548,30 +444,54 @@ export declare class QueryBuilder<Entity> {
      */
     clone(options?: {
         queryRunnerProvider?: QueryRunnerProvider;
-        skipOrderBys?: boolean;
-        skipLimit?: boolean;
-        skipOffset?: boolean;
-        ignoreParentTablesJoins?: boolean;
     }): QueryBuilder<Entity>;
+    /**
+     * Disables escaping.
+     */
+    disableEscaping(): this;
+    /**
+     * Escapes alias name using current database's escaping character.
+     */
     escapeAlias(name: string): string;
+    /**
+     * Escapes column name using current database's escaping character.
+     */
     escapeColumn(name: string): string;
+    /**
+     * Escapes table name using current database's escaping character.
+     */
     escapeTable(name: string): string;
     /**
      * Enables special query builder options.
+     *
+     * @deprecated looks like enableRelationIdValues is not used anymore. What to do? Remove this method? What about persistence?
      */
-    enableOption(option: "RELATION_ID_VALUES"): this;
-    protected loadRelationCounts(queryRunner: QueryRunner, results: Entity[]): Promise<{}>;
-    protected rawResultsToEntities(results: any[]): any[];
-    protected buildEscapedEntityColumnSelects(alias: Alias): string[];
-    protected findEntityColumnSelects(alias: Alias): string[];
+    enableAutoRelationIdsLoad(): this;
+    /**
+     * Adds new AND WHERE with conditions for the given ids.
+     *
+     * @experimental Maybe this method should be moved to repository?
+     * @deprecated
+     */
+    andWhereInIds(ids: any[]): this;
+    /**
+     * Adds new OR WHERE with conditions for the given ids.
+     *
+     * @experimental Maybe this method should be moved to repository?
+     * @deprecated
+     */
+    orWhereInIds(ids: any[]): this;
+    protected join(direction: "INNER" | "LEFT", entityOrProperty: Function | string, aliasName: string, condition?: string, options?: JoinOptions, mapToProperty?: string, isMappingMany?: boolean): void;
+    protected rawResultsToEntities(results: any[], rawRelationIdResults: RelationIdLoadResult[], rawRelationCountResults: RelationCountLoadResult[]): any[];
+    protected buildEscapedEntityColumnSelects(aliasName: string, metadata: EntityMetadata): SelectQuery[];
+    protected findEntityColumnSelects(aliasName: string, metadata: EntityMetadata): SelectQuery[];
     protected createSelectExpression(): string;
     protected createHavingExpression(): string;
     protected createWhereExpression(): string;
     /**
      * Replaces all entity's propertyName to name in the given statement.
      */
-    private replacePropertyNames(statement);
-    protected createJoinRelationIdsExpression(): string[];
+    protected replacePropertyNames(statement: string): string;
     protected createJoinExpression(): string;
     protected createGroupByExpression(): string;
     protected createOrderByCombinedWithSelectExpression(parentAlias: string): string[];
@@ -579,12 +499,6 @@ export declare class QueryBuilder<Entity> {
     protected createLimitExpression(): string;
     protected createOffsetExpression(): string;
     protected createLockExpression(): string;
-    private extractJoinMappings();
-    protected join(joinType: "INNER" | "LEFT", property: string, alias: string, condition?: string, options?: JoinOptions, mapToProperty?: string, isMappingMany?: boolean): this;
-    protected join(joinType: "INNER" | "LEFT", entity: Function, alias: string, condition?: string, options?: JoinOptions, mapToProperty?: string, isMappingMany?: boolean): this;
-    protected join(joinType: "INNER" | "LEFT", entityOrProperty: Function | string, alias: string, condition: string, options?: JoinOptions, mapToProperty?: string, isMappingMany?: boolean): this;
-    protected joinRelationId(joinType: "LEFT" | "INNER", mapToProperty: string | undefined, property: string, condition?: string): this;
-    private isPropertyAlias(str);
     /**
      * Creates "WHERE" expression and variables for the given "ids".
      */

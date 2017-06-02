@@ -29,7 +29,7 @@ var IndexSchema = (function () {
      * Creates index from the index metadata object.
      */
     IndexSchema.create = function (indexMetadata) {
-        return new IndexSchema(indexMetadata.entityMetadata.table.name, indexMetadata.name, indexMetadata.columns, indexMetadata.isUnique);
+        return new IndexSchema(indexMetadata.entityMetadata.tableName, indexMetadata.name, indexMetadata.columns.map(function (column) { return column.databaseName; }), indexMetadata.isUnique);
     };
     return IndexSchema;
 }());

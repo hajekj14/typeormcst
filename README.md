@@ -47,9 +47,9 @@ to javascript object's properties
 * create one-to-one, many-to-one, one-to-many, many-to-many relations between tables
 * and much more...
 
-TypeORM uses the Data Mapper pattern, unlike all other JavaScript ORMs that
+TypeORM uses Data Mapper pattern, unlike all other JavaScript ORMs that
 currently exist, which means you can write loosely coupled, scalable,
-maintainable applications with fewer problems.
+maintainable applications with less problems.
 
 The benefit of using TypeORM for the programmer is the ability to focus on
 the business logic and worry about persistence only as a secondary problem.
@@ -97,14 +97,14 @@ TypeORM is highly influenced by other ORMs, such as [Hibernate](http://hibernate
     
         `npm install oracledb --save`
     
-    Install only one of them, depending on which database you use.
+    Install only one of them, depend on which database you use.
     
-    To make the Oracle driver work, you need to follow the installation instructions from 
+    To make oracle driver to work you need to follow installation instructions from 
     [their](https://github.com/oracle/node-oracledb) site.
 
 #### TypeScript configuration
 
-Also make sure you are using version **2.1** or greater of the TypeScript compiler, and you have enabled the following settings in `tsconfig.json`:
+Also make sure you are using TypeScript compiler version > **2.1** and you have enabled following settings in `tsconfig.json`:
 
 ```json
 "emitDecoratorMetadata": true,
@@ -122,13 +122,13 @@ If you have errors during app bootstrap, try to upgrade your Node.js version to 
 
 TypeORM works in the browser and has experimental support of WebSQL.
 If you want to use TypeORM in the browser then you need to `npm i typeorm-browser` instead of `typeorm`.
-More information about it is in [this page](https://typeorm.github.io/usage-in-browser.html). 
-Also take a look at [this sample](https://github.com/typeorm/browser-example).
+More information about it in [this page](https://typeorm.github.io/usage-in-browser.html). 
+Also take a look on [this sample](https://github.com/typeorm/browser-example).
 
-## Quick start
+## Quick Start
 
-In TypeORM, tables are created from Entities. 
-*Entity* is your model decorated by an `@Entity` decorator. 
+In TypeORM tables are created from Entities. 
+*Entity* is your model decorated by a `@Entity` decorator. 
 You can get entities from the database and insert/update/remove them from there. 
 Let's say we have a model `entity/Photo.ts`:
 
@@ -142,7 +142,7 @@ export class Photo {
 }
 ````
         
-### Create an entity
+### Creating entity
 
 Now let's make it entity:
 
@@ -160,9 +160,9 @@ export class Photo {
 }
 ```
         
-### Adding table columns
+### Add table columns
 
-Now we have a table, and each table consists of columns. 
+Now we have a table, and each table consist of columns. 
 Let's add some columns. 
 You can make any property of your model a column by using a `@Column` decorator:
 
@@ -192,10 +192,10 @@ export class Photo {
 }
 ```
         
-### Creating a primary column
+### Create a primary column
 
 Perfect. 
-Now the ORM will generate a photo table for us with all its properties as columns. 
+Now ORM will generate us a photo table with all its properties as columns. 
 But there is one thing left.
 Each entity must have a primary column. 
 This is requirement and you can't avoid it. 
@@ -227,9 +227,9 @@ export class Photo {
 }
 ```
    
-### Creating an auto-increment / generated / sequence / identity column
+### Create auto-increment / generated / sequence / identity column
 
-Now, let's say you want your id column to be auto-generated (this is known as auto-increment / sequence / generated identity column).
+Now, let's say you want to make your id column to be auto-generated (this is known as auto-increment / sequence / generated identity column).
 To do that you need to change your column's type to integer and set a `{ generated: true }` in your primary column's options:
 
 ```javascript
@@ -258,10 +258,10 @@ export class Photo {
 }
 ```
 
-### Using the `@PrimaryGeneratedColumn` decorator
+### Using `@PrimaryGeneratedColumn` decorator
 
-Now your photo's id will always be a generated, auto-increment value. 
-Since creating a generated auto-incrementing primary column is a common task, 
+Now your photo's id will always be a generated, auto increment value. 
+Since this is a common task - to create a generated auto increment primary column, 
 there is a special decorator called `@PrimaryGeneratedColumn` to do the same. 
 Let's use it instead:
 
@@ -293,8 +293,8 @@ export class Photo {
 
 ### Custom column data types
 
-Next, let's fix our data types. By default, string is mapped to a varchar(255)-like type (depending on the database type). 
-Number is mapped to a float/double-like type (depending on the database type). 
+Next step, let's fix our data types. By default, string is mapped to a varchar(255)-like type (depend of database type). 
+Number is mapped to a float/double-like type (depend of database type). 
 We don't want all our columns to be limited varchars or excessive floats. 
 Let's setup correct data types:
 
@@ -326,9 +326,9 @@ export class Photo {
 }
 ```
 
-### Creating a connection to the database
+### Creating connection with the database
 
-Now that our entity is created, let's create an `app.ts` file and set up our connection there:
+Now, when our entity is created, let's create `app.ts` file and setup our connection there:
 
 ```javascript
 import "reflect-metadata";
@@ -354,7 +354,7 @@ createConnection({
 ```
 
 We are using MySQL in this example, but you can use any other database. 
-To use another database, simply change the type in the driver options to the database type you are using: 
+To use another database simply change type in the driver options to the database type you are using: 
 mysql, mariadb, postgres, sqlite, mssql or oracle.
 Also make sure to use your own host, port, username, password and database settings.
 
@@ -366,7 +366,8 @@ Setting `autoSchemaSync` makes sure your entities will be synced with the databa
 ### Loading all entities from the directory
 
 Later, when we create more entities we need to add them to the entities in our configuration. 
-This is not very convenient, so instead we can set up the whole directory, from where all entities will be connected and used in our connection:
+But this is not very convenient, and instead we can setup the whole directory, 
+where from all entities will be connected and used in our connection:
 
 ```javascript
 import {createConnection} from "typeorm";
@@ -389,9 +390,9 @@ createConnection({
 }).catch(error => console.log(error));
 ```
 
-### Running the application
+### Run the application
 
-Now if you run your `app.ts`, a connection with database will be initialized and a database table for your photos will be created.
+Now you if run your `app.ts`, connection with database will be initialized and database table for your Photo will be created.
 
 
 ```shell
@@ -408,7 +409,7 @@ Now if you run your `app.ts`, a connection with database will be initialized and
 ```
 
 
-### Creating and inserting a photo into the database
+### Creating and inserting photo into the database
 
 Now let's create a new photo to save it in the database:
 
@@ -424,7 +425,7 @@ createConnection(/*...*/).then(connection => {
     photo.views = 1;
     photo.isPublished = true;
 
-    connection.entityManager
+    connection.manager
             .persist(photo)
             .then(photo => {
                 console.log("Photo has been saved");
@@ -435,7 +436,7 @@ createConnection(/*...*/).then(connection => {
   
 ### Using async/await syntax
 
-Let's take advantage of the latest TypeScript features and use async/await syntax instead:
+Let's use latest TypeScript advantages and use async/await syntax instead:
 
 ```javascript
 import {createConnection} from "typeorm";
@@ -450,7 +451,7 @@ createConnection(/*...*/).then(async connection => {
     photo.views = 1;
     photo.isPublished = true;
 
-    await connection.entityManager.persist(photo);
+    await connection.manager.persist(photo);
     console.log("Photo has been saved");
 
 }).catch(error => console.log(error));
@@ -470,19 +471,19 @@ import {Photo} from "./entity/Photo";
 createConnection(/*...*/).then(async connection => {
 
     /*...*/
-    let savedPhotos = await connection.entityManager.find(Photo);
+    let savedPhotos = await connection.manager.find(Photo);
     console.log("All photos from the db: ", savedPhotos);
 
 }).catch(error => console.log(error));
 ```
    
-`savedPhotos` will be an array of Photo objects with the data loaded from the database.
+savedPhotos will be an array of Photo objects with the data loaded from the database.
 
 ### Using Repositories
 
-Now let's refactor our code and use `Repository` instead of `EntityManager`.
+Now let's refactor our code and use `Repository` instead of EntityManager.
 Each entity has its own repository which handles all operations with its entity. 
-When you deal with entities a lot, Repositories are more convenient to use than EntityManagers:
+When you deal with entities a lot, Repositories are more convenient to use then EntityManager:
 
 
 ```javascript
@@ -511,7 +512,7 @@ createConnection(/*...*/).then(async connection => {
  
 ### Loading photos from the database
 
-Let's try to more load operations using the Repository:
+Let's try more load operations using Repository:
 
 ```javascript
 import {createConnection} from "typeorm";
@@ -542,7 +543,7 @@ createConnection(/*...*/).then(async connection => {
 }).catch(error => console.log(error));
 ```
 
-### Updating a photo in the database
+### Updating photo in the database
 
 Now let's load a single photo from the database, update it and save it:
 
@@ -562,7 +563,7 @@ createConnection(/*...*/).then(async connection => {
 
 Now photo with `id = 1` will be updated in the database.
 
-### Removing a photo from the database
+### Removing photo from the database
 
 Now let's remove our photo from the database:
 
@@ -584,7 +585,7 @@ Now photo with `id = 1` will be removed from the database.
 ### Creating a one-to-one relation
 
 Let's create a one-to-one relation with another class. 
-Let's create a new class in `PhotoMetadata.ts`. This PhotoMetadata class is supposed to contain our photo's additional meta-information:
+Let's create a new class called `PhotoMetadata.ts` which will contain a PhotoMetadata class which supposed to contain our photo's additional meta-information:
 
 ```javascript
 import {Entity, Column, PrimaryGeneratedColumn, OneToOne, JoinColumn} from "typeorm";
@@ -617,18 +618,18 @@ export class PhotoMetadata {
 }
 ```
      
-Here, we are used a new decorator called `@OneToOne`. It allows us to create one-to-one relations between two entities. 
+Here, we are used a new decorator called `@OneToOne`. It allows to create one-to-one relations between two entities. 
 `type => Photo` is a function that returns the class of the entity with which we want to make our relation. 
 We are forced to use a function that returns a class, instead of using class directly, because of the language specifics.
-We can also write it as a `() => Photo`, but we use `type => Photo` as convention to increase code readability.
-The type variable itself does not contain anything.
+We can also write it as a `() => Photo`, but we use `type => Photo as convention to increase code readability. `
+Type variable itself does not contain anything.
 
-We also add a `@JoinColumn` decorator, which indicates that this side of the relationship will own the relationship.
-Relations can be unidirectional or bidirectional. 
+We also put `@JoinColumn` decorator, which indicates that this side of the relationship will be owning relationship.
+Relations can be a unidirectional and bidirectional. 
 Only one side of relational can be owner. 
-Using this decorator is required on the owner side of the relationship.
+Using this decorator is required on owner side of the relationship.
 
-If you run the app, you'll see a newly generated table, and it will contain a column with a foreign key for the photo relation:
+If you run the app you'll see a new generated table, and it will contain a column with a foreign key for the photo relation:
 
 ```shell
 +-------------+--------------+----------------------------+
@@ -644,7 +645,7 @@ If you run the app, you'll see a newly generated table, and it will contain a co
 +-------------+--------------+----------------------------+
 ```
 
-### Persisting an object with a one-to-one relation
+### Persisting an object with one-to-one relation
 
 Now let's save a photo, its metadata and attach them to each other.
 
@@ -687,13 +688,13 @@ createConnection(/*...*/).then(async connection => {
 }).catch(error => console.log(error));
 ```
  
-### Adding the inverse side of a relation
+### Adding inverse side of a relation
 
-Relations can be unidirectional or bidirectional. 
-Currently, our relation between PhotoMetadata and Photo is unidirectional.
-The owner of the relation is PhotoMetadata, and Photo doesn't know anything about PhotoMetadata. 
-This makes it complicated to access photo metadata from the photo objects. 
-To fix it we should add an inverse relation, and make relations between PhotoMetadata and Photo bidirectional. 
+Relations can be a unidirectional and bidirectional. 
+Now, relation between PhotoMetadata and Photo is unidirectional.
+Owner of the relation is PhotoMetadata and Photo doesn't know anything about PhotoMetadata. 
+This makes complicated accessing a photo metadata from the photo objects. 
+To fix it we should add inverse relation and make relations between PhotoMetadata and Photo bidirectional. 
 Let's modify our entities:
 
 ```javascript
@@ -725,21 +726,21 @@ export class Photo {
 }
 ```  
 
-`photo => photo.metadata` is a function that returns the name of the inverse side of the relation. 
-Here we show that the metadata property of the Photo class is where we store PhotoMetadata in the Photo class. 
-Instead of passing a function that returns a property of the photo, you could alternatively simply pass a string to `@OneToOne` decorator, like `"metadata"`. 
-But we used this function-typed approach to make your refactoring easier.
+`photo => photo.metadata` is a function that returns a name of the inverse side of the relation. 
+Here we show that metadata property of the Photo class is where we store PhotoMetadata in the Photo class. 
+You could also instead of passing function that returns a property of the photo simply pass a string to `@OneToOne` decorator, like `"metadata"`. 
+But we used this function-typed approach to make your refactorings easier.
 
-Note that we should use `@JoinColumn` on one side of a relation only. 
-Whichever side you put this decorator on will be the owning side of the relationship. 
-The owning side of a relationship contains a column with a foreign key in the database.
+Note that we should use `@JoinColumn` only on one side of relation. 
+On which side you put this decorator, that side will be owning side of relationship. 
+Owning side of relationship contain a column with a foreign key in the database.
 
-### Loading objects with their relations
+### Loading object with their relations
 
 Now let's load our photo, and its photo metadata in a single query. 
-There are two ways to do it -- either with `FindOptions` or `QueryBuilder`. 
-Let's use `FindOptions` first. 
-The `Repository.find` method allows you to specify an object with the `FindOptions` interface. 
+There are two ways to do it - one you can use `FindOptions`, second is to use QueryBuilder. 
+Let's use FindOptions first. 
+`Repository.find` method allows you to specify object with FindOptions interface. 
 Using this you can customize your query to perform more complex queries.
 
 ```javascript
@@ -762,16 +763,16 @@ createConnection(/*...*/).then(async connection => {
 }).catch(error => console.log(error));
 ```
         
-Here photos will contain an array of photos from the database, and each photo will contain its photo metadata.
+Here photos will contain array of photos from the database, and each photo will contain its photo metadata.
 
-`alias` is a required property of `FindOptions`. It's your own alias name of the data you are selecting. 
-You'll use this alias in your `where`, `order by`, `group by`, `join` and other expressions.
+`alias` is a required property of FindOptions. Its your own alias name of the data you are selecting. 
+You'll use this alias in your where, order by, group by, join and other expressions.
 
-We also used `innerJoinAndSelect` to inner join and select the data from `photo.metadata`. 
-In `photo.metadata`, `photo` is an alias you used, and `metadata` is a property name with relation of the object you are selecting. 
-`"metadata"`: is a new alias to the data returned by the join expression.
+We also used `innerJoinAndSelect` to inner and join and select the data from photo.metadata. 
+In `"photo.metadata"` "photo" is an alias you used, and "metadata" is a property name with relation of the object you are selecting. 
+`"metadata"`: is a new alias to the data returned by join expression.
 
-Let's use `QueryBuilder` for the same purpose. `QueryBuilder` allows us to use more complex queries in an elegant way:
+Let's use `QueryBuilder` for the same purpose. QueryBuilder allows to use more complex queries in an elegant way:
 
 ```javascript
 import {createConnection} from "typeorm";
@@ -792,7 +793,7 @@ createConnection(/*...*/).then(async connection => {
 
 ### Using cascade options to automatically save related objects
 
-We can setup cascade options in our relations, in the cases when we want our related object to be persisted whenever the other object is saved. 
+We can setup cascade options in our relations, in the cases when we want our related object to be persisted whenever other object is saved. 
 Let's change our photo's `@OneToOne` decorator a bit:
 
 ```javascript
@@ -809,12 +810,12 @@ export class Photo {
 ```
 
 * **cascadeInsert** - automatically insert metadata in the relation if it does not exist in its table. 
-    This means that we don't need to manually insert a newly created `photoMetadata` object.
-* **cascadeUpdate** - automatically update metadata in the relation if something is changed in this object.
+    This means that we don't need to manually insert a newly created photoMetadata object.
+* **cascadeUpdate** - automatically update metadata in the relation if in this object something is changed.
 * **cascadeRemove** - automatically remove metadata from its table if you removed metadata from photo object.
 
-Using `cascadeInsert` allows us not to separately persist photo and separately persist metadata objects now. 
-Now we can simply persist a photo object, and the metadata object will persist automatically because of cascade options.
+Using cascadeInsert allows us not to separately persist photo and separately persist metadata objects now. 
+Now we can simply persist a photo object, and metadata object will persist automatically because of cascade options.
 
 ```javascript
 createConnection(options).then(async connection => {
@@ -851,7 +852,7 @@ createConnection(options).then(async connection => {
 
 Let's create a many-to-one / one-to-many relation. 
 Let's say a photo has one author, and each author can have many photos. 
-First, let's create an `Author` class:
+First, let's create Author class:
 
 ```javascript
 import {Entity, Column, PrimaryGeneratedColumn, OneToMany, JoinColumn} from "typeorm";
@@ -871,10 +872,10 @@ export class Author {
 }
 ```
 
-`Author` contains an inverse side of a relation. 
-`OneToMany` is always an inverse side of relation, and it can't exist without `ManyToOne` on the other side of the relation.
+Author contains an inverse side of a relationship. 
+OneToMany is always an inverse side of relation, and it can't exist without ManyToOne of the other side of relationship.
 
-Now let's add the owner side of the relation into the Photo entity:
+Now let's add owner side of relationship into the Photo entity:
 
 ```javascript
 import {Entity, Column, PrimaryGeneratedColumn, ManyToOne} from "typeorm";
@@ -891,10 +892,10 @@ export class Photo {
 }
 ```
 
-In many-to-one / one-to-many relation, the owner side is always many-to-one. 
-It means that the class that uses `@ManyToOne` will store the id of the related object.
+In many-to-one / one-to-many relation, owner side is always many-to-one. 
+It means that class which uses `@ManyToOne` will store id of the related object.
 
-After you run the application, the ORM will create the `author` table:
+After you run application ORM will create author table:
 
 
 ```shell
@@ -906,7 +907,7 @@ After you run the application, the ORM will create the `author` table:
 +-------------+--------------+----------------------------+
 ```
 
-It will also modify the `photo` table, adding a new `author` column and creating a foreign key for it:
+It will also modify photo table - add a new column author and create a foreign key for it:
 
 ```shell
 +-------------+--------------+----------------------------+
@@ -924,7 +925,7 @@ It will also modify the `photo` table, adding a new `author` column and creating
 ### Creating a many-to-many relation
 
 Let's create a many-to-one / many-to-many relation. 
-Let's say a photo can be in many albums, and each album can contain many photos. 
+Let's say a photo can be in many albums, and multiple can have many photos. 
 Let's create an `Album` class:
 
 ```javascript
@@ -949,9 +950,9 @@ export class Album {
 }
 ```
   
-`@JoinTable` is required to specify that this is the owner side of the relationship.
+`@JoinTable` is required to specify that this is owner side of the relationship.
 
-Now let's add the inverse side of our relation to the `Photo` class:
+Now let's add inverse side of our relation to the `Photo` class:
 
 ```javascript
 export class Photo {
@@ -966,7 +967,7 @@ export class Photo {
 }
 ```
 
-After you run thr application, the ORM will create a **album_photos_photo_albums** *junction table*:
+After you run application ORM will create a **album_photos_photo_albums** *junction table*:
 
 ```shell
 +-------------+--------------+----------------------------+
@@ -977,7 +978,7 @@ After you run thr application, the ORM will create a **album_photos_photo_albums
 +-------------+--------------+----------------------------+
 ```
 
-Don't forget to register the `Album` class with your connection in the ORM:
+Don't forget to register `Album` class for your connection in the ORM:
 
 ```javascript
 const options: CreateConnectionOptions = {
@@ -1044,13 +1045,13 @@ let photos = await photoRepository
     .getMany();
 ```
 
-This query builder will select all photos that are published and whose name is "My" or "Mishka".
-It will select results from position 5 (pagination offset), 
+This query builder will select you all photos that are published and whose name is "My" or "Mishka", 
+it will select results from 5 position (pagination offset), 
 and will select only 10 results (pagination limit). 
-The selection result will be ordered by id in descending order. 
-The photos' albums will be left-joined and their metadata will be inner joined.
+Selection result will be ordered by id in descending order. 
+Photo's albums will be left-joined and photo's metadata will be inner joined.
 
-You'll use the query builder in your application a lot. Learn more about QueryBuilder [here](https://typeorm.github.io/query-builder.html).
+You'll use query builder in your application a lot. Learn more about QueryBuilder [here](https://typeorm.github.io/query-builder.html).
 
 ## Learn more
 
@@ -1073,9 +1074,9 @@ You'll use the query builder in your application a lot. Learn more about QueryBu
 
 ## Samples
 
-Take a look at the samples in [./sample](sample) for examples of usage.
+Take a look on samples in [./sample](sample) for examples of usage.
 
-There are a few repositories which you can clone and start with:
+There are few repositories which you can clone and start with:
 
 * [Example how to use TypeORM with TypeScript](https://github.com/typeorm/typescript-example)
 * [Example how to use TypeORM with JavaScript](https://github.com/typeorm/javascript-example)

@@ -18,7 +18,7 @@ var CascadesNotAllowedError = (function (_super) {
     function CascadesNotAllowedError(type, metadata, relation) {
         var _this = _super.call(this) || this;
         _this.name = "CascadesNotAllowedError";
-        _this.message = "Cascades (" + type + ") are not allowed for the given relation " + metadata.name + "#" + relation.name;
+        _this.message = "Cascades (" + type + ") are not allowed for the given relation " + metadata.name + "#" + relation.joinColumns[0].referencedColumn.databaseName;
         return _this;
     }
     return CascadesNotAllowedError;

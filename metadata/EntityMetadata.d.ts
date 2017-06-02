@@ -1,367 +1,361 @@
-import { TableMetadata } from "./TableMetadata";
 import { ColumnMetadata } from "./ColumnMetadata";
-import { RelationMetadata, PropertyTypeInFunction } from "./RelationMetadata";
+import { RelationMetadata } from "./RelationMetadata";
 import { IndexMetadata } from "./IndexMetadata";
 import { ForeignKeyMetadata } from "./ForeignKeyMetadata";
-import { NamingStrategyInterface } from "../naming-strategy/NamingStrategyInterface";
-import { EntityMetadataArgs } from "../metadata-args/EntityMetadataArgs";
 import { EmbeddedMetadata } from "./EmbeddedMetadata";
 import { ObjectLiteral } from "../common/ObjectLiteral";
 import { LazyRelationsWrapper } from "../lazy-loading/LazyRelationsWrapper";
+import { RelationIdMetadata } from "./RelationIdMetadata";
+import { RelationCountMetadata } from "./RelationCountMetadata";
+import { TableType } from "./types/TableTypes";
+import { OrderByCondition } from "../find-options/OrderByCondition";
+import { TableMetadataArgs } from "../metadata-args/TableMetadataArgs";
+import { Connection } from "../connection/Connection";
+import { EntityListenerMetadata } from "./EntityListenerMetadata";
+import { PropertyTypeFactory } from "./types/PropertyTypeInFunction";
 /**
  * Contains all entity metadata.
  */
 export declare class EntityMetadata {
-    private lazyRelationsWrapper;
+    /**
+     * Used to wrap lazy relations.
+     */
+    lazyRelationsWrapper: LazyRelationsWrapper;
     /**
      * If entity's table is a closure-typed table, then this entity will have a closure junction table metadata.
      */
     closureJunctionTable: EntityMetadata;
     /**
+     * If this is entity metadata for a junction closure table then its owner closure table metadata will be set here.
+     */
+    parentClosureEntityMetadata: EntityMetadata;
+    /**
      * Parent's entity metadata. Used in inheritance patterns.
      */
     parentEntityMetadata: EntityMetadata;
     /**
-     * Naming strategy used to generate and normalize names.
+     * Children entity metadatas. Used in inheritance patterns.
      */
-    readonly namingStrategy: NamingStrategyInterface;
+    childEntityMetadatas: EntityMetadata[];
+    /**
+     * Table type. Tables can be abstract, closure, junction, embedded, etc.
+     */
+    tableType: TableType;
     /**
      * Target class to which this entity metadata is bind.
      * Note, that when using table inheritance patterns target can be different rather then table's target.
+     * For virtual tables which lack of real entity (like junction tables) target is equal to their table name.
      */
-    readonly target: Function | string;
+    target: Function | string;
     /**
      * Indicates if this entity metadata of a junction table, or not.
+     * Junction table is a table created by many-to-many relationship.
+     *
+     * Its also possible to understand if entity is junction via tableType.
      */
-    readonly junction: boolean;
+    isJunction: boolean;
     /**
-     * Entity's table metadata.
+     * Entity's name.
+     * Equal to entity target class's name if target is set to table.
+     * If target class is not then then it equals to table name.
      */
-    readonly table: TableMetadata;
+    name: string;
+    /**
+     * Gets the name of the target.
+     */
+    targetName: string;
+    /**
+     * Original user-given table name (taken from schema or @Entity(tableName) decorator).
+     * If user haven't specified a table name this property will be undefined.
+     */
+    givenTableName?: string;
+    /**
+     * Entity table name in the database.
+     * This is final table name of the entity.
+     * This name already passed naming strategy, and generated based on
+     * multiple criteria, including user table name and global table prefix.
+     */
+    tableName: string;
+    /**
+     * Gets the table name without global table prefix.
+     * When querying table you need a table name with prefix, but in some scenarios,
+     * for example when you want to name a junction table that contains names of two other tables,
+     * you may want a table name without prefix.
+     */
+    tableNameWithoutPrefix: string;
+    /**
+     * Indicates if schema sync is skipped for this entity.
+     */
+    skipSchemaSync: boolean;
+    /**
+     * Table's database engine type (like "InnoDB", "MyISAM", etc).
+     */
+    engine?: string;
+    /**
+     * Specifies a default order by used for queries from this table when no explicit order by is specified.
+     */
+    orderBy?: OrderByCondition;
+    /**
+     * Entity's column metadatas defined by user.
+     */
+    ownColumns: ColumnMetadata[];
     /**
      * Entity's relation metadatas.
      */
-    readonly relations: RelationMetadata[];
+    ownRelations: RelationMetadata[];
+    /**
+     * Relations of the entity, including relations that are coming from the embeddeds of this entity.
+     */
+    relations: RelationMetadata[];
+    /**
+     * Columns of the entity, including columns that are coming from the embeddeds of this entity.
+     */
+    columns: ColumnMetadata[];
+    /**
+     * Entity's relation id metadatas.
+     */
+    relationIds: RelationIdMetadata[];
+    /**
+     * Entity's relation id metadatas.
+     */
+    relationCounts: RelationCountMetadata[];
     /**
      * Entity's index metadatas.
      */
-    readonly indices: IndexMetadata[];
+    indices: IndexMetadata[];
     /**
      * Entity's foreign key metadatas.
      */
-    readonly foreignKeys: ForeignKeyMetadata[];
+    foreignKeys: ForeignKeyMetadata[];
     /**
      * Entity's embedded metadatas.
      */
-    readonly embeddeds: EmbeddedMetadata[];
+    embeddeds: EmbeddedMetadata[];
+    /**
+     * Entity listener metadatas.
+     */
+    listeners: EntityListenerMetadata[];
     /**
      * If this entity metadata's table using one of the inheritance patterns,
      * then this will contain what pattern it uses.
      */
-    readonly inheritanceType?: "single-table" | "class-table";
+    inheritanceType?: "single-table" | "class-table";
     /**
      * If this entity metadata is a child table of some table, it should have a discriminator value.
      * Used to store a value in a discriminator column.
      */
-    readonly discriminatorValue?: string;
-    /**
-     * Global tables prefix. Customer can set a global table prefix for all tables in the database.
-     */
-    readonly tablesPrefix?: string;
-    /**
-     * Entity's column metadatas.
-     */
-    private readonly _columns;
-    constructor(args: EntityMetadataArgs, lazyRelationsWrapper: LazyRelationsWrapper);
-    /**
-     * Entity's name. Equal to entity target class's name if target is set to table, or equals to table name if its set.
-     */
-    readonly name: string;
-    /**
-     * Columns of the entity, including columns that are coming from the embeddeds of this entity.
-     * @deprecated
-     */
-    readonly columns: ColumnMetadata[];
-    /**
-     * Gets columns without embedded columns.
-     */
-    readonly columnsWithoutEmbeddeds: ColumnMetadata[];
-    /**
-     * All columns of the entity, including columns that are coming from the embeddeds of this entity,
-     * and including columns from the parent entities.
-     */
-    readonly allColumns: ColumnMetadata[];
-    /**
-     * All relations of the entity, including relations from the parent entities.
-     */
-    readonly allRelations: RelationMetadata[];
-    /**
-     * Gets the name of the target.
-     */
-    readonly targetName: string;
+    discriminatorValue?: string;
     /**
      * Checks if entity's table has multiple primary columns.
      */
-    readonly hasMultiplePrimaryKeys: boolean;
-    /**
-     * Gets the primary column.
-     *
-     * @deprecated
-     */
-    readonly primaryColumn: ColumnMetadata;
-    /**
-     * Checks if table has generated column.
-     */
-    readonly hasGeneratedColumn: boolean;
+    hasMultiplePrimaryKeys: boolean;
     /**
      * Gets the column with generated flag.
      */
-    readonly generatedColumn: ColumnMetadata;
-    /**
-     * Gets the generated column if it exists, or returns undefined if it does not.
-     */
-    readonly generatedColumnIfExist: ColumnMetadata | undefined;
-    /**
-     * Gets first primary column. In the case if table contains multiple primary columns it
-     * throws error.
-     */
-    readonly firstPrimaryColumn: ColumnMetadata;
-    /**
-     * Gets the primary columns.
-     */
-    readonly primaryColumns: ColumnMetadata[];
-    readonly primaryColumnsWithParentIdColumns: ColumnMetadata[];
-    /**
-     * Gets all primary columns including columns from the parent entities.
-     */
-    readonly allPrimaryColumns: ColumnMetadata[];
-    /**
-     * Gets the primary columns of the parent entity metadata.
-     * If parent entity metadata does not exist then it simply returns empty array.
-     */
-    readonly parentPrimaryColumns: ColumnMetadata[];
-    /**
-     * Gets only primary columns owned by this entity.
-     */
-    readonly ownPimaryColumns: ColumnMetadata[];
-    /**
-     * Checks if entity has a create date column.
-     */
-    readonly hasCreateDateColumn: boolean;
-    /**
-     * Gets entity column which contains a create date value.
-     */
-    readonly createDateColumn: ColumnMetadata;
-    /**
-     * Checks if entity has an update date column.
-     */
-    readonly hasUpdateDateColumn: boolean;
-    /**
-     * Gets entity column which contains an update date value.
-     */
-    readonly updateDateColumn: ColumnMetadata;
-    /**
-     * Checks if entity has a version column.
-     */
-    readonly hasVersionColumn: boolean;
-    /**
-     * Gets entity column which contains an entity version.
-     */
-    readonly versionColumn: ColumnMetadata;
-    /**
-     * Checks if entity has a discriminator column.
-     */
-    readonly hasDiscriminatorColumn: boolean;
-    /**
-     * Gets the discriminator column used to store entity identificator in single-table inheritance tables.
-     */
-    readonly discriminatorColumn: ColumnMetadata;
-    /**
-     * Checks if entity has a tree level column.
-     */
-    readonly hasTreeLevelColumn: boolean;
-    readonly treeLevelColumn: ColumnMetadata;
-    /**
-     * Checks if entity has a tree level column.
-     */
-    readonly hasParentIdColumn: boolean;
-    readonly parentIdColumn: ColumnMetadata;
-    readonly parentIdColumns: ColumnMetadata[];
-    /**
-     * Checks if entity has an object id column.
-     */
-    readonly hasObjectIdColumn: boolean;
+    generatedColumn?: ColumnMetadata;
     /**
      * Gets the object id column used with mongodb database.
      */
-    readonly objectIdColumn: ColumnMetadata;
+    objectIdColumn?: ColumnMetadata;
     /**
-     * Gets single (values of which does not contain arrays) relations.
+     * Gets entity column which contains a create date value.
      */
-    readonly singleValueRelations: RelationMetadata[];
+    createDateColumn?: ColumnMetadata;
     /**
-     * Gets single (values of which does not contain arrays) relations.
+     * Gets entity column which contains an update date value.
      */
-    readonly multiValueRelations: RelationMetadata[];
+    updateDateColumn?: ColumnMetadata;
+    /**
+     * Gets entity column which contains an entity version.
+     */
+    versionColumn?: ColumnMetadata;
+    /**
+     * Gets the discriminator column used to store entity identificator in single-table inheritance tables.
+     */
+    discriminatorColumn?: ColumnMetadata;
+    /**
+     * Special column that stores tree level in tree entities.
+     */
+    treeLevelColumn?: ColumnMetadata;
+    /**
+     * Gets the primary columns.
+     */
+    primaryColumns: ColumnMetadata[];
+    /**
+     * Id columns in the parent table (used in table inheritance).
+     */
+    parentIdColumns: ColumnMetadata[];
     /**
      * Gets only one-to-one relations of the entity.
      */
-    readonly oneToOneRelations: RelationMetadata[];
+    oneToOneRelations: RelationMetadata[];
     /**
      * Gets only owner one-to-one relations of the entity.
      */
-    readonly ownerOneToOneRelations: RelationMetadata[];
+    ownerOneToOneRelations: RelationMetadata[];
     /**
      * Gets only one-to-many relations of the entity.
      */
-    readonly oneToManyRelations: RelationMetadata[];
+    oneToManyRelations: RelationMetadata[];
     /**
      * Gets only many-to-one relations of the entity.
      */
-    readonly manyToOneRelations: RelationMetadata[];
+    manyToOneRelations: RelationMetadata[];
     /**
      * Gets only many-to-many relations of the entity.
      */
-    readonly manyToManyRelations: RelationMetadata[];
+    manyToManyRelations: RelationMetadata[];
     /**
      * Gets only owner many-to-many relations of the entity.
      */
-    readonly ownerManyToManyRelations: RelationMetadata[];
+    ownerManyToManyRelations: RelationMetadata[];
     /**
      * Gets only owner one-to-one and many-to-one relations.
      */
-    readonly relationsWithJoinColumns: RelationMetadata[];
-    /**
-     * Checks if there is a tree parent relation. Used only in tree-tables.
-     */
-    readonly hasTreeParentRelation: boolean;
+    relationsWithJoinColumns: RelationMetadata[];
     /**
      * Tree parent relation. Used only in tree-tables.
      */
-    readonly treeParentRelation: RelationMetadata;
-    /**
-     * Checks if there is a tree children relation. Used only in tree-tables.
-     */
-    readonly hasTreeChildrenRelation: boolean;
+    treeParentRelation?: RelationMetadata;
     /**
      * Tree children relation. Used only in tree-tables.
      */
-    readonly treeChildrenRelation: RelationMetadata;
+    treeChildrenRelation?: RelationMetadata;
+    /**
+     * Checks if there any non-nullable column exist in this entity.
+     */
+    hasNonNullableRelations: boolean;
+    /**
+     * Checks if this table is regular.
+     * All non-specific tables are just regular tables. Its a default table type.
+     */
+    isRegular: boolean;
+    /**
+     * Checks if this table is abstract.
+     * This type is for the tables that does not exist in the database,
+     * but provide columns and relations for the tables of the child classes who inherit them.
+     */
+    isAbstract: boolean;
+    /**
+     * Checks if this table is a closure table.
+     * Closure table is one of the tree-specific tables that supports closure database pattern.
+     */
+    isClosure: boolean;
+    /**
+     * Checks if this table is a junction table of the closure table.
+     * This type is for tables that contain junction metadata of the closure tables.
+     */
+    isClosureJunction: boolean;
+    /**
+     * Checks if this table is an embeddable table.
+     * Embeddable tables are not stored in the database as separate tables.
+     * Instead their columns are embed into tables who owns them.
+     */
+    isEmbeddable: boolean;
+    /**
+     * Checks if this table is a single table child.
+     * Special table type for tables that are mapped into single table using Single Table Inheritance pattern.
+     */
+    isSingleTableChild: boolean;
+    /**
+     * Checks if this table is a class table child.
+     * Special table type for tables that are mapped into multiple tables using Class Table Inheritance pattern.
+     */
+    isClassTableChild: boolean;
+    /**
+     * Map of columns and relations of the entity.
+     *
+     * example: Post{ id: number, name: string, counterEmbed: { count: number }, category: Category }.
+     * This method will create following object:
+     * { id: "id", counterEmbed: { count: "counterEmbed.count" }, category: "category" }
+     */
+    propertiesMap: ObjectLiteral;
+    constructor(options: {
+        connection: Connection;
+        parentClosureEntityMetadata?: EntityMetadata;
+        args: TableMetadataArgs;
+    });
     /**
      * Creates a new entity.
      */
     create(): any;
     /**
-     * Creates an object - map of columns and relations of the entity.
+     * Checks if given entity has an id.
      */
-    createPropertiesMap(): {
-        [name: string]: string | any;
-    };
+    hasId(entity: ObjectLiteral): boolean;
+    /**
+     * Compares ids of the two entities.
+     * Returns true if they match, false otherwise.
+     */
+    compareIds(firstId: ObjectLiteral | undefined, secondId: ObjectLiteral | undefined): boolean;
+    /**
+     * Compares two different entity instances by their ids.
+     * Returns true if they match, false otherwise.
+     */
+    compareEntities(firstEntity: ObjectLiteral, secondEntity: ObjectLiteral): boolean;
+    /**
+     * Finds relation with the given name.
+     */
+    findRelationWithDbName(dbName: string): RelationMetadata | undefined;
+    /**
+     * Finds relation with the given property path.
+     */
+    findRelationWithPropertyPath(propertyPath: string): RelationMetadata | undefined;
     /**
      * Computes property name of the entity using given PropertyTypeInFunction.
      */
-    computePropertyName(nameOrFn: PropertyTypeInFunction<any>): any;
+    computePropertyPath(nameOrFn: PropertyTypeFactory<any>): any;
     /**
-     * todo: undefined entities should not go there
+     * Creates entity id map from the given entity ids array.
      */
-    getEntityIdMap(entity: any): ObjectLiteral | undefined;
+    createEntityIdMap(ids: any[]): {};
+    /**
+     * Checks each id in the given entity id map if they all aren't empty.
+     * If they all aren't empty it returns true.
+     * If at least one id in the given map is empty it returns false.
+     */
+    isEntityMapEmpty(entity: ObjectLiteral): boolean;
+    /**
+     * Gets primary keys of the entity and returns them in a literal object.
+     * For example, for Post{ id: 1, title: "hello" } where id is primary it will return { id: 1 }
+     * For multiple primary keys it returns multiple keys in object.
+     * For primary keys inside embeds it returns complex object literal with keys in them.
+     */
+    getEntityIdMap(entity: ObjectLiteral | undefined): ObjectLiteral | undefined;
     /**
      * Same as getEntityIdMap, but instead of id column property names it returns database column names.
      */
     getDatabaseEntityIdMap(entity: ObjectLiteral): ObjectLiteral | undefined;
     /**
-
-    createSimpleIdMap(id: any): ObjectLiteral {
-        const map: ObjectLiteral = {};
-        if (this.parentEntityMetadata) {
-            this.primaryColumnsWithParentIdColumns.forEach(column => {
-                map[column.propertyName] = id;
-            });
-
-        } else {
-            this.primaryColumns.forEach(column => {
-                map[column.propertyName] = id;
-            });
-        }
-        return map;
-    } */
-    /**
-     * Same as createSimpleIdMap, but instead of id column property names it returns database column names.
-
-    createSimpleDatabaseIdMap(id: any): ObjectLiteral {
-        const map: ObjectLiteral = {};
-        if (this.parentEntityMetadata) {
-            this.primaryColumnsWithParentIdColumns.forEach(column => {
-                map[column.name] = id;
-            });
-
-        } else {
-            this.primaryColumns.forEach(column => {
-                map[column.name] = id;
-            });
-        }
-        return map;
-    }*/
-    /**
-     * todo: undefined entities should not go there??
-     * todo: shouldnt be entity ObjectLiteral here?
+     * Creates a "mixed id map".
+     * If entity has multiple primary keys (ids) then it will return just regular id map, like what getEntityIdMap returns.
+     * But if entity has a single primary key then it will return just value of the id column of the entity, just value.
+     * This is called mixed id map.
      */
-    getEntityIdMixedMap(entity: any): any;
+    getEntityIdMixedMap(entity: ObjectLiteral | undefined): ObjectLiteral | undefined;
     /**
-     * Same as `getEntityIdMap` but the key of the map will be the column names instead of the property names.
+     * Checks if given object contains ALL primary keys entity must have.
+     * Returns true if it contains all of them, false if at least one of them is not defined.
      */
-    getEntityIdColumnMap(entity: any): ObjectLiteral | undefined;
-    transformIdMapToColumnNames(idMap: ObjectLiteral | undefined): ObjectLiteral | undefined;
-    getColumnByPropertyName(propertyName: string): ColumnMetadata | undefined;
-    /**
-     * Checks if column with the given property name exist.
-     */
-    hasColumnWithPropertyName(propertyName: string): boolean;
-    /**
-     * Checks if column with the given database name exist.
-     */
-    hasColumnWithDbName(name: string): boolean;
-    /**
-     * Checks if relation with the given property name exist.
-     */
-    hasRelationWithPropertyName(propertyName: string): boolean;
-    /**
-     * Finds relation with the given property name.
-     */
-    findRelationWithPropertyName(propertyName: string): RelationMetadata;
-    /**
-     * Checks if relation with the given name exist.
-     */
-    hasRelationWithDbName(dbName: string): boolean;
-    /**
-     * Finds relation with the given name.
-     */
-    findRelationWithDbName(name: string): RelationMetadata;
-    addColumn(column: ColumnMetadata): void;
-    extractNonEmptyColumns(object: ObjectLiteral): ColumnMetadata[];
-    extractNonEmptySingleValueRelations(object: ObjectLiteral): RelationMetadata[];
-    extractNonEmptyMultiValueRelations(object: ObjectLiteral): RelationMetadata[];
-    extractExistSingleValueRelations(object: ObjectLiteral): RelationMetadata[];
-    extractExistMultiValueRelations(object: ObjectLiteral): RelationMetadata[];
     checkIfObjectContainsAllPrimaryKeys(object: ObjectLiteral): boolean;
-    compareEntities(firstEntity: any, secondEntity: any): boolean;
-    compareIds(firstId: ObjectLiteral | undefined, secondId: ObjectLiteral | undefined): boolean;
-    /**
-     * Compares two entity ids.
-     * If any of the given value is empty then it will return false.
-     */
-    compareEntityMixedIds(firstId: any, secondId: any): boolean;
     /**
      * Iterates throw entity and finds and extracts all values from relations in the entity.
      * If relation value is an array its being flattened.
      */
     extractRelationValuesFromEntity(entity: ObjectLiteral, relations: RelationMetadata[]): [RelationMetadata, any, EntityMetadata][];
     /**
-     * Checks if given entity has an id.
+     * Registers a new column in the entity and recomputes all depend properties.
      */
-    hasId(entity: ObjectLiteral): boolean;
+    registerColumn(column: ColumnMetadata): void;
     /**
-     * Checks if there any non-nullable column exist in this entity.
+     * Creates a special object - all columns and relations of the object (plus columns and relations from embeds)
+     * in a special format - { propertyName: propertyName }.
+     *
+     * example: Post{ id: number, name: string, counterEmbed: { count: number }, category: Category }.
+     * This method will create following object:
+     * { id: "id", counterEmbed: { count: "counterEmbed.count" }, category: "category" }
      */
-    readonly hasNonNullableColumns: boolean;
+    createPropertiesMap(): {
+        [name: string]: string | any;
+    };
 }

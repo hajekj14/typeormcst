@@ -93,6 +93,7 @@ var Subject = (function () {
     Object.defineProperty(Subject.prototype, "databaseEntity", {
         /**
          * Gets entity from the database (e.g. original entity).
+         * THIS IS NOT RAW ENTITY DATA.
          * Throws error if database entity was not set.
          */
         get: function () {
@@ -218,10 +219,12 @@ var Subject = (function () {
      */
     Subject.prototype.computeDiffColumns = function () {
         var _this = this;
-        this.diffColumns = this.metadata.allColumns.filter(function (column) {
+        this.diffColumns = this.metadata.columns.filter(function (column) {
             // prepare both entity and database values to make comparision
             var entityValue = column.getEntityValue(_this.entity);
             var databaseValue = column.getEntityValue(_this.databaseEntity);
+            if (entityValue === undefined)
+                return false;
             // normalize special values to make proper comparision
             if (entityValue !== null && entityValue !== undefined) {
                 if (column.type === ColumnTypes_1.ColumnTypes.DATE) {
@@ -251,11 +254,12 @@ var Subject = (function () {
             }
             // todo: this mechanism does not get in count embeddeds in embeddeds
             // if value is not defined then no need to update it
-            if (!column.isInEmbedded && _this.entity[column.propertyName] === undefined)
-                return false;
+            // if (!column.isInEmbedded && this.entity[column.propertyName] === undefined)
+            //     return false;
+            //
             // if value is in embedded and is not defined then no need to update it
-            if (column.isInEmbedded && (_this.entity[column.embeddedProperty] === undefined || _this.entity[column.embeddedProperty][column.propertyName] === undefined))
-                return false;
+            // if (column.isInEmbedded && (this.entity[column.embeddedProperty] === undefined || this.entity[column.embeddedProperty][column.propertyName] === undefined))
+            //     return false;
             // if its a special column or value is not changed - then do nothing
             if (column.isVirtual ||
                 column.isParentId ||
@@ -266,9 +270,10 @@ var Subject = (function () {
                 entityValue === databaseValue)
                 return false;
             // filter out "relational columns" only in the case if there is a relation object in entity
-            if (!column.isInEmbedded && _this.metadata.hasRelationWithDbName(column.propertyName)) {
-                var relation = _this.metadata.findRelationWithDbName(column.propertyName); // todo: why with dbName ?
-                if (_this.entity[relation.propertyName] !== null && _this.entity[relation.propertyName] !== undefined)
+            var relation = _this.metadata.findRelationWithDbName(column.databaseName);
+            if (relation) {
+                var value = relation.getEntityValue(_this.entity);
+                if (value !== null && value !== undefined)
                     return false;
             }
             return true;
@@ -279,22 +284,18 @@ var Subject = (function () {
      */
     Subject.prototype.computeDiffRelationalColumns = function () {
         var _this = this;
-        this.diffRelations = this.metadata.allRelations.filter(function (relation) {
+        this.diffRelations = this.metadata.relations.filter(function (relation) {
             if (!relation.isManyToOne && !(relation.isOneToOne && relation.isOwning))
                 return false;
             // here we cover two scenarios:
             // 1. related entity can be another entity which is natural way
             // 2. related entity can be entity id which is hacked way of updating entity
             // todo: what to do if there is a column with relationId? (cover this too?)
-            var updatedEntityRelationId = _this.entity[relation.propertyName] instanceof Object ?
-                relation.inverseEntityMetadata.getEntityIdMixedMap(_this.entity[relation.propertyName])
-                : _this.entity[relation.propertyName];
-            // here because we have enabled RELATION_ID_VALUES option in the QueryBuilder when we loaded db entities
-            // we have in the dbSubject only relationIds.
-            // this allows us to compare relation id in the updated subject with id in the database.
-            // note that we used relation.name instead of relation.propertyName because query builder with RELATION_ID_VALUES
-            // returns values in the relation.name column, not relation.propertyName column
-            var dbEntityRelationId = _this.databaseEntity[relation.name];
+            var entityValue = relation.getEntityValue(_this.entity);
+            var updatedEntityRelationId = entityValue instanceof Object
+                ? relation.inverseEntityMetadata.getEntityIdMixedMap(entityValue)
+                : entityValue;
+            var dbEntityRelationId = relation.getEntityValue(_this.databaseEntity);
             // todo: try to find if there is update by relation operation - we dont need to generate update relation operation for this
             // todo: if (updatesByRelations.find(operation => operation.targetEntity === this && operation.updatedRelation === relation))
             // todo:     return false;

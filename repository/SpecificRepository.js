@@ -39,8 +39,11 @@ var QueryRunnerProvider_1 = require("../query-runner/QueryRunnerProvider");
 var Subject_1 = require("../persistence/Subject");
 var RelationMetadata_1 = require("../metadata/RelationMetadata");
 var QueryBuilder_1 = require("../query-builder/QueryBuilder");
+var OrmUtils_1 = require("../util/OrmUtils");
 /**
  * Repository for more specific operations.
+ *
+ * @deprecated Don't use it yet
  */
 var SpecificRepository = (function () {
     // -------------------------------------------------------------------------
@@ -56,30 +59,30 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently set a relation (for many-to-one and one-to-many) to some entity.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.setRelation = function (relationName, entityId, relatedEntityId) {
+    SpecificRepository.prototype.setRelation = function (relationProperty, entityId, relatedEntityId) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, table, values, conditions, queryRunnerProvider, queryRunner;
+            var propertyPath, relation, table, values, conditions, queryRunnerProvider, queryRunner;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         // if (relation.isManyToMany || relation.isOneToMany || relation.isOneToOneNotOwner)
                         //     throw new Error(`Only many-to-one and one-to-one with join column are supported for this operation. ${this.metadata.name}#${propertyName} relation type is ${relation.relationType}`);
                         if (relation.isManyToMany)
                             throw new Error("Many-to-many relation is not supported for this operation. Use #addToRelation method for many-to-many relations.");
                         values = {}, conditions = {};
                         if (relation.isOwning) {
-                            table = relation.entityMetadata.table.name;
-                            values[relation.name] = relatedEntityId;
-                            conditions[relation.joinColumn.referencedColumn.fullName] = entityId;
+                            table = relation.entityMetadata.tableName;
+                            values[relation.joinColumns[0].referencedColumn.databaseName] = relatedEntityId;
+                            conditions[relation.joinColumns[0].referencedColumn.databaseName] = entityId;
                         }
                         else {
-                            table = relation.inverseEntityMetadata.table.name;
-                            values[relation.inverseRelation.name] = relatedEntityId;
-                            conditions[relation.inverseRelation.joinColumn.referencedColumn.fullName] = entityId;
+                            table = relation.inverseEntityMetadata.tableName;
+                            values[relation.inverseRelation.joinColumns[0].referencedColumn.databaseName] = relatedEntityId;
+                            conditions[relation.inverseRelation.joinColumns[0].referencedColumn.databaseName] = entityId;
                         }
                         queryRunnerProvider = this.queryRunnerProvider ? this.queryRunnerProvider : new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
                         return [4 /*yield*/, queryRunnerProvider.provide()];
@@ -103,30 +106,30 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently set a relation (for many-to-one and one-to-many) to some entity.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.setInverseRelation = function (relationName, relatedEntityId, entityId) {
+    SpecificRepository.prototype.setInverseRelation = function (relationProperty, relatedEntityId, entityId) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, table, values, conditions, queryRunnerProvider, queryRunner;
+            var propertyPath, relation, table, values, conditions, queryRunnerProvider, queryRunner;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         // if (relation.isManyToMany || relation.isOneToMany || relation.isOneToOneNotOwner)
                         //     throw new Error(`Only many-to-one and one-to-one with join column are supported for this operation. ${this.metadata.name}#${propertyName} relation type is ${relation.relationType}`);
                         if (relation.isManyToMany)
                             throw new Error("Many-to-many relation is not supported for this operation. Use #addToRelation method for many-to-many relations.");
                         values = {}, conditions = {};
                         if (relation.isOwning) {
-                            table = relation.inverseEntityMetadata.table.name;
-                            values[relation.inverseRelation.name] = relatedEntityId;
-                            conditions[relation.inverseRelation.joinColumn.referencedColumn.fullName] = entityId;
+                            table = relation.inverseEntityMetadata.tableName;
+                            values[relation.inverseRelation.joinColumns[0].databaseName] = relatedEntityId;
+                            conditions[relation.inverseRelation.joinColumns[0].referencedColumn.databaseName] = entityId;
                         }
                         else {
-                            table = relation.entityMetadata.table.name;
-                            values[relation.name] = relatedEntityId;
-                            conditions[relation.joinColumn.referencedColumn.fullName] = entityId;
+                            table = relation.entityMetadata.tableName;
+                            values[relation.joinColumns[0].databaseName] = relatedEntityId;
+                            conditions[relation.joinColumns[0].referencedColumn.databaseName] = entityId;
                         }
                         queryRunnerProvider = this.queryRunnerProvider ? this.queryRunnerProvider : new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
                         return [4 /*yield*/, queryRunnerProvider.provide()];
@@ -150,18 +153,18 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently add a relation between two entities.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.addToRelation = function (relationName, entityId, relatedEntityIds) {
+    SpecificRepository.prototype.addToRelation = function (relationProperty, entityId, relatedEntityIds) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, queryRunnerProvider, queryRunner, insertPromises;
+            var propertyPath, relation, queryRunnerProvider, queryRunner, insertPromises;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         if (!relation.isManyToMany)
-                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyName + " relation type is " + relation.relationType);
+                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyPath + " relation type is " + relation.relationType);
                         queryRunnerProvider = this.queryRunnerProvider ? this.queryRunnerProvider : new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
                         return [4 /*yield*/, queryRunnerProvider.provide()];
                     case 1:
@@ -169,14 +172,14 @@ var SpecificRepository = (function () {
                         insertPromises = relatedEntityIds.map(function (relatedEntityId) {
                             var values = {};
                             if (relation.isOwning) {
-                                values[relation.junctionEntityMetadata.columns[0].fullName] = entityId;
-                                values[relation.junctionEntityMetadata.columns[1].fullName] = relatedEntityId;
+                                values[relation.junctionEntityMetadata.columns[0].databaseName] = entityId;
+                                values[relation.junctionEntityMetadata.columns[1].databaseName] = relatedEntityId;
                             }
                             else {
-                                values[relation.junctionEntityMetadata.columns[1].fullName] = entityId;
-                                values[relation.junctionEntityMetadata.columns[0].fullName] = relatedEntityId;
+                                values[relation.junctionEntityMetadata.columns[1].databaseName] = entityId;
+                                values[relation.junctionEntityMetadata.columns[0].databaseName] = relatedEntityId;
                             }
-                            return queryRunner.insert(relation.junctionEntityMetadata.table.name, values);
+                            return queryRunner.insert(relation.junctionEntityMetadata.tableName, values);
                         });
                         return [4 /*yield*/, Promise.all(insertPromises)];
                     case 2:
@@ -196,18 +199,18 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently add a relation between two entities.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.addToInverseRelation = function (relationName, relatedEntityId, entityIds) {
+    SpecificRepository.prototype.addToInverseRelation = function (relationProperty, relatedEntityId, entityIds) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, queryRunnerProvider, queryRunner, insertPromises;
+            var propertyPath, relation, queryRunnerProvider, queryRunner, insertPromises;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         if (!relation.isManyToMany)
-                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyName + " relation type is " + relation.relationType);
+                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyPath + " relation type is " + relation.relationType);
                         queryRunnerProvider = this.queryRunnerProvider ? this.queryRunnerProvider : new QueryRunnerProvider_1.QueryRunnerProvider(this.connection.driver);
                         return [4 /*yield*/, queryRunnerProvider.provide()];
                     case 1:
@@ -218,14 +221,14 @@ var SpecificRepository = (function () {
                         insertPromises = entityIds.map(function (entityId) {
                             var values = {};
                             if (relation.isOwning) {
-                                values[relation.junctionEntityMetadata.columns[0].fullName] = entityId;
-                                values[relation.junctionEntityMetadata.columns[1].fullName] = relatedEntityId;
+                                values[relation.junctionEntityMetadata.columns[0].databaseName] = entityId;
+                                values[relation.junctionEntityMetadata.columns[1].databaseName] = relatedEntityId;
                             }
                             else {
-                                values[relation.junctionEntityMetadata.columns[1].fullName] = entityId;
-                                values[relation.junctionEntityMetadata.columns[0].fullName] = relatedEntityId;
+                                values[relation.junctionEntityMetadata.columns[1].databaseName] = entityId;
+                                values[relation.junctionEntityMetadata.columns[0].databaseName] = relatedEntityId;
                             }
-                            return queryRunner.insert(relation.junctionEntityMetadata.table.name, values);
+                            return queryRunner.insert(relation.junctionEntityMetadata.tableName, values);
                         });
                         return [4 /*yield*/, Promise.all(insertPromises)];
                     case 3:
@@ -248,26 +251,26 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently remove a many-to-many relation between two entities.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.removeFromRelation = function (relationName, entityId, relatedEntityIds) {
+    SpecificRepository.prototype.removeFromRelation = function (relationProperty, entityId, relatedEntityIds) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, qb, firstColumnName, secondColumnName;
+            var propertyPath, relation, qb, firstColumnName, secondColumnName;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         if (!relation.isManyToMany)
-                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyName + " relation type is " + relation.relationType);
+                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyPath + " relation type is " + relation.relationType);
                         // check if given relation entity ids is empty - then nothing to do here (otherwise next code will remove all ids)
                         if (!relatedEntityIds || !relatedEntityIds.length)
                             return [2 /*return*/, Promise.resolve()];
                         qb = new QueryBuilder_1.QueryBuilder(this.connection, this.queryRunnerProvider)
                             .delete()
-                            .fromTable(relation.junctionEntityMetadata.table.name, "junctionEntity");
-                        firstColumnName = this.connection.driver.escapeColumnName(relation.isOwning ? relation.junctionEntityMetadata.columns[0].fullName : relation.junctionEntityMetadata.columns[1].fullName);
-                        secondColumnName = this.connection.driver.escapeColumnName(relation.isOwning ? relation.junctionEntityMetadata.columns[1].fullName : relation.junctionEntityMetadata.columns[0].fullName);
+                            .fromTable(relation.junctionEntityMetadata.tableName, "junctionEntity");
+                        firstColumnName = this.connection.driver.escapeColumnName(relation.isOwning ? relation.junctionEntityMetadata.columns[0].databaseName : relation.junctionEntityMetadata.columns[1].databaseName);
+                        secondColumnName = this.connection.driver.escapeColumnName(relation.isOwning ? relation.junctionEntityMetadata.columns[1].databaseName : relation.junctionEntityMetadata.columns[0].databaseName);
                         relatedEntityIds.forEach(function (relatedEntityId, index) {
                             qb.orWhere("(" + firstColumnName + "=:entityId AND " + secondColumnName + "=:relatedEntity_" + index + ")")
                                 .setParameter("relatedEntity_" + index, relatedEntityId);
@@ -287,26 +290,26 @@ var SpecificRepository = (function () {
      * Should be used when you want quickly and efficiently remove a many-to-many relation between two entities.
      * Note that event listeners and event subscribers won't work (and will not send any events) when using this operation.
      */
-    SpecificRepository.prototype.removeFromInverseRelation = function (relationName, relatedEntityId, entityIds) {
+    SpecificRepository.prototype.removeFromInverseRelation = function (relationProperty, relatedEntityId, entityIds) {
         return __awaiter(this, void 0, void 0, function () {
-            var propertyName, relation, qb, firstColumnName, secondColumnName;
+            var propertyPath, relation, qb, firstColumnName, secondColumnName;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        propertyName = this.metadata.computePropertyName(relationName);
-                        if (!this.metadata.hasRelationWithPropertyName(propertyName))
-                            throw new Error("Relation " + propertyName + " was not found in the " + this.metadata.name + " entity.");
-                        relation = this.metadata.findRelationWithPropertyName(propertyName);
+                        propertyPath = this.metadata.computePropertyPath(relationProperty);
+                        relation = this.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
                         if (!relation.isManyToMany)
-                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyName + " relation type is " + relation.relationType);
+                            throw new Error("Only many-to-many relation supported for this operation. However " + this.metadata.name + "#" + propertyPath + " relation type is " + relation.relationType);
                         // check if given entity ids is empty - then nothing to do here (otherwise next code will remove all ids)
                         if (!entityIds || !entityIds.length)
                             return [2 /*return*/, Promise.resolve()];
                         qb = new QueryBuilder_1.QueryBuilder(this.connection, this.queryRunnerProvider)
                             .delete()
-                            .from(relation.junctionEntityMetadata.table.name, "junctionEntity");
-                        firstColumnName = relation.isOwning ? relation.junctionEntityMetadata.columns[1].fullName : relation.junctionEntityMetadata.columns[0].fullName;
-                        secondColumnName = relation.isOwning ? relation.junctionEntityMetadata.columns[0].fullName : relation.junctionEntityMetadata.columns[1].fullName;
+                            .from(relation.junctionEntityMetadata.tableName, "junctionEntity");
+                        firstColumnName = relation.isOwning ? relation.junctionEntityMetadata.columns[1].databaseName : relation.junctionEntityMetadata.columns[0].databaseName;
+                        secondColumnName = relation.isOwning ? relation.junctionEntityMetadata.columns[0].databaseName : relation.junctionEntityMetadata.columns[1].databaseName;
                         entityIds.forEach(function (entityId, index) {
                             qb.orWhere("(" + firstColumnName + "=:relatedEntityId AND " + secondColumnName + "=:entity_" + index + ")")
                                 .setParameter("entity_" + index, entityId);
@@ -369,7 +372,7 @@ var SpecificRepository = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        alias = this.metadata.table.name;
+                        alias = this.metadata.tableName;
                         parameters = {};
                         condition = "";
                         if (this.metadata.hasMultiplePrimaryKeys) {
@@ -379,7 +382,7 @@ var SpecificRepository = (function () {
                             }).join(" AND ");
                         }
                         else {
-                            condition = alias + "." + this.metadata.firstPrimaryColumn.propertyName + "=:id";
+                            condition = alias + "." + this.metadata.primaryColumns[0].propertyName + "=:id";
                             parameters["id"] = id;
                         }
                         return [4 /*yield*/, new QueryBuilder_1.QueryBuilder(this.connection, this.queryRunnerProvider)
@@ -405,7 +408,7 @@ var SpecificRepository = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        alias = this.metadata.table.name;
+                        alias = this.metadata.tableName;
                         parameters = {};
                         condition = "";
                         if (this.metadata.hasMultiplePrimaryKeys) {
@@ -417,7 +420,7 @@ var SpecificRepository = (function () {
                             }).join(" OR ");
                         }
                         else {
-                            condition = alias + "." + this.metadata.firstPrimaryColumn.propertyName + " IN (:ids)";
+                            condition = alias + "." + this.metadata.primaryColumns[0].propertyName + " IN (:ids)";
                             parameters["ids"] = ids;
                         }
                         return [4 /*yield*/, new QueryBuilder_1.QueryBuilder(this.connection, this.queryRunnerProvider)
@@ -438,17 +441,18 @@ var SpecificRepository = (function () {
     SpecificRepository.prototype.findRelationIds = function (relationOrName, entityOrEntities, inIds, notInIds) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var relation, entityReferencedColumn, ownerEntityColumn, inverseEntityColumn, entityIds, escapeAlias, escapeColumn, ids, promises;
+            var relation, entityReferencedColumns, ownerEntityColumns, inverseEntityColumns, inverseEntityColumnNames, entityIds, ea, ec, ids, promises;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         relation = this.convertMixedRelationToMetadata(relationOrName);
                         if (!(entityOrEntities instanceof Array))
                             entityOrEntities = [entityOrEntities];
-                        entityReferencedColumn = relation.isOwning ? relation.joinTable.referencedColumn : relation.inverseRelation.joinTable.inverseReferencedColumn;
-                        ownerEntityColumn = relation.isOwning ? relation.junctionEntityMetadata.columns[0] : relation.junctionEntityMetadata.columns[1];
-                        inverseEntityColumn = relation.isOwning ? relation.junctionEntityMetadata.columns[1] : relation.junctionEntityMetadata.columns[0];
-                        entityIds = this.convertEntityOrEntitiesToIdOrIds(entityReferencedColumn, entityOrEntities);
+                        entityReferencedColumns = relation.isOwning ? relation.joinColumns.map(function (joinColumn) { return joinColumn.referencedColumn; }) : relation.inverseRelation.inverseJoinColumns.map(function (joinColumn) { return joinColumn.referencedColumn; });
+                        ownerEntityColumns = relation.isOwning ? relation.joinColumns : relation.inverseRelation.inverseJoinColumns;
+                        inverseEntityColumns = relation.isOwning ? relation.inverseJoinColumns : relation.inverseRelation.joinColumns;
+                        inverseEntityColumnNames = relation.isOwning ? relation.inverseJoinColumns.map(function (joinColumn) { return joinColumn.databaseName; }) : relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn.databaseName; });
+                        entityIds = this.convertEntityOrEntitiesToIdOrIds(entityReferencedColumns, entityOrEntities);
                         if (!(entityIds instanceof Array))
                             entityIds = [entityIds];
                         // filter out empty entity ids
@@ -456,21 +460,40 @@ var SpecificRepository = (function () {
                         // if no entity ids at the end, then we don't need to load anything
                         if (entityIds.length === 0)
                             return [2 /*return*/, []];
-                        escapeAlias = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
-                        escapeColumn = function (column) { return _this.connection.driver.escapeColumnName(column); };
+                        ea = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
+                        ec = function (column) { return _this.connection.driver.escapeColumnName(column); };
                         ids = [];
                         promises = entityIds.map(function (entityId) {
-                            var qb = new QueryBuilder_1.QueryBuilder(_this.connection, _this.queryRunnerProvider)
-                                .select(escapeAlias("junction") + "." + escapeColumn(inverseEntityColumn.fullName) + " AS " + escapeColumn("id"))
-                                .fromTable(relation.junctionEntityMetadata.table.name, "junction")
-                                .andWhere(escapeAlias("junction") + "." + escapeColumn(ownerEntityColumn.fullName) + "=:entityId", { entityId: entityId });
-                            if (inIds && inIds.length > 0)
-                                qb.andWhere(escapeAlias("junction") + "." + escapeColumn(inverseEntityColumn.fullName) + " IN (:inIds)", { inIds: inIds });
-                            if (notInIds && notInIds.length > 0)
-                                qb.andWhere(escapeAlias("junction") + "." + escapeColumn(inverseEntityColumn.fullName) + " NOT IN (:notInIds)", { notInIds: notInIds });
+                            var qb = new QueryBuilder_1.QueryBuilder(_this.connection, _this.queryRunnerProvider);
+                            inverseEntityColumnNames.forEach(function (columnName) {
+                                qb.select(ea("junction") + "." + ec(columnName) + " AS " + ea(columnName));
+                            });
+                            qb.fromTable(relation.junctionEntityMetadata.tableName, "junction");
+                            Object.keys(entityId).forEach(function (columnName) {
+                                var junctionColumnName = ownerEntityColumns.find(function (joinColumn) { return joinColumn.referencedColumn.databaseName === columnName; });
+                                qb.andWhere(ea("junction") + "." + ec(junctionColumnName.databaseName) + "=:" + junctionColumnName.databaseName + "_entityId", (_a = {}, _a[junctionColumnName.databaseName + "_entityId"] = entityId[columnName], _a));
+                                var _a;
+                            });
+                            // ownerEntityColumnNames.forEach(columnName => {
+                            //     qb.andWhere(ea("junction") + "." + ec(columnName) + "=:" + columnName + "_entityId", {[columnName + "_entityId"]: entityId});
+                            // });
+                            // todo: fix inIds
+                            // if (inIds && inIds.length > 0)
+                            //     qb.andWhere(ea("junction") + "." + ec(inverseEntityColumnNames.fullName) + " IN (:inIds)", {inIds: inIds});
+                            //
+                            // if (notInIds && notInIds.length > 0)
+                            //     qb.andWhere(ea("junction") + "." + ec(inverseEntityColumnNames.fullName) + " NOT IN (:notInIds)", {notInIds: notInIds});
+                            // console.log(qb.getSql());
                             return qb.getRawMany()
                                 .then(function (results) {
-                                results.forEach(function (result) { return ids.push(result.id); }); // todo: prepare result?
+                                // console.log(results);
+                                results.forEach(function (result) {
+                                    ids.push(Object.keys(result).reduce(function (id, key) {
+                                        var junctionColumnName = inverseEntityColumns.find(function (joinColumn) { return joinColumn.databaseName === key; });
+                                        OrmUtils_1.OrmUtils.mergeDeep(id, junctionColumnName.referencedColumn.createValueMap(result[key]));
+                                        return id;
+                                    }, {}));
+                                }); // todo: prepare result?
                             });
                         });
                         return [4 /*yield*/, Promise.all(promises)];
@@ -487,14 +510,17 @@ var SpecificRepository = (function () {
     /**
      * Converts entity or entities to id or ids map.
      */
-    SpecificRepository.prototype.convertEntityOrEntitiesToIdOrIds = function (column, entityOrEntities) {
+    SpecificRepository.prototype.convertEntityOrEntitiesToIdOrIds = function (columns, entityOrEntities) {
         var _this = this;
         if (entityOrEntities instanceof Array) {
-            return entityOrEntities.map(function (entity) { return _this.convertEntityOrEntitiesToIdOrIds(column, entity); });
+            return entityOrEntities.map(function (entity) { return _this.convertEntityOrEntitiesToIdOrIds(columns, entity); });
         }
         else {
             if (entityOrEntities instanceof Object) {
-                return entityOrEntities[column.propertyName];
+                return columns.reduce(function (ids, column) {
+                    ids[column.databaseName] = column.getEntityValue(entityOrEntities);
+                    return ids;
+                }, {});
             }
             else {
                 return entityOrEntities;
@@ -507,8 +533,11 @@ var SpecificRepository = (function () {
     SpecificRepository.prototype.convertMixedRelationToMetadata = function (relationOrName) {
         if (relationOrName instanceof RelationMetadata_1.RelationMetadata)
             return relationOrName;
-        var relationName = relationOrName instanceof Function ? relationOrName(this.metadata.createPropertiesMap()) : relationOrName;
-        return this.metadata.findRelationWithPropertyName(relationName);
+        var relationPropertyPath = relationOrName instanceof Function ? relationOrName(this.metadata.propertiesMap) : relationOrName;
+        var relation = this.metadata.findRelationWithPropertyPath(relationPropertyPath);
+        if (!relation)
+            throw new Error("Relation with property path " + relationPropertyPath + " in entity was not found.");
+        return relation;
     };
     /**
      * Extracts unique objects from given entity and all its downside relations.
@@ -518,7 +547,7 @@ var SpecificRepository = (function () {
         if (entityWithIds === void 0) { entityWithIds = []; }
         var promises = metadata.relations.map(function (relation) {
             var relMetadata = relation.inverseEntityMetadata;
-            var value = relation.isLazy ? entity["__" + relation.propertyName + "__"] : entity[relation.propertyName];
+            var value = relation.getEntityValue(entity);
             if (!value)
                 return undefined;
             if (value instanceof Array) {

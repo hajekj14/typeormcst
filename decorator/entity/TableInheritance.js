@@ -10,7 +10,7 @@ function TableInheritance(type) {
             target: target,
             type: type
         };
-        index_1.getMetadataArgsStorage().inheritances.add(args);
+        index_1.getMetadataArgsStorage().inheritances.push(args);
     };
 }
 exports.TableInheritance = TableInheritance;

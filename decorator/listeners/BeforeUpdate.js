@@ -12,7 +12,7 @@ function BeforeUpdate() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.BEFORE_UPDATE
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.BeforeUpdate = BeforeUpdate;

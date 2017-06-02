@@ -7,7 +7,7 @@ export interface RemoveEvent<Entity> {
      * Entity managed with connection used for original event.
      * All database operations in the subscribed event listener should be performed using this entity manager instance.
      */
-    entityManager: EntityManager;
+    manager: EntityManager;
     /**
      * Entity that is being removed.
      * This may absent if entity is removed without being loaded (for examples by cascades).

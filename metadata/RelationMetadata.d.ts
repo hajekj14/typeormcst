@@ -1,238 +1,231 @@
 import { RelationType } from "./types/RelationTypes";
 import { EntityMetadata } from "./EntityMetadata";
-import { OnDeleteType } from "./ForeignKeyMetadata";
-import { JoinTableMetadata } from "./JoinTableMetadata";
-import { JoinColumnMetadata } from "./JoinColumnMetadata";
-import { RelationMetadataArgs } from "../metadata-args/RelationMetadataArgs";
-import { ColumnMetadata } from "./ColumnMetadata";
+import { ForeignKeyMetadata } from "./ForeignKeyMetadata";
 import { ObjectLiteral } from "../common/ObjectLiteral";
-/**
- * Function that returns a type of the field. Returned value must be a class used on the relation.
- */
-export declare type RelationTypeInFunction = ((type?: any) => Function) | Function | string;
-/**
- * Contains the name of the property of the object, or the function that returns this name.
- */
-export declare type PropertyTypeInFunction<T> = string | ((t: T) => string | any);
+import { ColumnMetadata } from "./ColumnMetadata";
+import { EmbeddedMetadata } from "./EmbeddedMetadata";
+import { RelationMetadataArgs } from "../metadata-args/RelationMetadataArgs";
+import { OnDeleteType } from "./types/OnDeleteType";
+import { PropertyTypeFactory } from "./types/PropertyTypeInFunction";
 /**
  * Contains all information about some entity's relation.
  */
 export declare class RelationMetadata {
     /**
-     * Its own entity metadata.
+     * Entity metadata of the entity where this relation is placed.
+     *
+     * For example for @ManyToMany(type => Category) in Post, entityMetadata will be metadata of Post entity.
      */
     entityMetadata: EntityMetadata;
     /**
-     * Related entity metadata.
+     * Entity metadata of the entity that is targeted by this relation.
+     *
+     * For example for @ManyToMany(type => Category) in Post, inverseEntityMetadata will be metadata of Category entity.
      */
     inverseEntityMetadata: EntityMetadata;
     /**
-     * Junction entity metadata.
+     * Entity metadata of the junction table.
+     * Junction tables have their own entity metadata objects.
+     * Defined only for many-to-many relations.
      */
-    junctionEntityMetadata: EntityMetadata;
+    junctionEntityMetadata?: EntityMetadata;
     /**
-     * Join table metadata.
+     * Embedded metadata where this relation is.
+     * If this relation is not in embed then this property value is undefined.
      */
-    joinTable: JoinTableMetadata;
+    embeddedMetadata?: EmbeddedMetadata;
     /**
-     * Join column metadata.
+     * Relation type, e.g. is it one-to-one, one-to-many, many-to-one or many-to-many.
      */
-    joinColumn: JoinColumnMetadata;
+    relationType: RelationType;
     /**
-     * The name of the field that will contain id or ids of this relation. This is used in the case if user
-     * wants to save relation without having to load related object, or in the cases if user wants to have id
-     * of the object it relates with, but don't want to load that object because of it. Also its used in the
-     * cases when user wants to add / remove / load in the many-to-many junction tables.
+     * Target entity to which this relation is applied.
+     * Target IS NOT equal to entityMetadata.target, because relation
+     *
+     * For example for @ManyToMany(type => Category) in Post, target will be Post.
+     * If @ManyToMany(type => Category) is in Counters which is embedded into Post, target will be Counters.
+     * If @ManyToMany(type => Category) is in abstract class BaseUser which Post extends, target will be BaseUser.
+     * Target can be string if its defined in entity schema instead of class.
      */
-    idField: string | undefined;
+    target: Function | string;
     /**
-     * The name of the field that will contain count of the rows of the relation.
+     * Target's property name to which relation decorator is applied.
      */
-    countField: string | undefined;
+    propertyName: string;
     /**
-     * Target class to which metadata is applied.
+     * Gets full path to this column property (including relation name).
+     * Full path is relevant when column is used in embeds (one or multiple nested).
+     * For example it will return "counters.subcounters.likes".
+     * If property is not in embeds then it returns just property name of the column.
      */
-    readonly target: Function | string;
-    /**
-     * Target's property name to which this metadata is applied.
-     */
-    readonly propertyName: string;
+    propertyPath: string;
     /**
      * Indicates if this is a parent (can be only many-to-one relation) relation in the tree tables.
      */
-    readonly isTreeParent: boolean;
+    isTreeParent: boolean;
     /**
      * Indicates if this is a children (can be only one-to-many relation) relation in the tree tables.
      */
-    readonly isTreeChildren: boolean;
+    isTreeChildren: boolean;
     /**
-     * Relation type.
-     */
-    readonly relationType: RelationType;
-    /**
-     * Indicates if this relation will be a primary key.
+     * Indicates if this relation's column is a primary key.
      * Can be used only for many-to-one and owner one-to-one relations.
      */
-    readonly isPrimary: boolean;
+    isPrimary: boolean;
     /**
-     * Indicates if this relation will be lazily loaded.
+     * Indicates if this relation is lazily loaded.
      */
-    readonly isLazy: boolean;
+    isLazy: boolean;
     /**
-     * If set to true then it means that related object can be allowed to be inserted to the db.
+     * If set to true then related objects are allowed to be inserted to the database.
      */
-    readonly isCascadeInsert: boolean;
+    isCascadeInsert: boolean;
     /**
-     * If set to true then it means that related object can be allowed to be updated in the db.
+     * If set to true then related objects are allowed to be updated in the database.
      */
-    readonly isCascadeUpdate: boolean;
+    isCascadeUpdate: boolean;
     /**
-     * If set to true then it means that related object can be allowed to be remove from the db.
+     * If set to true then related objects are allowed to be remove from the database.
      */
-    readonly isCascadeRemove: boolean;
+    isCascadeRemove: boolean;
     /**
      * Indicates if relation column value can be nullable or not.
      */
-    readonly isNullable: boolean;
+    isNullable: boolean;
     /**
      * What to do with a relation on deletion of the row containing a foreign key.
      */
-    readonly onDelete: OnDeleteType;
-    /**
-     * The real reflected property type.
-     */
-    /**
-     * The type of the field.
-     */
-    private _type;
-    /**
-     * Inverse side of the relation.
-     */
-    private _inverseSideProperty;
-    constructor(args: RelationMetadataArgs);
-    /**
-     * Gets relation's entity target.
-     * Original target returns target of the class where relation is.
-     * This class can be an abstract class, but relation even is from that class,
-     * but its more related to a specific entity. That's why we need this field.
-     */
-    readonly entityTarget: Function | string;
-    /**
-     * Gets the name of column in the database.
-     * //Cannot be used with many-to-many relations since they don't have a column in the database.
-     * //Also only owning sides of the relations have this property.
-     */
-    readonly name: string;
-    /**
-     * Gets the name of column to which this relation is referenced.
-     * //Cannot be used with many-to-many relations since all referenced are in the junction table.
-     * //Also only owning sides of the relations have this property.
-     */
-    readonly referencedColumnName: string;
-    /**
-     * Gets the column to which this relation is referenced.
-     */
-    readonly referencedColumn: ColumnMetadata;
+    onDelete?: OnDeleteType;
     /**
      * Gets the property's type to which this relation is applied.
+     *
+     * For example for @ManyToMany(type => Category) in Post, target will be Category.
      */
-    readonly type: Function | string;
+    type: Function | string;
     /**
      * Indicates if this side is an owner of this relation.
      */
-    readonly isOwning: boolean;
+    isOwning: boolean;
     /**
      * Checks if this relation's type is "one-to-one".
      */
-    readonly isOneToOne: boolean;
+    isOneToOne: boolean;
     /**
      * Checks if this relation is owner side of the "one-to-one" relation.
      * Owner side means this side of relation has a join column in the table.
      */
-    readonly isOneToOneOwner: boolean;
+    isOneToOneOwner: boolean;
+    /**
+     * Checks if this relation has a join column (e.g. is it many-to-one or one-to-one owner side).
+     */
+    isWithJoinColumn: boolean;
     /**
      * Checks if this relation is NOT owner side of the "one-to-one" relation.
      * NOT owner side means this side of relation does not have a join column in the table.
      */
-    readonly isOneToOneNotOwner: boolean;
+    isOneToOneNotOwner: boolean;
     /**
      * Checks if this relation's type is "one-to-many".
      */
-    readonly isOneToMany: boolean;
+    isOneToMany: boolean;
     /**
      * Checks if this relation's type is "many-to-one".
      */
-    readonly isManyToOne: boolean;
+    isManyToOne: boolean;
     /**
      * Checks if this relation's type is "many-to-many".
      */
-    readonly isManyToMany: boolean;
+    isManyToMany: boolean;
     /**
      * Checks if this relation's type is "many-to-many", and is owner side of the relationship.
      * Owner side means this side of relation has a join table.
      */
-    readonly isManyToManyOwner: boolean;
+    isManyToManyOwner: boolean;
     /**
      * Checks if this relation's type is "many-to-many", and is NOT owner side of the relationship.
      * Not owner side means this side of relation does not have a join table.
      */
-    readonly isManyToManyNotOwner: boolean;
+    isManyToManyNotOwner: boolean;
     /**
-     * Checks if inverse side is specified by a relation.
+     * Gets the property path of the inverse side of the relation.
      */
-    readonly hasInverseSide: boolean;
+    inverseSidePropertyPath: string;
     /**
-     * Gets the property name of the inverse side of the relation.
-     */
-    readonly inverseSideProperty: string;
-    /**
-     * Gets the relation metadata of the inverse side of this relation.
-     */
-    readonly inverseRelation: RelationMetadata;
-    /**
-     * Gets given entity's relation's value.
-     * Using of this method helps to access value of the lazy loaded relation.
-     */
-    getEntityValue(entity: ObjectLiteral): any;
-    /**
-     * Checks if given entity has a value in a relation.
-     */
-    hasEntityValue(entity: ObjectLiteral): boolean;
-    /**
-     * todo: lazy relations are not supported here? implement logic?
+     * Inverse side of the relation set by user.
      *
-     * examples:
-     *
-     * - isOneToOneNotOwner or isOneToMany:
-     *  Post has a Category.
-     *  Post is owner side.
-     *  Category is inverse side.
-     *  Post.category is mapped to Category.id
-     *
-     *  if from Post relation we are passing Category here,
-     *  it should return a post.category
-     */
-    getOwnEntityRelationId(ownEntity: ObjectLiteral): any;
-    /**
-     *
-     * examples:
-     *
-     * - isOneToOneNotOwner or isOneToMany:
-     *  Post has a Category.
-     *  Post is owner side.
-     *  Category is inverse side.
-     *  Post.category is mapped to Category.id
-     *
-     *  if from Post relation we are passing Category here,
-     *  it should return a category.id
-     *
-     *  @deprecated Looks like this method does not make sence and does same as getOwnEntityRelationId ?
-     */
-    getInverseEntityRelationId(inverseEntity: ObjectLiteral): any;
-    /**
      * Inverse side set in the relation can be either string - property name of the column on inverse side,
      * either can be a function that accepts a map of properties with the object and returns one of them.
      * Second approach is used to achieve type-safety.
      */
-    private computeInverseSide(inverseSide);
+    givenInverseSidePropertyFactory: PropertyTypeFactory<any>;
+    /**
+     * Gets the relation metadata of the inverse side of this relation.
+     */
+    inverseRelation?: RelationMetadata;
+    /**
+     * Join table name.
+     */
+    joinTableName: string;
+    /**
+     * Foreign keys created for this relation.
+     */
+    foreignKeys: ForeignKeyMetadata[];
+    /**
+     * Join table columns.
+     * Join columns can be obtained only from owner side of the relation.
+     * From non-owner side of the relation join columns will be empty.
+     * If this relation is a many-to-one/one-to-one then it takes join columns from the current entity.
+     * If this relation is many-to-many then it takes all owner join columns from the junction entity.
+     */
+    joinColumns: ColumnMetadata[];
+    /**
+     * Inverse join table columns.
+     * Inverse join columns are supported only for many-to-many relations
+     * and can be obtained only from owner side of the relation.
+     * From non-owner side of the relation join columns will be undefined.
+     */
+    inverseJoinColumns: ColumnMetadata[];
+    constructor(options: {
+        entityMetadata: EntityMetadata;
+        embeddedMetadata?: EmbeddedMetadata;
+        args: RelationMetadataArgs;
+    });
+    /**
+     * Extracts column value from the given entity.
+     * If column is in embedded (or recursive embedded) it extracts its value from there.
+     */
+    getEntityValue(entity: ObjectLiteral): any | undefined;
+    /**
+     * Sets given entity's relation's value.
+     * Using of this method helps to set entity relation's value of the lazy and non-lazy relations.
+     */
+    setEntityValue(entity: ObjectLiteral, value: any): void;
+    /**
+     * Creates entity id map from the given entity ids array.
+     */
+    createValueMap(value: any): any;
+    /**
+     * Builds some depend relation metadata properties.
+     * This builder method should be used only after embedded metadata tree was build.
+     */
+    build(): void;
+    /**
+     * Registers given foreign keys in the relation.
+     * This builder method should be used to register foreign key in the relation.
+     */
+    registerForeignKeys(...foreignKeys: ForeignKeyMetadata[]): void;
+    /**
+     * Registers a given junction entity metadata.
+     * This builder method can be called after junction entity metadata for the many-to-many relation was created.
+     */
+    registerJunctionEntityMetadata(junctionEntityMetadata: EntityMetadata): void;
+    /**
+     * Builds inverse side property path based on given inverse side property factory.
+     * This builder method should be used only after properties map of the inverse entity metadata was build.
+     */
+    buildInverseSidePropertyPath(): string;
+    /**
+     * Builds relation's property path based on its embedded tree.
+     */
+    buildPropertyPath(): string;
 }

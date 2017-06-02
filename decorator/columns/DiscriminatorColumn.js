@@ -20,7 +20,7 @@ function DiscriminatorColumn(discriminatorOptions) {
             propertyName: discriminatorOptions.name,
             options: options
         };
-        index_1.getMetadataArgsStorage().columns.add(args);
+        index_1.getMetadataArgsStorage().columns.push(args);
     };
 }
 exports.DiscriminatorColumn = DiscriminatorColumn;

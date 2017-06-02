@@ -195,8 +195,8 @@ var SubjectOperationExecutor = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        firstInsertSubjects = this.insertSubjects.filter(function (subject) { return !subject.metadata.hasNonNullableColumns; });
-                        secondInsertSubjects = this.insertSubjects.filter(function (subject) { return subject.metadata.hasNonNullableColumns; });
+                        firstInsertSubjects = this.insertSubjects.filter(function (subject) { return !subject.metadata.hasNonNullableRelations; });
+                        secondInsertSubjects = this.insertSubjects.filter(function (subject) { return subject.metadata.hasNonNullableRelations; });
                         // note: these operations should be executed in sequence, not in parallel
                         // because second group depend of obtained data from the first group
                         return [4 /*yield*/, Promise.all(firstInsertSubjects.map(function (subject) { return _this.insert(subject, []); }))];
@@ -212,168 +212,178 @@ var SubjectOperationExecutor = (function () {
                             // first update relations with join columns (one-to-one owner and many-to-one relations)
                             var updateOptions = {};
                             subject.metadata.relationsWithJoinColumns.forEach(function (relation) {
-                                var referencedColumn = relation.joinColumn.referencedColumn;
-                                var relatedEntity = relation.getEntityValue(subject.entity);
-                                // if relation value is not set then nothing to do here
-                                if (!relatedEntity)
-                                    return;
-                                // check if relation reference column is a relation
-                                var relationId;
-                                var columnRelation = relation.inverseEntityMetadata.relations.find(function (rel) { return rel.propertyName === relation.joinColumn.referencedColumn.propertyName; });
-                                if (columnRelation) {
-                                    var insertSubject = _this.insertSubjects.find(function (insertedSubject) { return insertedSubject.entity === relatedEntity[referencedColumn.propertyName]; });
-                                    // if this relation was just inserted
-                                    if (insertSubject) {
-                                        // check if we have this relation id already
-                                        relationId = relatedEntity[referencedColumn.propertyName][columnRelation.propertyName];
-                                        if (!relationId) {
-                                            // if we don't have relation id then use special values
-                                            if (referencedColumn.isGenerated) {
-                                                relationId = insertSubject.newlyGeneratedId;
+                                relation.joinColumns.forEach(function (joinColumn) {
+                                    var referencedColumn = joinColumn.referencedColumn;
+                                    var relatedEntity = relation.getEntityValue(subject.entity);
+                                    // if relation value is not set then nothing to do here
+                                    if (!relatedEntity)
+                                        return;
+                                    // check if relation reference column is a relation
+                                    var relationId;
+                                    var columnRelation = relation.inverseEntityMetadata.findRelationWithPropertyPath(joinColumn.referencedColumn.propertyPath);
+                                    if (columnRelation) {
+                                        var insertSubject = _this.insertSubjects.find(function (insertedSubject) { return insertedSubject.entity === referencedColumn.getEntityValue(relatedEntity); });
+                                        // if this relation was just inserted
+                                        if (insertSubject) {
+                                            // check if we have this relation id already
+                                            relationId = columnRelation.getEntityValue(referencedColumn.getEntityValue(relatedEntity));
+                                            if (!relationId) {
+                                                // if we don't have relation id then use special values
+                                                if (referencedColumn.isGenerated) {
+                                                    relationId = insertSubject.newlyGeneratedId;
+                                                }
+                                                else if (referencedColumn.isObjectId) {
+                                                    relationId = insertSubject.generatedObjectId;
+                                                }
+                                                // todo: handle other special types too
                                             }
-                                            else if (referencedColumn.isObjectId) {
-                                                relationId = insertSubject.generatedObjectId;
-                                            }
-                                            // todo: handle other special types too
                                         }
                                     }
-                                }
-                                else {
-                                    var insertSubject = _this.insertSubjects.find(function (insertedSubject) { return insertedSubject.entity === relatedEntity; });
-                                    // if this relation was just inserted
-                                    if (insertSubject) {
-                                        // check if we have this relation id already
-                                        relationId = relatedEntity[referencedColumn.propertyName];
-                                        if (!relationId) {
-                                            // if we don't have relation id then use special values
-                                            if (referencedColumn.isGenerated) {
-                                                relationId = insertSubject.newlyGeneratedId;
+                                    else {
+                                        var insertSubject = _this.insertSubjects.find(function (insertedSubject) { return insertedSubject.entity === relatedEntity; });
+                                        // if this relation was just inserted
+                                        if (insertSubject) {
+                                            // check if we have this relation id already
+                                            relationId = referencedColumn.getEntityValue(relatedEntity);
+                                            if (!relationId) {
+                                                // if we don't have relation id then use special values
+                                                if (referencedColumn.isGenerated) {
+                                                    relationId = insertSubject.newlyGeneratedId;
+                                                }
+                                                else if (referencedColumn.isObjectId) {
+                                                    relationId = insertSubject.generatedObjectId;
+                                                }
+                                                // todo: handle other special types too
                                             }
-                                            else if (referencedColumn.isObjectId) {
-                                                relationId = insertSubject.generatedObjectId;
-                                            }
-                                            // todo: handle other special types too
                                         }
                                     }
-                                }
-                                if (relationId) {
-                                    updateOptions[relation.name] = relationId;
-                                }
+                                    if (relationId) {
+                                        updateOptions[joinColumn.databaseName] = relationId;
+                                    }
+                                });
                             });
                             // if we found relations which we can update - then update them
                             if (Object.keys(updateOptions).length > 0 /*&& subject.hasEntity*/) {
                                 // const relatedEntityIdMap = subject.getPersistedEntityIdMap; // todo: this works incorrectly
-                                var columns = subject.metadata.parentEntityMetadata ? subject.metadata.primaryColumnsWithParentIdColumns : subject.metadata.primaryColumns;
+                                var columns = subject.metadata.parentEntityMetadata ? subject.metadata.primaryColumns : subject.metadata.primaryColumns;
                                 var conditions_1 = {};
                                 columns.forEach(function (column) {
-                                    var entityValue = subject.entity[column.propertyName];
+                                    var entityValue = column.getEntityValue(subject.entity);
                                     // if entity id is a relation, then extract referenced column from that relation
                                     var columnRelation = subject.metadata.relations.find(function (relation) { return relation.propertyName === column.propertyName; });
-                                    if (entityValue && columnRelation && columnRelation.joinColumn) {
-                                        var relationIdOfEntityValue = entityValue[columnRelation.joinColumn.referencedColumn.propertyName];
-                                        if (!relationIdOfEntityValue) {
-                                            var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entityValue; });
-                                            if (entityValueInsertSubject) {
-                                                if (columnRelation.joinColumn.referencedColumn.isGenerated) {
-                                                    relationIdOfEntityValue = entityValueInsertSubject.newlyGeneratedId;
-                                                }
-                                                else if (columnRelation.joinColumn.referencedColumn.isObjectId) {
-                                                    relationIdOfEntityValue = entityValueInsertSubject.generatedObjectId;
+                                    if (entityValue && columnRelation) {
+                                        columnRelation.joinColumns.forEach(function (joinColumn) {
+                                            var relationIdOfEntityValue = entityValue[joinColumn.referencedColumn.propertyName];
+                                            if (!relationIdOfEntityValue) {
+                                                var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entityValue; });
+                                                if (entityValueInsertSubject) {
+                                                    if (joinColumn.referencedColumn.isGenerated) {
+                                                        relationIdOfEntityValue = entityValueInsertSubject.newlyGeneratedId;
+                                                    }
+                                                    else if (joinColumn.referencedColumn.isObjectId) {
+                                                        relationIdOfEntityValue = entityValueInsertSubject.generatedObjectId;
+                                                    }
                                                 }
                                             }
-                                        }
-                                        if (relationIdOfEntityValue) {
-                                            conditions_1[column.fullName] = relationIdOfEntityValue;
-                                        }
+                                            if (relationIdOfEntityValue) {
+                                                conditions_1[column.databaseName] = relationIdOfEntityValue;
+                                            }
+                                        });
                                     }
                                     else {
                                         if (entityValue) {
-                                            conditions_1[column.fullName] = entityValue;
+                                            conditions_1[column.databaseName] = entityValue;
                                         }
                                         else {
                                             if (subject.newlyGeneratedId) {
-                                                conditions_1[column.fullName] = subject.newlyGeneratedId;
+                                                conditions_1[column.databaseName] = subject.newlyGeneratedId;
                                             }
                                             else if (subject.generatedObjectId) {
-                                                conditions_1[column.fullName] = subject.generatedObjectId;
+                                                conditions_1[column.databaseName] = subject.generatedObjectId;
                                             }
                                         }
                                     }
                                 });
                                 if (!Object.keys(conditions_1).length)
                                     return;
-                                var updatePromise = _this.queryRunner.update(subject.metadata.table.name, updateOptions, conditions_1);
+                                var updatePromise = _this.queryRunner.update(subject.metadata.tableName, updateOptions, conditions_1);
                                 updatePromises.push(updatePromise);
                             }
                             // we need to update relation ids if newly inserted objects are used from inverse side in one-to-many inverse relation
                             // we also need to update relation ids if newly inserted objects are used from inverse side in one-to-one inverse relation
                             var oneToManyAndOneToOneNonOwnerRelations = subject.metadata.oneToManyRelations.concat(subject.metadata.oneToOneRelations.filter(function (relation) { return !relation.isOwning; }));
+                            // console.log(oneToManyAndOneToOneNonOwnerRelations);
                             subject.metadata.extractRelationValuesFromEntity(subject.entity, oneToManyAndOneToOneNonOwnerRelations)
                                 .forEach(function (_a) {
                                 var relation = _a[0], subRelatedEntity = _a[1], inverseEntityMetadata = _a[2];
-                                var referencedColumn = relation.inverseRelation.joinColumn.referencedColumn;
-                                var columns = inverseEntityMetadata.parentEntityMetadata ? inverseEntityMetadata.primaryColumnsWithParentIdColumns : inverseEntityMetadata.primaryColumns;
-                                var conditions = {};
-                                columns.forEach(function (column) {
-                                    var entityValue = subRelatedEntity[column.propertyName];
-                                    // if entity id is a relation, then extract referenced column from that relation
-                                    var columnRelation = inverseEntityMetadata.relations.find(function (relation) { return relation.propertyName === column.propertyName; });
-                                    if (entityValue && columnRelation && columnRelation.joinColumn) {
-                                        var relationIdOfEntityValue = entityValue[columnRelation.joinColumn.referencedColumn.propertyName];
-                                        if (!relationIdOfEntityValue) {
-                                            var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entityValue; });
-                                            if (entityValueInsertSubject) {
-                                                if (columnRelation.joinColumn.referencedColumn.isGenerated) {
-                                                    relationIdOfEntityValue = entityValueInsertSubject.newlyGeneratedId;
+                                relation.inverseRelation.joinColumns.forEach(function (joinColumn) {
+                                    var referencedColumn = joinColumn.referencedColumn;
+                                    var columns = inverseEntityMetadata.parentEntityMetadata ? inverseEntityMetadata.primaryColumns : inverseEntityMetadata.primaryColumns;
+                                    var conditions = {};
+                                    columns.forEach(function (column) {
+                                        var entityValue = column.getEntityValue(subRelatedEntity);
+                                        // if entity id is a relation, then extract referenced column from that relation
+                                        var columnRelation = inverseEntityMetadata.relations.find(function (relation) { return relation.propertyName === column.propertyName; });
+                                        if (entityValue && columnRelation) {
+                                            columnRelation.joinColumns.forEach(function (columnRelationJoinColumn) {
+                                                var relationIdOfEntityValue = entityValue[columnRelationJoinColumn.referencedColumn.propertyName];
+                                                if (!relationIdOfEntityValue) {
+                                                    var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entityValue; });
+                                                    if (entityValueInsertSubject) {
+                                                        if (columnRelationJoinColumn.referencedColumn.isGenerated) {
+                                                            relationIdOfEntityValue = entityValueInsertSubject.newlyGeneratedId;
+                                                        }
+                                                        else if (columnRelationJoinColumn.referencedColumn.isObjectId) {
+                                                            relationIdOfEntityValue = entityValueInsertSubject.generatedObjectId;
+                                                        }
+                                                    }
                                                 }
-                                                else if (columnRelation.joinColumn.referencedColumn.isObjectId) {
-                                                    relationIdOfEntityValue = entityValueInsertSubject.generatedObjectId;
+                                                if (relationIdOfEntityValue) {
+                                                    conditions[column.databaseName] = relationIdOfEntityValue;
                                                 }
-                                            }
-                                        }
-                                        if (relationIdOfEntityValue) {
-                                            conditions[column.fullName] = relationIdOfEntityValue;
-                                        }
-                                    }
-                                    else {
-                                        var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === subRelatedEntity; });
-                                        if (entityValue) {
-                                            conditions[column.fullName] = entityValue;
+                                            });
                                         }
                                         else {
-                                            if (entityValueInsertSubject && entityValueInsertSubject.newlyGeneratedId) {
-                                                conditions[column.fullName] = entityValueInsertSubject.newlyGeneratedId;
+                                            var entityValueInsertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === subRelatedEntity; });
+                                            if (entityValue) {
+                                                conditions[column.databaseName] = entityValue;
                                             }
-                                            else if (entityValueInsertSubject && entityValueInsertSubject.generatedObjectId) {
-                                                conditions[column.fullName] = entityValueInsertSubject.generatedObjectId;
+                                            else {
+                                                if (entityValueInsertSubject && entityValueInsertSubject.newlyGeneratedId) {
+                                                    conditions[column.databaseName] = entityValueInsertSubject.newlyGeneratedId;
+                                                }
+                                                else if (entityValueInsertSubject && entityValueInsertSubject.generatedObjectId) {
+                                                    conditions[column.databaseName] = entityValueInsertSubject.generatedObjectId;
+                                                }
                                             }
                                         }
+                                    });
+                                    if (!Object.keys(conditions).length)
+                                        return;
+                                    var updateOptions = {};
+                                    var columnRelation = relation.inverseEntityMetadata.relations.find(function (rel) { return rel.propertyName === referencedColumn.propertyName; });
+                                    var columnValue = referencedColumn.getEntityValue(subject.entity);
+                                    if (columnRelation) {
+                                        var id = columnRelation.getEntityValue(columnValue);
+                                        if (!id) {
+                                            var insertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === columnValue; });
+                                            if (insertSubject) {
+                                                if (insertSubject.newlyGeneratedId) {
+                                                    id = insertSubject.newlyGeneratedId;
+                                                }
+                                                else if (insertSubject.generatedObjectId) {
+                                                    id = insertSubject.generatedObjectId;
+                                                }
+                                            }
+                                        }
+                                        updateOptions[joinColumn.databaseName] = id;
                                     }
+                                    else {
+                                        updateOptions[joinColumn.databaseName] = columnValue || subject.newlyGeneratedId || subRelatedEntity.generatedObjectId;
+                                    }
+                                    var updatePromise = _this.queryRunner.update(relation.inverseEntityMetadata.tableName, updateOptions, conditions);
+                                    updatePromises.push(updatePromise);
                                 });
-                                if (!Object.keys(conditions).length)
-                                    return;
-                                var updateOptions = {};
-                                var columnRelation = relation.inverseEntityMetadata.relations.find(function (rel) { return rel.propertyName === referencedColumn.propertyName; });
-                                if (columnRelation) {
-                                    var id = subject.entity[referencedColumn.propertyName][columnRelation.propertyName];
-                                    if (!id) {
-                                        var insertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === subject.entity[referencedColumn.propertyName]; });
-                                        if (insertSubject) {
-                                            if (insertSubject.newlyGeneratedId) {
-                                                id = insertSubject.newlyGeneratedId;
-                                            }
-                                            else if (insertSubject.generatedObjectId) {
-                                                id = insertSubject.generatedObjectId;
-                                            }
-                                        }
-                                    }
-                                    updateOptions[relation.inverseRelation.joinColumn.name] = id;
-                                }
-                                else {
-                                    updateOptions[relation.inverseRelation.joinColumn.name] = subject.entity[referencedColumn.propertyName] || subject.newlyGeneratedId || subRelatedEntity.generatedObjectId;
-                                }
-                                var updatePromise = _this.queryRunner.update(relation.inverseEntityMetadata.table.name, updateOptions, conditions);
-                                updatePromises.push(updatePromise);
                             });
                         });
                         return [4 /*yield*/, Promise.all(updatePromises)];
@@ -398,13 +408,13 @@ var SubjectOperationExecutor = (function () {
                         parentEntityMetadata = subject.metadata.parentEntityMetadata;
                         metadata = subject.metadata;
                         entity = subject.entity;
-                        if (!metadata.table.isClassTableChild) return [3 /*break*/, 3];
+                        if (!metadata.isClassTableChild) return [3 /*break*/, 3];
                         parentValuesMap = this.collectColumnsAndValues(parentEntityMetadata, entity, subject.date, undefined, metadata.discriminatorValue, alreadyInsertedSubjects);
-                        return [4 /*yield*/, this.queryRunner.insert(parentEntityMetadata.table.name, parentValuesMap, parentEntityMetadata.generatedColumnIfExist)];
+                        return [4 /*yield*/, this.queryRunner.insert(parentEntityMetadata.tableName, parentValuesMap, parentEntityMetadata.generatedColumn)];
                     case 1:
                         newlyGeneratedId = parentGeneratedId = _a.sent();
                         childValuesMap = this.collectColumnsAndValues(metadata, entity, subject.date, newlyGeneratedId, undefined, alreadyInsertedSubjects);
-                        return [4 /*yield*/, this.queryRunner.insert(metadata.table.name, childValuesMap, metadata.generatedColumnIfExist)];
+                        return [4 /*yield*/, this.queryRunner.insert(metadata.tableName, childValuesMap, metadata.generatedColumn)];
                     case 2:
                         secondGeneratedId = _a.sent();
                         if (!newlyGeneratedId && secondGeneratedId)
@@ -412,7 +422,7 @@ var SubjectOperationExecutor = (function () {
                         return [3 /*break*/, 5];
                     case 3:
                         valuesMap = this.collectColumnsAndValues(metadata, entity, subject.date, undefined, undefined, alreadyInsertedSubjects);
-                        return [4 /*yield*/, this.queryRunner.insert(metadata.table.name, valuesMap, metadata.generatedColumnIfExist)];
+                        return [4 /*yield*/, this.queryRunner.insert(metadata.tableName, valuesMap, metadata.generatedColumn)];
                     case 4:
                         newlyGeneratedId = _a.sent();
                         _a.label = 5;
@@ -421,10 +431,10 @@ var SubjectOperationExecutor = (function () {
                             subject.parentGeneratedId = parentGeneratedId;
                         // todo: better if insert method will return object with all generated ids, object id, etc.
                         if (newlyGeneratedId) {
-                            if (metadata.hasGeneratedColumn) {
+                            if (metadata.generatedColumn) {
                                 subject.newlyGeneratedId = newlyGeneratedId;
                             }
-                            else if (metadata.hasObjectIdColumn) {
+                            else if (metadata.objectIdColumn) {
                                 subject.generatedObjectId = newlyGeneratedId;
                             }
                         }
@@ -433,158 +443,150 @@ var SubjectOperationExecutor = (function () {
             });
         });
     };
+    SubjectOperationExecutor.prototype.collectColumns = function (columns, entity, object) {
+        var _this = this;
+        columns.forEach(function (column) {
+            if (column.isVirtual || column.isParentId || column.isDiscriminator)
+                return;
+            var value = entity[column.propertyName];
+            if (value === undefined)
+                return;
+            object[column.databaseNameWithoutPrefixes] = _this.connection.driver.preparePersistentValue(value, column); // todo: maybe preparePersistentValue is not responsibility of this class
+        });
+    };
+    SubjectOperationExecutor.prototype.collectEmbeds = function (embed, entity, object) {
+        var _this = this;
+        if (embed.isArray) {
+            if (entity[embed.propertyName] instanceof Array) {
+                if (!object[embed.prefix])
+                    object[embed.prefix] = [];
+                entity[embed.propertyName].forEach(function (subEntity, index) {
+                    if (!object[embed.prefix][index])
+                        object[embed.prefix][index] = {};
+                    _this.collectColumns(embed.columns, subEntity, object[embed.prefix][index]);
+                    embed.embeddeds.forEach(function (childEmbed) { return _this.collectEmbeds(childEmbed, subEntity, object[embed.prefix][index]); });
+                });
+            }
+        }
+        else {
+            if (entity[embed.propertyName] !== undefined) {
+                if (!object[embed.prefix])
+                    object[embed.prefix] = {};
+                this.collectColumns(embed.columns, entity[embed.propertyName], object[embed.prefix]);
+                embed.embeddeds.forEach(function (childEmbed) { return _this.collectEmbeds(childEmbed, entity[embed.propertyName], object[embed.prefix]); });
+            }
+        }
+    };
     /**
      * Collects columns and values for the insert operation.
      */
     SubjectOperationExecutor.prototype.collectColumnsAndValues = function (metadata, entity, date, parentIdColumnValue, discriminatorValue, alreadyInsertedSubjects) {
         var _this = this;
-        var columnNames = [];
-        var columnValues = [];
-        var columnsAndValuesMap = {};
-        metadata.columnsWithoutEmbeddeds
-            .filter(function (column) {
-            return !column.isVirtual && !column.isParentId && !column.isDiscriminator && column.hasEntityValue(entity);
-        })
-            .forEach(function (column) {
-            var value = _this.connection.driver.preparePersistentValue(entity[column.propertyName], column);
-            columnNames.push(column.fullName);
-            columnValues.push(value);
-            columnsAndValuesMap[column.name] = value;
-        });
-        var collectFromEmbeddeds = function (entity, columnsAndValues, embeddeds) {
-            embeddeds.forEach(function (embedded) {
-                if (!entity[embedded.propertyName])
-                    return;
-                if (embedded.isArray) {
-                    columnsAndValues[embedded.propertyName] = entity[embedded.propertyName].map(function (subValue) {
-                        var newItem = {};
-                        embedded.columns.forEach(function (column) {
-                            var value = _this.connection.driver.preparePersistentValue(subValue[column.propertyName], column);
-                            columnNames.push(column.fullName); // todo: probably we dont need it right now because relational databases dont support array embeddedables yet
-                            columnValues.push(value);
-                            newItem[column.propertyName] = value;
-                        });
-                        return newItem;
-                    });
-                }
-                else {
-                    columnsAndValues[embedded.propertyName] = {};
-                    embedded.columns.forEach(function (column) {
-                        var value = _this.connection.driver.preparePersistentValue(entity[embedded.propertyName][column.propertyName], column);
-                        columnNames.push(column.fullName);
-                        columnValues.push(value);
-                        columnsAndValues[embedded.propertyName][column.propertyName] = value;
-                    });
-                }
-                collectFromEmbeddeds(entity[embedded.propertyName], columnsAndValues[embedded.propertyName], embedded.embeddeds);
-            });
-        };
-        collectFromEmbeddeds(entity, columnsAndValuesMap, metadata.embeddeds);
-        metadata.relationsWithJoinColumns.forEach(function (relation) {
-            var relationValue;
-            var value = relation.getEntityValue(entity);
-            if (value) {
-                // if relation value is stored in the entity itself then use it from there
-                var relationId = relation.getInverseEntityRelationId(value); // todo: check it
-                if (relationId) {
-                    relationValue = relationId;
-                }
-                // otherwise try to find relational value from just inserted subjects
-                var alreadyInsertedSubject = alreadyInsertedSubjects.find(function (insertedSubject) {
-                    return insertedSubject.entity === value;
-                });
-                if (alreadyInsertedSubject) {
-                    var referencedColumn = relation.joinColumn.referencedColumn;
-                    // if join column references to the primary generated column then seek in the newEntityId of the insertedSubject
-                    if (referencedColumn.referencedColumn && referencedColumn.referencedColumn.isGenerated) {
-                        if (referencedColumn.isParentId) {
-                            relationValue = alreadyInsertedSubject.parentGeneratedId;
-                        }
-                        // todo: what if reference column is not generated?
-                        // todo: what if reference column is not related to table inheritance?
-                    }
-                    if (referencedColumn.isGenerated)
-                        relationValue = alreadyInsertedSubject.newlyGeneratedId;
-                    if (referencedColumn.isObjectId)
-                        relationValue = alreadyInsertedSubject.generatedObjectId;
-                    // if it references to create or update date columns
-                    if (referencedColumn.isCreateDate || referencedColumn.isUpdateDate)
-                        relationValue = _this.connection.driver.preparePersistentValue(alreadyInsertedSubject.date, referencedColumn);
-                    // if it references to version column
-                    if (referencedColumn.isVersion)
-                        relationValue = _this.connection.driver.preparePersistentValue(1, referencedColumn);
-                }
-            }
-            else if (relation.hasInverseSide) {
-                var inverseSubject = _this.allSubjects.find(function (subject) {
-                    if (!subject.hasEntity || subject.entityTarget !== relation.inverseRelation.target)
-                        return false;
-                    var inverseRelationValue = subject.entity[relation.inverseRelation.propertyName];
-                    if (inverseRelationValue) {
-                        if (inverseRelationValue instanceof Array) {
-                            return inverseRelationValue.find(function (subValue) { return subValue === subValue; });
-                        }
-                        else {
-                            return inverseRelationValue === entity;
-                        }
-                    }
-                });
-                if (inverseSubject && inverseSubject.entity[relation.joinColumn.referencedColumn.propertyName]) {
-                    relationValue = inverseSubject.entity[relation.joinColumn.referencedColumn.propertyName];
-                }
-            }
-            if (relationValue) {
-                columnNames.push(relation.name);
-                columnValues.push(relationValue);
-                columnsAndValuesMap[relation.propertyName] = entity[relation.name];
-            }
-        });
-        // add special column and value - date of creation
-        if (metadata.hasCreateDateColumn) {
-            var value = this.connection.driver.preparePersistentValue(date, metadata.createDateColumn);
-            columnNames.push(metadata.createDateColumn.fullName);
-            columnValues.push(value);
-            columnsAndValuesMap[metadata.createDateColumn.fullName] = value;
-        }
-        // add special column and value - date of updating
-        if (metadata.hasUpdateDateColumn) {
-            var value = this.connection.driver.preparePersistentValue(date, metadata.updateDateColumn);
-            columnNames.push(metadata.updateDateColumn.fullName);
-            columnValues.push(value);
-            columnsAndValuesMap[metadata.updateDateColumn.fullName] = value;
-        }
-        // add special column and value - version column
-        if (metadata.hasVersionColumn) {
-            var value = this.connection.driver.preparePersistentValue(1, metadata.versionColumn);
-            columnNames.push(metadata.versionColumn.fullName);
-            columnValues.push(value);
-            columnsAndValuesMap[metadata.versionColumn.fullName] = value;
-        }
-        // add special column and value - discriminator value (for tables using table inheritance)
-        if (metadata.hasDiscriminatorColumn) {
-            var value = this.connection.driver.preparePersistentValue(discriminatorValue || metadata.discriminatorValue, metadata.discriminatorColumn);
-            columnNames.push(metadata.discriminatorColumn.fullName);
-            columnValues.push(value);
-            columnsAndValuesMap[metadata.discriminatorColumn.fullName] = value;
-        }
-        // add special column and value - tree level and tree parents (for tree-type tables)
-        if (metadata.hasTreeLevelColumn && metadata.hasTreeParentRelation) {
-            var parentEntity = entity[metadata.treeParentRelation.propertyName];
-            var parentLevel = parentEntity ? (parentEntity[metadata.treeLevelColumn.propertyName] || 0) : 0;
-            columnNames.push(metadata.treeLevelColumn.fullName);
-            columnValues.push(parentLevel + 1);
-        }
-        // add special column and value - parent id column (for tables using table inheritance)
-        if (metadata.parentEntityMetadata && metadata.hasParentIdColumn) {
-            columnNames.push(metadata.parentIdColumn.fullName); // todo: should be array of primary keys
-            columnValues.push(parentIdColumnValue || entity[metadata.parentEntityMetadata.firstPrimaryColumn.propertyName]); // todo: should be array of primary keys
-        }
+        var values = {};
         if (this.connection.driver instanceof MongoDriver_1.MongoDriver) {
-            return columnsAndValuesMap;
+            this.collectColumns(metadata.ownColumns, entity, values);
+            metadata.embeddeds.forEach(function (embed) { return _this.collectEmbeds(embed, entity, values); });
         }
         else {
-            return OrmUtils_1.OrmUtils.zipObject(columnNames, columnValues);
+            metadata.columns.forEach(function (column) {
+                if (column.isVirtual || column.isParentId || column.isDiscriminator)
+                    return;
+                var value = column.getEntityValue(entity);
+                if (value === null || value === undefined)
+                    return;
+                values[column.databaseName] = _this.connection.driver.preparePersistentValue(value, column); // todo: maybe preparePersistentValue is not responsibility of this class
+            });
         }
+        metadata.relationsWithJoinColumns.forEach(function (relation) {
+            relation.joinColumns.forEach(function (joinColumn) {
+                var relationValue;
+                var value = relation.getEntityValue(entity);
+                if (value) {
+                    // if relation value is stored in the entity itself then use it from there
+                    var relationId = joinColumn.referencedColumn.getEntityValue(value); // relation.getInverseEntityRelationId(value); // todo: check it
+                    if (relationId) {
+                        relationValue = relationId;
+                    }
+                    // otherwise try to find relational value from just inserted subjects
+                    var alreadyInsertedSubject = alreadyInsertedSubjects.find(function (insertedSubject) {
+                        return insertedSubject.entity === value;
+                    });
+                    if (alreadyInsertedSubject) {
+                        var referencedColumn = joinColumn.referencedColumn;
+                        // if join column references to the primary generated column then seek in the newEntityId of the insertedSubject
+                        if (referencedColumn.referencedColumn && referencedColumn.referencedColumn.isGenerated) {
+                            if (referencedColumn.isParentId) {
+                                relationValue = alreadyInsertedSubject.parentGeneratedId;
+                            }
+                            // todo: what if reference column is not generated?
+                            // todo: what if reference column is not related to table inheritance?
+                        }
+                        if (referencedColumn.isGenerated)
+                            relationValue = alreadyInsertedSubject.newlyGeneratedId;
+                        if (referencedColumn.isObjectId)
+                            relationValue = alreadyInsertedSubject.generatedObjectId;
+                        // if it references to create or update date columns
+                        if (referencedColumn.isCreateDate || referencedColumn.isUpdateDate)
+                            relationValue = _this.connection.driver.preparePersistentValue(alreadyInsertedSubject.date, referencedColumn);
+                        // if it references to version column
+                        if (referencedColumn.isVersion)
+                            relationValue = _this.connection.driver.preparePersistentValue(1, referencedColumn);
+                    }
+                }
+                else if (relation.inverseRelation) {
+                    var inverseSubject = _this.allSubjects.find(function (subject) {
+                        if (!subject.hasEntity || subject.entityTarget !== relation.inverseRelation.target)
+                            return false;
+                        var inverseRelationValue = relation.inverseRelation.getEntityValue(subject.entity);
+                        if (inverseRelationValue) {
+                            if (inverseRelationValue instanceof Array) {
+                                return inverseRelationValue.find(function (subValue) { return subValue === subValue; });
+                            }
+                            else {
+                                return inverseRelationValue === entity;
+                            }
+                        }
+                    });
+                    if (inverseSubject && joinColumn.referencedColumn.getEntityValue(inverseSubject.entity)) {
+                        relationValue = joinColumn.referencedColumn.getEntityValue(inverseSubject.entity);
+                    }
+                }
+                if (relationValue) {
+                    values[joinColumn.databaseName] = relationValue;
+                }
+            });
+        });
+        // add special column and value - date of creation
+        if (metadata.createDateColumn) {
+            var value = this.connection.driver.preparePersistentValue(date, metadata.createDateColumn);
+            values[metadata.createDateColumn.databaseName] = value;
+        }
+        // add special column and value - date of updating
+        if (metadata.updateDateColumn) {
+            var value = this.connection.driver.preparePersistentValue(date, metadata.updateDateColumn);
+            values[metadata.updateDateColumn.databaseName] = value;
+        }
+        // add special column and value - version column
+        if (metadata.versionColumn) {
+            var value = this.connection.driver.preparePersistentValue(1, metadata.versionColumn);
+            values[metadata.versionColumn.databaseName] = value;
+        }
+        // add special column and value - discriminator value (for tables using table inheritance)
+        if (metadata.discriminatorColumn) {
+            var value = this.connection.driver.preparePersistentValue(discriminatorValue || metadata.discriminatorValue, metadata.discriminatorColumn);
+            values[metadata.discriminatorColumn.databaseName] = value;
+        }
+        // add special column and value - tree level and tree parents (for tree-type tables)
+        if (metadata.treeLevelColumn && metadata.treeParentRelation) {
+            var parentEntity = metadata.treeParentRelation.getEntityValue(entity);
+            var parentLevel = parentEntity ? (metadata.treeLevelColumn.getEntityValue(parentEntity) || 0) : 0;
+            values[metadata.treeLevelColumn.databaseName] = parentLevel + 1;
+        }
+        // add special column and value - parent id column (for tables using table inheritance)
+        if (metadata.parentEntityMetadata && metadata.parentIdColumns.length) {
+            values[metadata.parentIdColumns[0].databaseName] = parentIdColumnValue || metadata.parentEntityMetadata.primaryColumns[0].getEntityValue(entity);
+        }
+        return values;
     };
     // -------------------------------------------------------------------------
     // Private Methods: Insertion into closure tables
@@ -595,7 +597,7 @@ var SubjectOperationExecutor = (function () {
     SubjectOperationExecutor.prototype.executeInsertClosureTableOperations = function () {
         var _this = this;
         var promises = this.insertSubjects
-            .filter(function (subject) { return subject.metadata.table.isClosure; })
+            .filter(function (subject) { return subject.metadata.isClosure; })
             .map(function (subject) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -622,17 +624,17 @@ var SubjectOperationExecutor = (function () {
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
-                        tableName = subject.metadata.closureJunctionTable.table.name;
-                        referencedColumn = subject.metadata.treeParentRelation.joinColumn.referencedColumn;
-                        newEntityId = subject.entity[referencedColumn.propertyName];
+                        tableName = subject.metadata.closureJunctionTable.tableName;
+                        referencedColumn = subject.metadata.treeParentRelation.joinColumns[0].referencedColumn;
+                        newEntityId = referencedColumn.getEntityValue(subject.entity);
                         if (!newEntityId && referencedColumn.isGenerated) {
                             newEntityId = subject.newlyGeneratedId;
                             // we should not handle object id here because closure tables are not supported by mongodb driver.
                         } // todo: implement other special column types too
-                        parentEntity = subject.entity[subject.metadata.treeParentRelation.propertyName];
+                        parentEntity = subject.metadata.treeParentRelation.getEntityValue(subject.entity);
                         parentEntityId = 0;
                         if (parentEntity) {
-                            parentEntityId = parentEntity[referencedColumn.propertyName];
+                            parentEntityId = referencedColumn.getEntityValue(parentEntity);
                             if (!parentEntityId && referencedColumn.isGenerated) {
                                 parentInsertedSubject = this.insertSubjects.find(function (subject) { return subject.entity === parentEntity; });
                                 // todo: throw exception if parentInsertedSubject is not set
@@ -642,13 +644,13 @@ var SubjectOperationExecutor = (function () {
                         // try to find parent entity id in some other entity that has this entity in its children
                         if (!parentEntityId) {
                             parentSubject = this.allSubjects.find(function (allSubject) {
-                                if (!allSubject.hasEntity || !allSubject.metadata.table.isClosure || !allSubject.metadata.hasTreeChildrenRelation)
+                                if (!allSubject.hasEntity || !allSubject.metadata.isClosure || !allSubject.metadata.treeChildrenRelation)
                                     return false;
-                                var children = allSubject.entity[subject.metadata.treeChildrenRelation.propertyName];
+                                var children = subject.metadata.treeChildrenRelation.getEntityValue(allSubject.entity);
                                 return children instanceof Array ? children.indexOf(subject.entity) !== -1 : false;
                             });
                             if (parentSubject) {
-                                parentEntityId = parentSubject.entity[referencedColumn.propertyName];
+                                parentEntityId = referencedColumn.getEntityValue(parentSubject);
                                 if (!parentEntityId && parentSubject.newlyGeneratedId) {
                                     parentEntityId = parentSubject.newlyGeneratedId;
                                 }
@@ -656,13 +658,13 @@ var SubjectOperationExecutor = (function () {
                         }
                         // if parent entity exist then insert a new row into closure table
                         _a = subject;
-                        return [4 /*yield*/, this.queryRunner.insertIntoClosureTable(tableName, newEntityId, parentEntityId, subject.metadata.hasTreeLevelColumn)];
+                        return [4 /*yield*/, this.queryRunner.insertIntoClosureTable(tableName, newEntityId, parentEntityId, !!subject.metadata.treeLevelColumn)];
                     case 1:
                         // if parent entity exist then insert a new row into closure table
                         _a.treeLevel = _d.sent();
-                        if (!subject.metadata.hasTreeLevelColumn) return [3 /*break*/, 3];
-                        values = (_b = {}, _b[subject.metadata.treeLevelColumn.fullName] = subject.treeLevel, _b);
-                        return [4 /*yield*/, this.queryRunner.update(subject.metadata.table.name, values, (_c = {}, _c[referencedColumn.fullName] = newEntityId, _c))];
+                        if (!subject.metadata.treeLevelColumn) return [3 /*break*/, 3];
+                        values = (_b = {}, _b[subject.metadata.treeLevelColumn.databaseName] = subject.treeLevel, _b);
+                        return [4 /*yield*/, this.queryRunner.update(subject.metadata.tableName, values, (_c = {}, _c[referencedColumn.databaseName] = newEntityId, _c))];
                     case 2:
                         _d.sent();
                         _d.label = 3;
@@ -696,7 +698,7 @@ var SubjectOperationExecutor = (function () {
     SubjectOperationExecutor.prototype.update = function (subject) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var entity, idMap, addEmbeddedValuesRecursively_1, value_1, valueMaps, valueMap, valueMap, valueMap, valueMap;
+            var entity, idMap, value_1, valueMaps, valueMap, valueMap, valueMap, valueMap;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -705,109 +707,84 @@ var SubjectOperationExecutor = (function () {
                             idMap = subject.metadata.getDatabaseEntityIdMap(entity);
                             if (!idMap)
                                 throw new Error("Internal error. Cannot get id of the updating entity.");
-                            addEmbeddedValuesRecursively_1 = function (entity, value, embeddeds) {
-                                embeddeds.forEach(function (embedded) {
-                                    if (!entity[embedded.propertyName])
-                                        return;
-                                    if (embedded.isArray) {
-                                        value[embedded.prefix] = entity[embedded.propertyName].map(function (subValue) {
-                                            var newItem = {};
-                                            embedded.columns.forEach(function (column) {
-                                                newItem[column.name] = subValue[column.propertyName];
-                                            });
-                                            return newItem;
-                                        });
-                                    }
-                                    else {
-                                        embedded.columns.forEach(function (column) {
-                                            if (!value[embedded.prefix])
-                                                value[embedded.prefix] = {};
-                                            value[embedded.prefix][column.name] = entity[embedded.propertyName][column.propertyName];
-                                        });
-                                    }
-                                    addEmbeddedValuesRecursively_1(entity[embedded.propertyName], value[embedded.prefix], embedded.embeddeds);
-                                });
-                            };
                             value_1 = {};
-                            subject.metadata.columnsWithoutEmbeddeds.forEach(function (column) {
-                                if (entity[column.propertyName] !== undefined)
-                                    value_1[column.fullName] = entity[column.propertyName];
-                            });
-                            addEmbeddedValuesRecursively_1(entity, value_1, subject.metadata.embeddeds);
+                            this.collectColumns(subject.metadata.ownColumns, entity, value_1);
+                            subject.metadata.embeddeds.forEach(function (embed) { return _this.collectEmbeds(embed, entity, value_1); });
                             // if number of updated columns = 0 no need to update updated date and version columns
                             if (Object.keys(value_1).length === 0)
                                 return [2 /*return*/];
-                            if (subject.metadata.hasUpdateDateColumn)
-                                value_1[subject.metadata.updateDateColumn.fullName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.updateDateColumn);
-                            if (subject.metadata.hasVersionColumn)
-                                value_1[subject.metadata.versionColumn.fullName] = this.connection.driver.preparePersistentValue(entity[subject.metadata.versionColumn.propertyName] + 1, subject.metadata.versionColumn);
-                            return [2 /*return*/, this.queryRunner.update(subject.metadata.table.name, value_1, idMap)];
+                            if (subject.metadata.updateDateColumn)
+                                value_1[subject.metadata.updateDateColumn.databaseName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.updateDateColumn);
+                            if (subject.metadata.versionColumn)
+                                value_1[subject.metadata.versionColumn.databaseName] = this.connection.driver.preparePersistentValue(subject.metadata.versionColumn.getEntityValue(entity) + 1, subject.metadata.versionColumn);
+                            return [2 /*return*/, this.queryRunner.update(subject.metadata.tableName, value_1, idMap)];
                         }
                         valueMaps = [];
+                        // console.log(subject.diffColumns);
                         subject.diffColumns.forEach(function (column) {
-                            if (!column.entityTarget)
-                                return; // todo: how this can be possible?
-                            var metadata = _this.connection.getMetadata(column.entityTarget);
-                            var valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === metadata.table.name; });
+                            // if (!column.entityTarget) return; // todo: how this can be possible?
+                            var metadata = _this.connection.getMetadata(column.entityMetadata.target);
+                            var valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === metadata.tableName; });
                             if (!valueMap) {
-                                valueMap = { tableName: metadata.table.name, metadata: metadata, values: {} };
+                                valueMap = { tableName: metadata.tableName, metadata: metadata, values: {} };
                                 valueMaps.push(valueMap);
                             }
-                            valueMap.values[column.fullName] = _this.connection.driver.preparePersistentValue(column.getEntityValue(entity), column);
+                            valueMap.values[column.databaseName] = _this.connection.driver.preparePersistentValue(column.getEntityValue(entity), column);
                         });
                         subject.diffRelations.forEach(function (relation) {
-                            var metadata = _this.connection.getMetadata(relation.entityTarget);
-                            var valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === metadata.table.name; });
+                            var valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === relation.entityMetadata.tableName; });
                             if (!valueMap) {
-                                valueMap = { tableName: metadata.table.name, metadata: metadata, values: {} };
+                                valueMap = { tableName: relation.entityMetadata.tableName, metadata: relation.entityMetadata, values: {} };
                                 valueMaps.push(valueMap);
                             }
                             var value = relation.getEntityValue(entity);
-                            valueMap.values[relation.name] = value !== null && value !== undefined ? value[relation.inverseEntityMetadata.firstPrimaryColumn.propertyName] : null; // todo: should not have a call to primaryColumn, instead join column metadata should be used
+                            relation.joinColumns.forEach(function (joinColumn) {
+                                valueMap.values[joinColumn.databaseName] = value !== null && value !== undefined ? value[joinColumn.referencedColumn.propertyName] : null; // todo: should not have a call to primaryColumn, instead join column metadata should be used
+                            });
                         });
                         // if number of updated columns = 0 no need to update updated date and version columns
                         if (Object.keys(valueMaps).length === 0)
                             return [2 /*return*/];
-                        if (subject.metadata.hasUpdateDateColumn) {
-                            valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.table.name; });
+                        if (subject.metadata.updateDateColumn) {
+                            valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.tableName; });
                             if (!valueMap) {
-                                valueMap = { tableName: subject.metadata.table.name, metadata: subject.metadata, values: {} };
+                                valueMap = { tableName: subject.metadata.tableName, metadata: subject.metadata, values: {} };
                                 valueMaps.push(valueMap);
                             }
-                            valueMap.values[subject.metadata.updateDateColumn.fullName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.updateDateColumn);
+                            valueMap.values[subject.metadata.updateDateColumn.databaseName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.updateDateColumn);
                         }
-                        if (subject.metadata.hasVersionColumn) {
-                            valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.table.name; });
+                        if (subject.metadata.versionColumn) {
+                            valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.tableName; });
                             if (!valueMap) {
-                                valueMap = { tableName: subject.metadata.table.name, metadata: subject.metadata, values: {} };
+                                valueMap = { tableName: subject.metadata.tableName, metadata: subject.metadata, values: {} };
                                 valueMaps.push(valueMap);
                             }
-                            valueMap.values[subject.metadata.versionColumn.fullName] = this.connection.driver.preparePersistentValue(entity[subject.metadata.versionColumn.propertyName] + 1, subject.metadata.versionColumn);
+                            valueMap.values[subject.metadata.versionColumn.databaseName] = this.connection.driver.preparePersistentValue(subject.metadata.versionColumn.getEntityValue(entity) + 1, subject.metadata.versionColumn);
                         }
                         if (subject.metadata.parentEntityMetadata) {
-                            if (subject.metadata.parentEntityMetadata.hasUpdateDateColumn) {
-                                valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.parentEntityMetadata.table.name; });
+                            if (subject.metadata.parentEntityMetadata.updateDateColumn) {
+                                valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.parentEntityMetadata.tableName; });
                                 if (!valueMap) {
                                     valueMap = {
-                                        tableName: subject.metadata.parentEntityMetadata.table.name,
+                                        tableName: subject.metadata.parentEntityMetadata.tableName,
                                         metadata: subject.metadata.parentEntityMetadata,
                                         values: {}
                                     };
                                     valueMaps.push(valueMap);
                                 }
-                                valueMap.values[subject.metadata.parentEntityMetadata.updateDateColumn.fullName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.parentEntityMetadata.updateDateColumn);
+                                valueMap.values[subject.metadata.parentEntityMetadata.updateDateColumn.databaseName] = this.connection.driver.preparePersistentValue(new Date(), subject.metadata.parentEntityMetadata.updateDateColumn);
                             }
-                            if (subject.metadata.parentEntityMetadata.hasVersionColumn) {
-                                valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.parentEntityMetadata.table.name; });
+                            if (subject.metadata.parentEntityMetadata.versionColumn) {
+                                valueMap = valueMaps.find(function (valueMap) { return valueMap.tableName === subject.metadata.parentEntityMetadata.tableName; });
                                 if (!valueMap) {
                                     valueMap = {
-                                        tableName: subject.metadata.parentEntityMetadata.table.name,
+                                        tableName: subject.metadata.parentEntityMetadata.tableName,
                                         metadata: subject.metadata.parentEntityMetadata,
                                         values: {}
                                     };
                                     valueMaps.push(valueMap);
                                 }
-                                valueMap.values[subject.metadata.parentEntityMetadata.versionColumn.fullName] = this.connection.driver.preparePersistentValue(entity[subject.metadata.parentEntityMetadata.versionColumn.propertyName] + 1, subject.metadata.parentEntityMetadata.versionColumn);
+                                valueMap.values[subject.metadata.parentEntityMetadata.versionColumn.databaseName] = this.connection.driver.preparePersistentValue(subject.metadata.parentEntityMetadata.versionColumn.getEntityValue(entity) + 1, subject.metadata.parentEntityMetadata.versionColumn);
                             }
                         }
                         return [4 /*yield*/, Promise.all(valueMaps.map(function (valueMap) {
@@ -842,13 +819,15 @@ var SubjectOperationExecutor = (function () {
             return __generator(this, function (_a) {
                 values = {};
                 subject.relationUpdates.forEach(function (setRelation) {
-                    var value = setRelation.value ? setRelation.value[setRelation.relation.joinColumn.referencedColumn.propertyName] : null;
-                    values[setRelation.relation.name] = value; // todo: || fromInsertedSubjects ??
+                    setRelation.relation.joinColumns.forEach(function (joinColumn) {
+                        var value = setRelation.value ? setRelation.value[joinColumn.referencedColumn.propertyName] : null;
+                        values[joinColumn.databaseName] = value; // todo: || fromInsertedSubjects ??
+                    });
                 });
                 idMap = subject.metadata.getDatabaseEntityIdMap(subject.databaseEntity);
                 if (!idMap)
                     throw new Error("Internal error. Cannot get id of the updating entity.");
-                return [2 /*return*/, this.queryRunner.update(subject.metadata.table.name, values, idMap)];
+                return [2 /*return*/, this.queryRunner.update(subject.metadata.tableName, values, idMap)];
             });
         });
     };
@@ -887,21 +866,21 @@ var SubjectOperationExecutor = (function () {
                     case 0:
                         if (!subject.metadata.parentEntityMetadata) return [3 /*break*/, 3];
                         parentConditions_1 = {};
-                        subject.metadata.parentPrimaryColumns.forEach(function (column) {
-                            parentConditions_1[column.fullName] = subject.databaseEntity[column.propertyName];
+                        subject.metadata.primaryColumns.forEach(function (column) {
+                            parentConditions_1[column.databaseName] = column.getEntityValue(subject.databaseEntity);
                         });
-                        return [4 /*yield*/, this.queryRunner.delete(subject.metadata.parentEntityMetadata.table.name, parentConditions_1)];
+                        return [4 /*yield*/, this.queryRunner.delete(subject.metadata.parentEntityMetadata.tableName, parentConditions_1)];
                     case 1:
                         _a.sent();
                         childConditions_1 = {};
-                        subject.metadata.primaryColumnsWithParentIdColumns.forEach(function (column) {
-                            childConditions_1[column.fullName] = subject.databaseEntity[column.propertyName];
+                        subject.metadata.primaryColumns.forEach(function (column) {
+                            childConditions_1[column.databaseName] = column.getEntityValue(subject.databaseEntity);
                         });
-                        return [4 /*yield*/, this.queryRunner.delete(subject.metadata.table.name, childConditions_1)];
+                        return [4 /*yield*/, this.queryRunner.delete(subject.metadata.tableName, childConditions_1)];
                     case 2:
                         _a.sent();
                         return [3 /*break*/, 5];
-                    case 3: return [4 /*yield*/, this.queryRunner.delete(subject.metadata.table.name, subject.metadata.getEntityIdColumnMap(subject.databaseEntity))];
+                    case 3: return [4 /*yield*/, this.queryRunner.delete(subject.metadata.tableName, subject.metadata.getDatabaseEntityIdMap(subject.databaseEntity))];
                     case 4:
                         _a.sent();
                         _a.label = 5;
@@ -943,55 +922,42 @@ var SubjectOperationExecutor = (function () {
     SubjectOperationExecutor.prototype.insertJunctions = function (subject, junctionInsert) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var relation, joinTable, firstColumn, secondColumn, ownId, promises;
+            var getRelationId, relation, joinColumns, ownId, promises;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        getRelationId = function (entity, joinColumns) {
+                            return joinColumns.map(function (joinColumn) {
+                                var id = joinColumn.referencedColumn.getEntityValue(entity);
+                                if (!id && joinColumn.referencedColumn.isGenerated) {
+                                    var insertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entity; });
+                                    if (insertSubject)
+                                        return insertSubject.newlyGeneratedId;
+                                }
+                                if (!id && joinColumn.referencedColumn.isObjectId) {
+                                    var insertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === entity; });
+                                    if (insertSubject)
+                                        return insertSubject.generatedObjectId;
+                                }
+                                // todo: implement other special referenced column types (update date, create date, version, discriminator column, etc.)
+                                return id;
+                            });
+                        };
                         relation = junctionInsert.relation;
-                        joinTable = relation.isOwning ? relation.joinTable : relation.inverseRelation.joinTable;
-                        firstColumn = relation.isOwning ? joinTable.referencedColumn : joinTable.inverseReferencedColumn;
-                        secondColumn = relation.isOwning ? joinTable.inverseReferencedColumn : joinTable.referencedColumn;
-                        ownId = relation.getOwnEntityRelationId(subject.entity);
-                        if (!ownId) {
-                            if (firstColumn.isGenerated) {
-                                ownId = subject.newlyGeneratedId;
-                            }
-                            else if (firstColumn.isObjectId) {
-                                ownId = subject.generatedObjectId;
-                            }
-                            // todo: implement other special referenced column types (update date, create date, version, discriminator column, etc.)
-                        }
-                        if (!ownId)
+                        joinColumns = relation.isManyToManyOwner ? relation.joinColumns : relation.inverseRelation.inverseJoinColumns;
+                        ownId = getRelationId(subject.entity, joinColumns);
+                        if (!ownId.length)
                             throw new Error("Cannot insert object of " + subject.entityTarget + " type. Looks like its not persisted yet, or cascades are not set on the relation."); // todo: better error message
                         promises = junctionInsert.junctionEntities.map(function (newBindEntity) {
                             // get relation id from the newly bind entity
-                            var relationId;
-                            if (relation.isManyToManyOwner) {
-                                relationId = newBindEntity[relation.joinTable.inverseReferencedColumn.propertyName];
-                            }
-                            else if (relation.isManyToManyNotOwner) {
-                                relationId = newBindEntity[relation.inverseRelation.joinTable.referencedColumn.propertyName];
-                            }
-                            // if relation id is missing in the newly bind entity then check maybe it was just persisted
-                            // and we can use special newly generated value
-                            if (!relationId) {
-                                var insertSubject = _this.insertSubjects.find(function (subject) { return subject.entity === newBindEntity; });
-                                if (insertSubject) {
-                                    if (secondColumn.isGenerated) {
-                                        relationId = insertSubject.newlyGeneratedId;
-                                    }
-                                    else if (secondColumn.isObjectId) {
-                                        relationId = insertSubject.generatedObjectId;
-                                    }
-                                    // todo: implement other special values too
-                                }
-                            }
+                            var joinColumns = relation.isManyToManyOwner ? relation.inverseJoinColumns : relation.inverseRelation.joinColumns;
+                            var relationId = getRelationId(newBindEntity, joinColumns);
                             // if relation id still does not exist - we arise an error
                             if (!relationId)
                                 throw new Error("Cannot insert object of " + newBindEntity.constructor.name + " type. Looks like its not persisted yet, or cascades are not set on the relation."); // todo: better error message
-                            var columns = relation.junctionEntityMetadata.columnsWithoutEmbeddeds.map(function (column) { return column.fullName; });
-                            var values = relation.isOwning ? [ownId, relationId] : [relationId, ownId];
-                            return _this.queryRunner.insert(relation.junctionEntityMetadata.table.name, OrmUtils_1.OrmUtils.zipObject(columns, values));
+                            var columns = relation.junctionEntityMetadata.columns.map(function (column) { return column.databaseName; });
+                            var values = relation.isOwning ? ownId.concat(relationId) : relationId.concat(ownId);
+                            return _this.queryRunner.insert(relation.junctionEntityMetadata.tableName, OrmUtils_1.OrmUtils.zipObject(columns, values));
                         });
                         return [4 /*yield*/, Promise.all(promises)];
                     case 1:
@@ -1034,21 +1000,24 @@ var SubjectOperationExecutor = (function () {
     SubjectOperationExecutor.prototype.removeJunctions = function (subject, junctionRemove) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var junctionMetadata, entity, ownId, ownColumn, relateColumn, removePromises;
+            var junctionMetadata, entity, firstJoinColumns, secondJoinColumns, conditions, removePromises;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         junctionMetadata = junctionRemove.relation.junctionEntityMetadata;
                         entity = subject.hasEntity ? subject.entity : subject.databaseEntity;
-                        ownId = junctionRemove.relation.getOwnEntityRelationId(entity);
-                        ownColumn = junctionRemove.relation.isOwning ? junctionMetadata.columns[0] : junctionMetadata.columns[1];
-                        relateColumn = junctionRemove.relation.isOwning ? junctionMetadata.columns[1] : junctionMetadata.columns[0];
-                        removePromises = junctionRemove.junctionRelationIds.map(function (relationId) {
-                            return _this.queryRunner.delete(junctionMetadata.table.name, (_a = {},
-                                _a[ownColumn.fullName] = ownId,
-                                _a[relateColumn.fullName] = relationId,
-                                _a));
-                            var _a;
+                        firstJoinColumns = junctionRemove.relation.isOwning ? junctionRemove.relation.joinColumns : junctionRemove.relation.inverseRelation.inverseJoinColumns;
+                        secondJoinColumns = junctionRemove.relation.isOwning ? junctionRemove.relation.inverseJoinColumns : junctionRemove.relation.inverseRelation.joinColumns;
+                        conditions = {};
+                        firstJoinColumns.forEach(function (joinColumn) {
+                            conditions[joinColumn.databaseName] = joinColumn.referencedColumn.getEntityValue(entity);
+                        });
+                        removePromises = junctionRemove.junctionRelationIds.map(function (relationIds) {
+                            var inverseConditions = {};
+                            secondJoinColumns.forEach(function (joinColumn) {
+                                inverseConditions[joinColumn.databaseName] = joinColumn.referencedColumn.getEntityValue(relationIds);
+                            });
+                            return _this.queryRunner.delete(junctionMetadata.tableName, Object.assign({}, inverseConditions, conditions));
                         });
                         return [4 /*yield*/, Promise.all(removePromises)];
                     case 1:
@@ -1067,26 +1036,26 @@ var SubjectOperationExecutor = (function () {
     SubjectOperationExecutor.prototype.updateSpecialColumnsInPersistedEntities = function () {
         // update entity columns that gets updated on each entity insert
         this.insertSubjects.forEach(function (subject) {
-            if (subject.generatedObjectId && subject.metadata.hasObjectIdColumn)
-                subject.entity[subject.metadata.objectIdColumn.propertyName] = subject.generatedObjectId;
+            if (subject.generatedObjectId && subject.metadata.objectIdColumn)
+                subject.metadata.objectIdColumn.setEntityValue(subject.entity, subject.generatedObjectId);
             subject.metadata.primaryColumns.forEach(function (primaryColumn) {
                 if (subject.newlyGeneratedId)
-                    subject.entity[primaryColumn.propertyName] = subject.newlyGeneratedId;
+                    primaryColumn.setEntityValue(subject.entity, subject.newlyGeneratedId);
             });
-            subject.metadata.parentPrimaryColumns.forEach(function (primaryColumn) {
+            subject.metadata.primaryColumns.forEach(function (primaryColumn) {
                 if (subject.parentGeneratedId)
-                    subject.entity[primaryColumn.propertyName] = subject.parentGeneratedId;
+                    primaryColumn.setEntityValue(subject.entity, subject.parentGeneratedId);
             });
-            if (subject.metadata.hasUpdateDateColumn)
-                subject.entity[subject.metadata.updateDateColumn.propertyName] = subject.date;
-            if (subject.metadata.hasCreateDateColumn)
-                subject.entity[subject.metadata.createDateColumn.propertyName] = subject.date;
-            if (subject.metadata.hasVersionColumn)
-                subject.entity[subject.metadata.versionColumn.propertyName] = 1;
-            if (subject.metadata.hasTreeLevelColumn) {
+            if (subject.metadata.updateDateColumn)
+                subject.metadata.updateDateColumn.setEntityValue(subject.entity, subject.date);
+            if (subject.metadata.createDateColumn)
+                subject.metadata.createDateColumn.setEntityValue(subject.entity, subject.date);
+            if (subject.metadata.versionColumn)
+                subject.metadata.versionColumn.setEntityValue(subject.entity, 1);
+            if (subject.metadata.treeLevelColumn) {
                 // const parentEntity = insertOperation.entity[metadata.treeParentMetadata.propertyName];
                 // const parentLevel = parentEntity ? (parentEntity[metadata.treeLevelColumn.propertyName] || 0) : 0;
-                subject.entity[subject.metadata.treeLevelColumn.propertyName] = subject.treeLevel;
+                subject.metadata.treeLevelColumn.setEntityValue(subject.entity, subject.treeLevel);
             }
             /*if (subject.metadata.hasTreeChildrenCountColumn) {
                  subject.entity[subject.metadata.treeChildrenCountColumn.propertyName] = 0;
@@ -1094,17 +1063,17 @@ var SubjectOperationExecutor = (function () {
         });
         // update special columns that gets updated on each entity update
         this.updateSubjects.forEach(function (subject) {
-            if (subject.metadata.hasUpdateDateColumn)
-                subject.entity[subject.metadata.updateDateColumn.propertyName] = subject.date;
-            if (subject.metadata.hasVersionColumn)
-                subject.entity[subject.metadata.versionColumn.propertyName]++;
+            if (subject.metadata.updateDateColumn)
+                subject.metadata.updateDateColumn.setEntityValue(subject.entity, subject.date);
+            if (subject.metadata.versionColumn)
+                subject.metadata.versionColumn.setEntityValue(subject.entity, subject.metadata.versionColumn.getEntityValue(subject.entity) + 1);
         });
         // remove ids from the entities that were removed
         this.removeSubjects
             .filter(function (subject) { return subject.hasEntity; })
             .forEach(function (subject) {
             subject.metadata.primaryColumns.forEach(function (primaryColumn) {
-                subject.entity[primaryColumn.propertyName] = undefined;
+                primaryColumn.setEntityValue(subject.entity, undefined);
             });
         });
     };

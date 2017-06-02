@@ -12,7 +12,7 @@ function AfterUpdate() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.AFTER_UPDATE
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.AfterUpdate = AfterUpdate;

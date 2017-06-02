@@ -6,6 +6,7 @@ import { QueryRunner } from "../../query-runner/QueryRunner";
 import { ObjectLiteral } from "../../common/ObjectLiteral";
 import { ColumnMetadata } from "../../metadata/ColumnMetadata";
 import { NamingStrategyInterface } from "../../naming-strategy/NamingStrategyInterface";
+import { LazyRelationsWrapper } from "../../lazy-loading/LazyRelationsWrapper";
 /**
  * Organizes communication with Oracle DBMS.
  *
@@ -16,6 +17,10 @@ export declare class OracleDriver implements Driver {
      * Naming strategy used in the connection where this driver is used.
      */
     namingStrategy: NamingStrategyInterface;
+    /**
+     * Used to wrap lazy relations to be able to perform lazy loadings.
+     */
+    lazyRelationsWrapper: LazyRelationsWrapper;
     /**
      * Driver connection options.
      */

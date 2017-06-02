@@ -7,6 +7,7 @@ import { ObjectLiteral } from "../../common/ObjectLiteral";
 import { ColumnMetadata } from "../../metadata/ColumnMetadata";
 import { NamingStrategyInterface } from "../../naming-strategy/NamingStrategyInterface";
 import { EntityMetadata } from "../../metadata/EntityMetadata";
+import { LazyRelationsWrapper } from "../../lazy-loading/LazyRelationsWrapper";
 /**
  * Organizes communication with MongoDB.
  */
@@ -15,6 +16,10 @@ export declare class MongoDriver implements Driver {
      * Naming strategy used in the connection where this driver is used.
      */
     namingStrategy: NamingStrategyInterface;
+    /**
+     * Used to wrap lazy relations to be able to perform lazy loadings.
+     */
+    lazyRelationsWrapper: LazyRelationsWrapper;
     /**
      * Mongodb does not require to dynamically create query runner each time,
      * because it does not have a regular pool.

@@ -66,6 +66,8 @@ export declare class SubjectOperationExecutor {
      * If entity uses class-table-inheritance, then multiple inserts may by performed to save all entities.
      */
     private insert(subject, alreadyInsertedSubjects);
+    private collectColumns(columns, entity, object);
+    private collectEmbeds(embed, entity, object);
     /**
      * Collects columns and values for the insert operation.
      */

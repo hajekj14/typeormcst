@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var RelationTypes_1 = require("../../metadata/types/RelationTypes");
 var index_1 = require("../../index");
 // todo: make decorators which use inverse side string separate
 /**
@@ -23,12 +22,12 @@ function OneToMany(typeFunction, inverseSide, options) {
             propertyName: propertyName,
             // propertyType: reflectedType,
             isLazy: isLazy,
-            relationType: RelationTypes_1.RelationTypes.ONE_TO_MANY,
+            relationType: "one-to-many",
             type: typeFunction,
             inverseSideProperty: inverseSide,
             options: options
         };
-        index_1.getMetadataArgsStorage().relations.add(args);
+        index_1.getMetadataArgsStorage().relations.push(args);
     };
 }
 exports.OneToMany = OneToMany;

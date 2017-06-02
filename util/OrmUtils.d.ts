@@ -4,6 +4,19 @@ export declare class OrmUtils {
         id: R;
         items: T[];
     }[];
+    static isObject(item: any): boolean;
+    /**
+     * Deep Object.assign.
+     *
+     * @see http://stackoverflow.com/a/34749873
+     */
+    static mergeDeep(target: any, ...sources: any[]): any;
+    /**
+     * Deep compare objects.
+     *
+     * @see http://stackoverflow.com/a/1144249
+     */
+    static deepCompare(...args: any[]): boolean;
     /**
      * Transforms given value into boolean value.
      */

@@ -7,6 +7,8 @@ import { RelationMetadata } from "../metadata/RelationMetadata";
 import { ColumnMetadata } from "../metadata/ColumnMetadata";
 /**
  * Repository for more specific operations.
+ *
+ * @deprecated Don't use it yet
  */
 export declare class SpecificRepository<Entity extends ObjectLiteral> {
     protected connection: Connection;
@@ -126,7 +128,7 @@ export declare class SpecificRepository<Entity extends ObjectLiteral> {
     /**
      * Converts entity or entities to id or ids map.
      */
-    protected convertEntityOrEntitiesToIdOrIds(column: ColumnMetadata, entityOrEntities: Entity[] | Entity | any | any[]): any | any[];
+    protected convertEntityOrEntitiesToIdOrIds(columns: ColumnMetadata[], entityOrEntities: Entity[] | Entity | any | any[]): any | any[];
     /**
      * Converts relation name, relation name in function into RelationMetadata.
      */

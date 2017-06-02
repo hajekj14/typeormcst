@@ -12,7 +12,7 @@ function AfterInsert() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.AFTER_INSERT
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.AfterInsert = AfterInsert;

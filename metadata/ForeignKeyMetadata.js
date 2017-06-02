@@ -4,69 +4,48 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * Contains all information about entity's foreign key.
  */
 var ForeignKeyMetadata = (function () {
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------------
-    function ForeignKeyMetadata(columns, referencedTable, referencedColumns, onDelete) {
-        this.columns = columns;
-        this.referencedTable = referencedTable;
-        this.referencedColumns = referencedColumns;
-        if (onDelete)
-            this.onDelete = onDelete;
-    }
-    Object.defineProperty(ForeignKeyMetadata.prototype, "tableName", {
-        // -------------------------------------------------------------------------
-        // Accessors
-        // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
+    function ForeignKeyMetadata(options) {
         /**
-         * Gets the table name to which this foreign key is applied.
+         * Array of columns of this foreign key.
          */
-        get: function () {
-            return this.entityMetadata.table.name;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ForeignKeyMetadata.prototype, "referencedTableName", {
+        this.columns = [];
         /**
-         * Gets the table name to which this foreign key is referenced.
+         * Array of referenced columns.
          */
-        get: function () {
-            return this.referencedTable.name;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ForeignKeyMetadata.prototype, "name", {
-        /**
-         * Gets foreign key name.
-         */
-        get: function () {
-            return this.entityMetadata.namingStrategy.foreignKeyName(this.tableName, this.columnNames, this.referencedTable.name, this.referencedColumnNames);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ForeignKeyMetadata.prototype, "columnNames", {
+        this.referencedColumns = [];
         /**
          * Gets array of column names.
          */
-        get: function () {
-            return this.columns.map(function (column) { return column.fullName; });
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ForeignKeyMetadata.prototype, "referencedColumnNames", {
+        this.columnNames = [];
         /**
          * Gets array of referenced column names.
          */
-        get: function () {
-            return this.referencedColumns.map(function (column) { return column.fullName; });
-        },
-        enumerable: true,
-        configurable: true
-    });
+        this.referencedColumnNames = [];
+        this.entityMetadata = options.entityMetadata;
+        this.referencedEntityMetadata = options.referencedEntityMetadata;
+        this.columns = options.columns;
+        this.referencedColumns = options.referencedColumns;
+        this.onDelete = options.onDelete;
+        if (options.namingStrategy)
+            this.build(options.namingStrategy);
+    }
+    // ---------------------------------------------------------------------
+    // Public Methods
+    // ---------------------------------------------------------------------
+    /**
+     * Builds some depend foreign key properties.
+     * Must be called after all entity metadatas and their columns are built.
+     */
+    ForeignKeyMetadata.prototype.build = function (namingStrategy) {
+        this.columnNames = this.columns.map(function (column) { return column.databaseName; });
+        this.referencedColumnNames = this.referencedColumns.map(function (column) { return column.databaseName; });
+        this.tableName = this.entityMetadata.tableName;
+        this.referencedTableName = this.referencedEntityMetadata.tableName;
+        this.name = namingStrategy.foreignKeyName(this.tableName, this.columnNames, this.referencedEntityMetadata.tableName, this.referencedColumnNames);
+    };
     return ForeignKeyMetadata;
 }());
 exports.ForeignKeyMetadata = ForeignKeyMetadata;

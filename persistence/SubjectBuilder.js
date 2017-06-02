@@ -36,8 +36,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var Subject_1 = require("./Subject");
-var SpecificRepository_1 = require("../repository/SpecificRepository");
 var MongoDriver_1 = require("../driver/mongodb/MongoDriver");
+var OrmUtils_1 = require("../util/OrmUtils");
 /**
  * To be able to execute persistence operations we need to load all entities from the database we need.
  * Loading should be efficient - we need to load entities in as few queries as possible + load as less data as we can.
@@ -278,13 +278,21 @@ var SubjectBuilder = (function () {
                                     case 0:
                                         allIds = subjectGroup.subjects
                                             .filter(function (subject) { return !subject.hasDatabaseEntity; }) // we don't load if subject already has a database entity loaded
-                                            .map(function (subject) { return subject.metadata.getEntityIdMixedMap(subject.entity); }) // we only need entity id
-                                            .filter(function (mixedId) {
-                                            if (mixedId instanceof Object)
-                                                return Object.keys(mixedId).every(function (key) { return mixedId[key] !== undefined && mixedId[key] !== null && mixedId[key] !== ""; });
-                                            return mixedId !== undefined && mixedId !== null && mixedId !== "";
+                                            .filter(function (subject) {
+                                            return !subject.metadata.isEntityMapEmpty(subject.entity);
+                                        }) // we only need entity id
+                                            .map(function (subject) {
+                                            // console.log(subject.entity);
+                                            return subject.metadata.getEntityIdMap(subject.entity);
+                                            // if (mixedId instanceof Object)
+                                            //     return Object.keys(mixedId).every(key => mixedId[key] !== undefined && mixedId[key] !== null && mixedId[key] !== "");
+                                            //
+                                            // return mixedId !== undefined && mixedId !== null && mixedId !== "";
                                         });
                                         // if there no ids found (which means all entities are new and have generated ids) - then nothing to load there
+                                        // console.log("allIds: ", allIds);
+                                        // console.log("subject.entity: ", subjectGroup.subjects);
+                                        // console.log("allIds: ", allIds);
                                         if (!allIds.length)
                                             return [2 /*return*/];
                                         if (!(this.connection.driver instanceof MongoDriver_1.MongoDriver)) return [3 /*break*/, 2];
@@ -298,7 +306,7 @@ var SubjectBuilder = (function () {
                                             .getRepository(subjectGroup.target)
                                             .createQueryBuilder("operateSubject", this.queryRunnerProvider)
                                             .andWhereInIds(allIds)
-                                            .enableOption("RELATION_ID_VALUES")
+                                            .enableAutoRelationIdsLoad()
                                             .getMany()];
                                     case 3:
                                         entities = _a.sent();
@@ -307,6 +315,7 @@ var SubjectBuilder = (function () {
                                         // now when we have entities we need to find subject of each entity
                                         // and insert that entity into database entity of the found subject
                                         entities.forEach(function (entity) {
+                                            // console.log(1);
                                             var subject = _this.findByEntityLike(subjectGroup.target, entity);
                                             if (subject)
                                                 subject.databaseEntity = entity;
@@ -347,12 +356,12 @@ var SubjectBuilder = (function () {
                     case 0:
                         promises = subject.metadata.relations.map(function (relation) { return __awaiter(_this, void 0, void 0, function () {
                             var _this = this;
-                            var valueMetadata, qbAlias, relationIdInDatabaseEntity_1, persistValueRelationId, persistValue, alreadyLoadedRelatedDatabaseSubject, databaseEntity, persistValueRelationId, persistValue, relationIdInDatabaseEntity_2, alreadyLoadedRelatedDatabaseSubject, databaseEntity, inverseEntityRelationId, persistValue_1, databaseEntities_1, escapeAlias, escapeColumn, relationIdInDatabaseEntity, relationIdInDatabaseEntity, relationIdInDatabaseEntity, promises_1, promises_2;
+                            var valueMetadata, qbAlias, relationIdInDatabaseEntity_1, persistValueRelationId, persistValue_1, alreadyLoadedRelatedDatabaseSubject, qb, condition, parameters, databaseEntity, persistValueRelationId, persistValue, relationIdInDatabaseEntity_2, alreadyLoadedRelatedDatabaseSubject, databaseEntity, inverseEntityRelationId, persistValue_2, databaseEntities_1, ea_1, ec_1, joinAlias_1, joinColumnConditions, inverseJoinColumnConditions, conditions, parameters, joinAlias_2, joinColumnConditions, inverseJoinColumnConditions, conditions, parameters, relationIdInDatabaseEntity, promises_1, promises_2;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
                                     case 0:
                                         valueMetadata = relation.inverseEntityMetadata;
-                                        qbAlias = valueMetadata.table.name;
+                                        qbAlias = valueMetadata.tableName;
                                         // added for type-safety, but subject without databaseEntity cant come here anyway because of checks on upper levels
                                         if (!subject.hasDatabaseEntity)
                                             return [2 /*return*/];
@@ -360,22 +369,28 @@ var SubjectBuilder = (function () {
                                         // we only work with cascade removes here
                                         if (!relation.isCascadeRemove)
                                             return [2 /*return*/];
-                                        relationIdInDatabaseEntity_1 = subject.databaseEntity[relation.joinColumn.propertyName];
+                                        relationIdInDatabaseEntity_1 = relation.getEntityValue(subject.databaseEntity);
                                         // if database relation id does not exist in the database object then nothing to remove
                                         if (relationIdInDatabaseEntity_1 === null || relationIdInDatabaseEntity_1 === undefined)
                                             return [2 /*return*/];
-                                        persistValueRelationId = undefined;
+                                        persistValueRelationId = undefined, persistValue_1 = undefined;
                                         if (subject.hasEntity) {
-                                            persistValue = relation.getEntityValue(subject.entity);
-                                            if (persistValue === null)
+                                            persistValue_1 = relation.getEntityValue(subject.entity);
+                                            if (persistValue_1 === null)
                                                 persistValueRelationId = null;
-                                            if (persistValue)
-                                                persistValueRelationId = persistValue[relation.joinColumn.referencedColumn.propertyName];
+                                            if (persistValue_1)
+                                                persistValueRelationId = relation.joinColumns.reduce(function (map, column) { return column.referencedColumn.getEntityValueMap(persistValue_1); }, {});
                                             if (persistValueRelationId === undefined)
                                                 return [2 /*return*/]; // skip undefined properties
                                         }
                                         // object is removed only if relation id in the persisted entity is empty or is changed
-                                        if (persistValueRelationId !== null && persistValueRelationId === relationIdInDatabaseEntity_1)
+                                        // if (persistValueRelationId !== null && persistValueRelationId === relationIdInDatabaseEntity)
+                                        //     return;
+                                        // console.log("relationIdInDatabaseEntity:", relationIdInDatabaseEntity);
+                                        // console.log("persistValue:", persistValue);
+                                        // console.log("compareEntities:", relation.entityMetadata.compareEntities(relationIdInDatabaseEntity, persistValue));
+                                        // console.log("compareIds:", relation.entityMetadata.compareIds(relationIdInDatabaseEntity, persistValue));
+                                        if (persistValueRelationId !== null && relation.entityMetadata.compareIds(relationIdInDatabaseEntity_1, persistValue_1))
                                             return [2 /*return*/];
                                         alreadyLoadedRelatedDatabaseSubject = this.operateSubjects.find(function (relatedSubject) {
                                             // (example) filter only subject that has database entity loaded and its target is Details
@@ -384,16 +399,23 @@ var SubjectBuilder = (function () {
                                             // (example) here we seek a Details loaded from the database in the subjects
                                             // (example) here relatedSubject.databaseEntity is a Details
                                             // (example) and we need to compare details.id === post.detailsId
-                                            return relatedSubject.databaseEntity[relation.joinColumn.referencedColumn.propertyName] === relationIdInDatabaseEntity_1;
+                                            return relation.entityMetadata.compareIds(relationIdInDatabaseEntity_1, relation.getEntityValue(relatedSubject.databaseEntity));
                                         });
                                         if (!!alreadyLoadedRelatedDatabaseSubject) return [3 /*break*/, 2];
-                                        return [4 /*yield*/, this.connection
-                                                .getRepository(valueMetadata.target)
-                                                .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
-                                                .where(qbAlias + "." + relation.joinColumn.referencedColumn.propertyName + "=:id")
-                                                .setParameter("id", relationIdInDatabaseEntity_1) // (example) subject.entity is a post here
-                                                .enableOption("RELATION_ID_VALUES")
-                                                .getOne()];
+                                        qb = this.connection
+                                            .getRepository(valueMetadata.target)
+                                            .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
+                                            .enableAutoRelationIdsLoad();
+                                        condition = relation.joinColumns.map(function (joinColumn) {
+                                            return qbAlias + "." + joinColumn.referencedColumn.propertyPath + " = :" + joinColumn.databaseName;
+                                        }).join(" AND ");
+                                        parameters = relation.joinColumns.reduce(function (parameters, joinColumn) {
+                                            parameters[joinColumn.databaseName] = joinColumn.referencedColumn.getEntityValue(relationIdInDatabaseEntity_1);
+                                            return parameters;
+                                        }, {});
+                                        qb.where(condition)
+                                            .setParameters(parameters);
+                                        return [4 /*yield*/, qb.getOne()];
                                     case 1:
                                         databaseEntity = _a.sent();
                                         if (databaseEntity) {
@@ -421,11 +443,11 @@ var SubjectBuilder = (function () {
                                         if (subject.hasEntity && !subject.mustBeRemoved) {
                                             persistValue = relation.getEntityValue(subject.entity);
                                             if (persistValue)
-                                                persistValueRelationId = persistValue[relation.inverseRelation.joinColumn.propertyName];
+                                                persistValueRelationId = relation.inverseRelation.getEntityValue(persistValue);
                                             if (persistValueRelationId === undefined)
                                                 return [2 /*return*/]; // skip undefined properties
                                         }
-                                        relationIdInDatabaseEntity_2 = subject.databaseEntity[relation.inverseRelation.joinColumn.referencedColumn.propertyName];
+                                        relationIdInDatabaseEntity_2 = relation.inverseRelation.joinColumns[0].referencedColumn.getEntityValue(subject.databaseEntity);
                                         // if database relation id does not exist then nothing to remove (but can this be possible?)
                                         if (relationIdInDatabaseEntity_2 === null || relationIdInDatabaseEntity_2 === undefined)
                                             return [2 /*return*/];
@@ -436,15 +458,15 @@ var SubjectBuilder = (function () {
                                             // (example) here we seek a Post loaded from the database in the subjects
                                             // (example) here relatedSubject.databaseEntity is a Post
                                             // (example) and we need to compare post.detailsId === details.id
-                                            return relatedSubject.databaseEntity[relation.inverseRelation.joinColumn.propertyName] === relationIdInDatabaseEntity_2;
+                                            return relation.inverseRelation.getEntityValue(relatedSubject.databaseEntity) === relationIdInDatabaseEntity_2;
                                         });
                                         if (!!alreadyLoadedRelatedDatabaseSubject) return [3 /*break*/, 6];
                                         return [4 /*yield*/, this.connection
                                                 .getRepository(valueMetadata.target)
                                                 .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
-                                                .where(qbAlias + "." + relation.inverseSideProperty + "=:id")
+                                                .where(qbAlias + "." + relation.inverseSidePropertyPath + "=:id") // TODO relation.inverseRelation.joinColumns
                                                 .setParameter("id", relationIdInDatabaseEntity_2) // (example) subject.entity is a details here, and the value is details.id
-                                                .enableOption("RELATION_ID_VALUES")
+                                                .enableAutoRelationIdsLoad()
                                                 .getOne()];
                                     case 5:
                                         databaseEntity = _a.sent();
@@ -456,7 +478,7 @@ var SubjectBuilder = (function () {
                                         _a.label = 6;
                                     case 6:
                                         if (!(alreadyLoadedRelatedDatabaseSubject && alreadyLoadedRelatedDatabaseSubject.hasDatabaseEntity)) return [3 /*break*/, 8];
-                                        inverseEntityRelationId = alreadyLoadedRelatedDatabaseSubject.databaseEntity[relation.inverseRelation.joinColumn.propertyName];
+                                        inverseEntityRelationId = relation.inverseRelation.getEntityValue(alreadyLoadedRelatedDatabaseSubject.databaseEntity);
                                         if (persistValueRelationId && persistValueRelationId === inverseEntityRelationId)
                                             return [2 /*return*/];
                                         // if object is already marked as removed then no need to proceed because it already was proceed
@@ -470,58 +492,78 @@ var SubjectBuilder = (function () {
                                         _a.label = 8;
                                     case 8:
                                         if (!(relation.isOneToMany || relation.isManyToMany)) return [3 /*break*/, 18];
-                                        persistValue_1 = undefined;
+                                        persistValue_2 = undefined;
                                         if (subject.hasEntity) {
-                                            persistValue_1 = relation.getEntityValue(subject.entity);
-                                            if (persistValue_1 === undefined)
+                                            persistValue_2 = relation.getEntityValue(subject.entity);
+                                            if (persistValue_2 === undefined)
                                                 return [2 /*return*/]; // skip undefined properties
                                         }
                                         databaseEntities_1 = [];
-                                        escapeAlias = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
-                                        escapeColumn = function (column) { return _this.connection.driver.escapeColumnName(column); };
+                                        ea_1 = function (alias) { return _this.connection.driver.escapeAliasName(alias); };
+                                        ec_1 = function (column) { return _this.connection.driver.escapeColumnName(column); };
                                         if (!relation.isManyToManyOwner) return [3 /*break*/, 10];
-                                        relationIdInDatabaseEntity = subject.databaseEntity[relation.joinTable.referencedColumn.propertyName];
                                         // we only need to load inverse entities if cascade removes are set
                                         // because remove by cascades is the only reason we need relational entities here
                                         if (!relation.isCascadeRemove)
                                             return [2 /*return*/];
+                                        joinAlias_1 = ea_1("persistenceJoinedRelation");
+                                        joinColumnConditions = relation.joinColumns.map(function (joinColumn) {
+                                            return joinAlias_1 + "." + joinColumn.propertyName + " = :" + joinColumn.propertyName;
+                                        });
+                                        inverseJoinColumnConditions = relation.inverseJoinColumns.map(function (inverseJoinColumn) {
+                                            return joinAlias_1 + "." + inverseJoinColumn.propertyName + " = " + ea_1(qbAlias) + "." + ec_1(inverseJoinColumn.referencedColumn.propertyName);
+                                        });
+                                        conditions = joinColumnConditions.concat(inverseJoinColumnConditions).join(" AND ");
+                                        parameters = relation.joinColumns.reduce(function (parameters, joinColumn) {
+                                            parameters[joinColumn.propertyName] = joinColumn.referencedColumn.getEntityValue(subject.databaseEntity);
+                                            return parameters;
+                                        }, {});
                                         return [4 /*yield*/, this.connection
                                                 .getRepository(valueMetadata.target)
                                                 .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
-                                                .innerJoin(relation.junctionEntityMetadata.table.name, "persistenceJoinedRelation", escapeAlias("persistenceJoinedRelation") + "." + escapeColumn(relation.joinTable.inverseJoinColumnName) + "=" + escapeAlias(qbAlias) + "." + escapeColumn(relation.joinTable.inverseReferencedColumn.fullName) +
-                                                " AND " + escapeAlias("persistenceJoinedRelation") + "." + escapeColumn(relation.joinTable.joinColumnName) + "=:id")
-                                                .setParameter("id", relationIdInDatabaseEntity)
-                                                .enableOption("RELATION_ID_VALUES")
+                                                .innerJoin(relation.junctionEntityMetadata.tableName, joinAlias_1, conditions)
+                                                .setParameters(parameters)
+                                                .enableAutoRelationIdsLoad()
                                                 .getMany()];
                                     case 9:
                                         databaseEntities_1 = _a.sent();
                                         return [3 /*break*/, 14];
                                     case 10:
                                         if (!relation.isManyToManyNotOwner) return [3 /*break*/, 12];
-                                        relationIdInDatabaseEntity = subject.databaseEntity[relation.inverseRelation.joinTable.inverseReferencedColumn.propertyName];
                                         // we only need to load inverse entities if cascade removes are set
                                         // because remove by cascades is the only reason we need relational entities here
                                         if (!relation.isCascadeRemove)
                                             return [2 /*return*/];
+                                        joinAlias_2 = ea_1("persistenceJoinedRelation");
+                                        joinColumnConditions = relation.joinColumns.map(function (joinColumn) {
+                                            return joinAlias_2 + "." + joinColumn.propertyName + " = " + ea_1(qbAlias) + "." + ec_1(joinColumn.referencedColumn.propertyName);
+                                        });
+                                        inverseJoinColumnConditions = relation.inverseJoinColumns.map(function (inverseJoinColumn) {
+                                            return joinAlias_2 + "." + inverseJoinColumn.propertyName + " = :" + inverseJoinColumn.propertyName;
+                                        });
+                                        conditions = joinColumnConditions.concat(inverseJoinColumnConditions).join(" AND ");
+                                        parameters = relation.inverseRelation.inverseJoinColumns.reduce(function (parameters, joinColumn) {
+                                            parameters[joinColumn.propertyName] = joinColumn.referencedColumn.getEntityValue(subject.databaseEntity);
+                                            return parameters;
+                                        }, {});
                                         return [4 /*yield*/, this.connection
                                                 .getRepository(valueMetadata.target)
                                                 .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
-                                                .innerJoin(relation.junctionEntityMetadata.table.name, "persistenceJoinedRelation", escapeAlias("persistenceJoinedRelation") + "." + escapeColumn(relation.joinTable.joinColumnName) + "=" + escapeAlias(qbAlias) + "." + escapeColumn(relation.joinTable.referencedColumn.fullName) +
-                                                " AND " + escapeAlias("persistenceJoinedRelation") + "." + escapeColumn(relation.inverseRelation.joinTable.inverseJoinColumnName) + "=:id")
-                                                .setParameter("id", relationIdInDatabaseEntity)
-                                                .enableOption("RELATION_ID_VALUES")
+                                                .innerJoin(relation.junctionEntityMetadata.tableName, joinAlias_2, conditions)
+                                                .setParameters(parameters)
+                                                .enableAutoRelationIdsLoad()
                                                 .getMany()];
                                     case 11:
                                         databaseEntities_1 = _a.sent();
                                         return [3 /*break*/, 14];
                                     case 12:
-                                        relationIdInDatabaseEntity = subject.databaseEntity[relation.inverseRelation.joinColumn.referencedColumn.propertyName];
+                                        relationIdInDatabaseEntity = relation.inverseRelation.joinColumns[0].referencedColumn.getEntityValue(subject.databaseEntity);
                                         return [4 /*yield*/, this.connection
                                                 .getRepository(valueMetadata.target)
                                                 .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
-                                                .where(qbAlias + "." + relation.inverseSideProperty + "=:id")
+                                                .where(qbAlias + "." + relation.inverseSidePropertyPath + "=:id")
                                                 .setParameter("id", relationIdInDatabaseEntity)
-                                                .enableOption("RELATION_ID_VALUES")
+                                                .enableAutoRelationIdsLoad()
                                                 .getMany()];
                                     case 13:
                                         // in this case we need inverse entities not only because of cascade removes
@@ -541,8 +583,8 @@ var SubjectBuilder = (function () {
                                                 _this.operateSubjects.push(subject_1);
                                             }
                                         });
-                                        if (!(relation.isOneToMany && persistValue_1)) return [3 /*break*/, 16];
-                                        promises_1 = persistValue_1.map(function (persistValue) { return __awaiter(_this, void 0, void 0, function () {
+                                        if (!(relation.isOneToMany && persistValue_2)) return [3 /*break*/, 16];
+                                        promises_1 = persistValue_2.map(function (persistValue) { return __awaiter(_this, void 0, void 0, function () {
                                             var persistedValueInDatabaseEntity, loadedSubject, id, databaseEntity;
                                             return __generator(this, function (_a) {
                                                 switch (_a.label) {
@@ -553,13 +595,13 @@ var SubjectBuilder = (function () {
                                                         if (!!persistedValueInDatabaseEntity) return [3 /*break*/, 3];
                                                         loadedSubject = this.findByDatabaseEntityLike(valueMetadata.target, persistValue);
                                                         if (!!loadedSubject) return [3 /*break*/, 2];
-                                                        id = valueMetadata.getEntityIdMixedMap(persistValue);
+                                                        id = valueMetadata.getEntityIdMap(persistValue);
                                                         if (!id) return [3 /*break*/, 2];
                                                         return [4 /*yield*/, this.connection
                                                                 .getRepository(valueMetadata.target)
                                                                 .createQueryBuilder(qbAlias, this.queryRunnerProvider) // todo: this wont work for mongodb. implement this in some method and call it here instead?
                                                                 .andWhereInIds([id])
-                                                                .enableOption("RELATION_ID_VALUES")
+                                                                .enableAutoRelationIdsLoad()
                                                                 .getOne()];
                                                     case 1:
                                                         databaseEntity = _a.sent();
@@ -569,11 +611,12 @@ var SubjectBuilder = (function () {
                                                         }
                                                         _a.label = 2;
                                                     case 2:
-                                                        if (loadedSubject)
+                                                        if (loadedSubject) {
                                                             loadedSubject.relationUpdates.push({
                                                                 relation: relation.inverseRelation,
                                                                 value: subject.entity
                                                             });
+                                                        }
                                                         _a.label = 3;
                                                     case 3: return [2 /*return*/];
                                                 }
@@ -596,10 +639,10 @@ var SubjectBuilder = (function () {
                                                         // if we remove this check it will cause a recursion
                                                         if (relatedEntitySubject.mustBeRemoved)
                                                             return [2 /*return*/]; // todo: add another check for entity in unsetRelations?
-                                                        relatedValue = (persistValue_1 || []).find(function (persistValueItem) {
+                                                        relatedValue = (persistValue_2 || []).find(function (persistValueItem) {
                                                             return valueMetadata.compareEntities(relatedEntitySubject.databaseEntity, persistValueItem);
                                                         });
-                                                        if (!(persistValue_1 === null || !relatedValue)) return [3 /*break*/, 3];
+                                                        if (!(persistValue_2 === null || !relatedValue)) return [3 /*break*/, 3];
                                                         if (!relation.isCascadeRemove) return [3 /*break*/, 2];
                                                         relatedEntitySubject.mustBeRemoved = true;
                                                         // mark as removed all underlying entities that has cascade remove
@@ -649,75 +692,74 @@ var SubjectBuilder = (function () {
                 switch (_a.label) {
                     case 0:
                         promises = this.operateSubjects.filter(function (subject) { return subject.hasEntity; }).map(function (subject) {
-                            var promises = subject.metadata.manyToManyRelations.map(function (relation) { return __awaiter(_this, void 0, void 0, function () {
-                                var specificRepository, existInverseEntityRelationIds_1, relatedValue, existInverseEntityRelationIds, specificRepository, changedInverseEntityRelationIds, removedJunctionEntityIds, newJunctionEntities;
+                            var metadata = subject.metadata.parentEntityMetadata ? subject.metadata.parentEntityMetadata : subject.metadata;
+                            var promises = metadata.manyToManyRelations.map(function (relation) { return __awaiter(_this, void 0, void 0, function () {
+                                var existInverseEntityRelationIds_1, relatedValue, existInverseEntityRelationIds, changedInverseEntityRelationIds, removedJunctionEntityIds, newJunctionEntities;
                                 return __generator(this, function (_a) {
-                                    switch (_a.label) {
-                                        case 0:
-                                            if (!(subject.mustBeRemoved && options.remove)) return [3 /*break*/, 2];
-                                            specificRepository = new SpecificRepository_1.SpecificRepository(this.connection, subject.metadata, this.queryRunnerProvider);
-                                            return [4 /*yield*/, specificRepository
-                                                    .findRelationIds(relation, subject.databaseEntity)];
-                                        case 1:
-                                            existInverseEntityRelationIds_1 = _a.sent();
-                                            // finally create a new junction remove operation and push it to the array of such operations
-                                            if (existInverseEntityRelationIds_1.length > 0) {
-                                                subject.junctionRemoves.push({
-                                                    relation: relation,
-                                                    junctionRelationIds: existInverseEntityRelationIds_1
-                                                });
-                                            }
-                                            return [2 /*return*/];
-                                        case 2:
-                                            // if entity don't have entity then no need to find something that should be inserted or removed
-                                            if (!subject.hasEntity)
-                                                return [2 /*return*/];
-                                            relatedValue = relation.getEntityValue(subject.entity);
-                                            if (!(relatedValue instanceof Array))
-                                                return [2 /*return*/];
-                                            existInverseEntityRelationIds = [];
-                                            if (!subject.hasDatabaseEntity) return [3 /*break*/, 4];
-                                            specificRepository = new SpecificRepository_1.SpecificRepository(this.connection, subject.metadata, this.queryRunnerProvider);
-                                            return [4 /*yield*/, specificRepository
-                                                    .findRelationIds(relation, subject.databaseEntity)];
-                                        case 3:
-                                            existInverseEntityRelationIds = _a.sent();
-                                            _a.label = 4;
-                                        case 4:
-                                            changedInverseEntityRelationIds = relatedValue
-                                                .map(function (subRelationValue) {
-                                                return relation.isManyToManyOwner
-                                                    ? subRelationValue[relation.joinTable.inverseReferencedColumn.propertyName]
-                                                    : subRelationValue[relation.inverseRelation.joinTable.referencedColumn.propertyName];
-                                            })
-                                                .filter(function (subRelationValue) { return subRelationValue !== undefined && subRelationValue !== null; });
-                                            removedJunctionEntityIds = existInverseEntityRelationIds.filter(function (existRelationId) {
-                                                return !changedInverseEntityRelationIds.find(function (changedRelationId) {
-                                                    return changedRelationId === existRelationId;
-                                                });
+                                    // if subject marked to be removed then all its junctions must be removed
+                                    if (subject.mustBeRemoved && options.remove) {
+                                        existInverseEntityRelationIds_1 = relation.getEntityValue(subject.databaseEntity);
+                                        // finally create a new junction remove operation and push it to the array of such operations
+                                        if (existInverseEntityRelationIds_1.length > 0) {
+                                            subject.junctionRemoves.push({
+                                                relation: relation,
+                                                junctionRelationIds: existInverseEntityRelationIds_1
                                             });
-                                            newJunctionEntities = relatedValue.filter(function (subRelatedValue) {
-                                                var relationValue = relation.isManyToManyOwner
-                                                    ? subRelatedValue[relation.joinTable.inverseReferencedColumn.propertyName]
-                                                    : subRelatedValue[relation.inverseRelation.joinTable.referencedColumn.propertyName];
-                                                return !existInverseEntityRelationIds.find(function (relationId) { return relationValue === relationId; });
-                                            });
-                                            // finally create a new junction insert operation and push it to the array of such operations
-                                            if (newJunctionEntities.length > 0 && options.insert) {
-                                                subject.junctionInserts.push({
-                                                    relation: relation,
-                                                    junctionEntities: newJunctionEntities
-                                                });
-                                            }
-                                            // finally create a new junction remove operation and push it to the array of such operations
-                                            if (removedJunctionEntityIds.length > 0 && options.remove) {
-                                                subject.junctionRemoves.push({
-                                                    relation: relation,
-                                                    junctionRelationIds: removedJunctionEntityIds
-                                                });
-                                            }
-                                            return [2 /*return*/];
+                                        }
+                                        return [2 /*return*/];
                                     }
+                                    // if entity don't have entity then no need to find something that should be inserted or removed
+                                    if (!subject.hasEntity)
+                                        return [2 /*return*/];
+                                    relatedValue = relation.getEntityValue(subject.entity);
+                                    if (!(relatedValue instanceof Array))
+                                        return [2 /*return*/];
+                                    existInverseEntityRelationIds = [];
+                                    // if subject don't have database entity it means its new and we don't need to remove something that is not exist
+                                    if (subject.hasDatabaseEntity) {
+                                        existInverseEntityRelationIds = relation.getEntityValue(subject.databaseEntity);
+                                        // console.log("existInverseEntityRelationIds:", existInverseEntityRelationIds[0]);
+                                    }
+                                    changedInverseEntityRelationIds = relatedValue
+                                        .map(function (subRelationValue) {
+                                        var joinColumns = relation.isOwning ? relation.inverseJoinColumns : relation.inverseRelation.joinColumns;
+                                        return joinColumns.reduce(function (ids, joinColumn) {
+                                            return OrmUtils_1.OrmUtils.mergeDeep(ids, joinColumn.referencedColumn.createValueMap(joinColumn.referencedColumn.getEntityValue(subRelationValue))); // todo: duplicate. relation.createJoinColumnsIdMap(entity) ?
+                                        }, {});
+                                    })
+                                        .filter(function (subRelationValue) { return subRelationValue !== undefined && subRelationValue !== null; });
+                                    removedJunctionEntityIds = existInverseEntityRelationIds.filter(function (existRelationId) {
+                                        return !changedInverseEntityRelationIds.find(function (changedRelationId) {
+                                            return relation.inverseEntityMetadata.compareIds(changedRelationId, existRelationId);
+                                        });
+                                    });
+                                    newJunctionEntities = relatedValue.filter(function (subRelatedValue) {
+                                        // console.log(subRelatedValue);
+                                        var joinColumns = relation.isOwning ? relation.inverseJoinColumns : relation.inverseRelation.joinColumns;
+                                        var ids = joinColumns.reduce(function (ids, joinColumn) {
+                                            return OrmUtils_1.OrmUtils.mergeDeep(ids, joinColumn.referencedColumn.createValueMap(joinColumn.referencedColumn.getEntityValue(subRelatedValue))); // todo: duplicate. relation.createJoinColumnsIdMap(entity) ?
+                                        }, {});
+                                        // console.log("ids:", ids);
+                                        return !existInverseEntityRelationIds.find(function (relationId) {
+                                            return relation.inverseEntityMetadata.compareIds(relationId, ids);
+                                        });
+                                    });
+                                    // console.log("newJunctionEntities: ", newJunctionEntities);
+                                    // finally create a new junction insert operation and push it to the array of such operations
+                                    if (newJunctionEntities.length > 0 && options.insert) {
+                                        subject.junctionInserts.push({
+                                            relation: relation,
+                                            junctionEntities: newJunctionEntities
+                                        });
+                                    }
+                                    // finally create a new junction remove operation and push it to the array of such operations
+                                    if (removedJunctionEntityIds.length > 0 && options.remove) {
+                                        subject.junctionRemoves.push({
+                                            relation: relation,
+                                            junctionRelationIds: removedJunctionEntityIds
+                                        });
+                                    }
+                                    return [2 /*return*/];
                                 });
                             }); });
                             return Promise.all(promises);

@@ -11,7 +11,7 @@ function TransactionEntityManager() {
             methodName: methodName,
             index: index,
         };
-        index_1.getMetadataArgsStorage().transactionEntityManagers.add(args);
+        index_1.getMetadataArgsStorage().transactionEntityManagers.push(args);
     };
 }
 exports.TransactionEntityManager = TransactionEntityManager;

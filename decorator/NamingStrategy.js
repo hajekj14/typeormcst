@@ -14,7 +14,7 @@ function NamingStrategy(name) {
             target: target,
             name: strategyName
         };
-        index_1.getMetadataArgsStorage().namingStrategies.add(args);
+        index_1.getMetadataArgsStorage().namingStrategies.push(args);
     };
 }
 exports.NamingStrategy = NamingStrategy;

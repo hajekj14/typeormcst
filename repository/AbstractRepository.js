@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var CustomRepositoryDoesNotHaveEntityError_1 = require("./error/CustomRepositoryDoesNotHaveEntityError");
+var index_1 = require("../index");
+var CustomRepositoryNotFoundError_1 = require("./error/CustomRepositoryNotFoundError");
 /**
  * Provides abstract class for custom repositories that do not inherit from original orm Repository.
  * Contains all most-necessary methods to simplify code in the custom repository.
@@ -11,29 +13,19 @@ var CustomRepositoryDoesNotHaveEntityError_1 = require("./error/CustomRepository
 var AbstractRepository = (function () {
     function AbstractRepository() {
     }
-    Object.defineProperty(AbstractRepository.prototype, "entityManager", {
+    Object.defineProperty(AbstractRepository.prototype, "repository", {
         // -------------------------------------------------------------------------
         // Protected Accessors
         // -------------------------------------------------------------------------
-        /**
-         * Gets entity manager that allows to perform repository operations with any entity.
-         */
-        get: function () {
-            return this.connection.entityManager;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AbstractRepository.prototype, "repository", {
         /**
          * Gets the original ORM repository for the entity that is managed by this repository.
          * If current repository does not manage any entity, then exception will be thrown.
          */
         get: function () {
-            var target = this.connection.getCustomRepositoryTarget(this);
+            var target = this.getCustomRepositoryTarget(this);
             if (!target)
                 throw new CustomRepositoryDoesNotHaveEntityError_1.CustomRepositoryDoesNotHaveEntityError(this.constructor);
-            return this.connection.getRepository(target);
+            return this.manager.getRepository(target);
         },
         enumerable: true,
         configurable: true
@@ -44,24 +36,10 @@ var AbstractRepository = (function () {
          * If current repository does not manage any entity, then exception will be thrown.
          */
         get: function () {
-            var target = this.connection.getCustomRepositoryTarget(this);
+            var target = this.getCustomRepositoryTarget(this);
             if (!target)
                 throw new CustomRepositoryDoesNotHaveEntityError_1.CustomRepositoryDoesNotHaveEntityError(this.constructor);
-            return this.connection.getTreeRepository(target);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AbstractRepository.prototype, "specificRepository", {
-        /**
-         * Gets the original ORM specific repository for the entity that is managed by this repository.
-         * If current repository does not manage any entity, then exception will be thrown.
-         */
-        get: function () {
-            var target = this.connection.getCustomRepositoryTarget(this);
-            if (!target)
-                throw new CustomRepositoryDoesNotHaveEntityError_1.CustomRepositoryDoesNotHaveEntityError(this.constructor);
-            return this.connection.getSpecificRepository(target);
+            return this.manager.getTreeRepository(target);
         },
         enumerable: true,
         configurable: true
@@ -74,10 +52,10 @@ var AbstractRepository = (function () {
      * If current repository does not manage any entity, then exception will be thrown.
      */
     AbstractRepository.prototype.createQueryBuilder = function (alias) {
-        var target = this.connection.getCustomRepositoryTarget(this.constructor);
+        var target = this.getCustomRepositoryTarget(this.constructor);
         if (!target)
             throw new CustomRepositoryDoesNotHaveEntityError_1.CustomRepositoryDoesNotHaveEntityError(this.constructor);
-        return this.connection.getRepository(target).createQueryBuilder(alias);
+        return this.manager.getRepository(target).createQueryBuilder(alias);
     };
     /**
      * Creates a new query builder for the given entity that can be used to build a sql query.
@@ -89,19 +67,28 @@ var AbstractRepository = (function () {
      * Gets the original ORM repository for the given entity class.
      */
     AbstractRepository.prototype.getRepositoryFor = function (entity) {
-        return this.entityManager.getRepository(entity);
+        return this.manager.getRepository(entity);
     };
     /**
      * Gets the original ORM tree repository for the given entity class.
      */
     AbstractRepository.prototype.getTreeRepositoryFor = function (entity) {
-        return this.entityManager.getTreeRepository(entity);
+        return this.manager.getTreeRepository(entity);
     };
+    // -------------------------------------------------------------------------
+    // Private Methods
+    // -------------------------------------------------------------------------
     /**
-     * Gets the original ORM specific repository for the given entity class.
+     * Gets custom repository's managed entity.
+     * If given custom repository does not manage any entity then undefined will be returned.
      */
-    AbstractRepository.prototype.getSpecificRepositoryFor = function (entity) {
-        return this.entityManager.getSpecificRepository(entity);
+    AbstractRepository.prototype.getCustomRepositoryTarget = function (customRepository) {
+        var entityRepositoryMetadataArgs = index_1.getMetadataArgsStorage().entityRepositories.find(function (repository) {
+            return repository.target === (customRepository instanceof Function ? customRepository : customRepository.constructor);
+        });
+        if (!entityRepositoryMetadataArgs)
+            throw new CustomRepositoryNotFoundError_1.CustomRepositoryNotFoundError(customRepository);
+        return entityRepositoryMetadataArgs.entity;
     };
     return AbstractRepository;
 }());

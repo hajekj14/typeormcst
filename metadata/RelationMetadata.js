@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var RelationTypes_1 = require("./types/RelationTypes");
 /**
  * Contains all information about some entity's relation.
  */
@@ -8,7 +7,7 @@ var RelationMetadata = (function () {
     // ---------------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------------
-    function RelationMetadata(args) {
+    function RelationMetadata(options) {
         /**
          * Indicates if this is a parent (can be only many-to-one relation) relation in the tree tables.
          */
@@ -18,389 +17,276 @@ var RelationMetadata = (function () {
          */
         this.isTreeChildren = false;
         /**
+         * Indicates if this relation's column is a primary key.
+         * Can be used only for many-to-one and owner one-to-one relations.
+         */
+        this.isPrimary = false;
+        /**
+         * Indicates if this relation is lazily loaded.
+         */
+        this.isLazy = false;
+        /**
+         * If set to true then related objects are allowed to be inserted to the database.
+         */
+        this.isCascadeInsert = false;
+        /**
+         * If set to true then related objects are allowed to be updated in the database.
+         */
+        this.isCascadeUpdate = false;
+        /**
+         * If set to true then related objects are allowed to be remove from the database.
+         */
+        this.isCascadeRemove = false;
+        /**
          * Indicates if relation column value can be nullable or not.
          */
         this.isNullable = true;
-        this.target = args.target;
-        this.propertyName = args.propertyName;
-        this.relationType = args.relationType;
-        if (args.inverseSideProperty)
-            this._inverseSideProperty = args.inverseSideProperty;
-        // if (args.propertyType)
-        //     this.propertyType = args.propertyType;
-        if (args.isLazy !== undefined)
-            this.isLazy = args.isLazy;
-        if (args.options.cascadeInsert || args.options.cascadeAll)
-            this.isCascadeInsert = true;
-        if (args.options.cascadeUpdate || args.options.cascadeAll)
-            this.isCascadeUpdate = true;
-        if (args.options.cascadeRemove || args.options.cascadeAll)
-            this.isCascadeRemove = true;
-        if (args.options.nullable !== undefined)
-            this.isNullable = args.options.nullable;
-        if (args.options.onDelete)
-            this.onDelete = args.options.onDelete;
-        if (args.options.primary !== undefined)
-            this.isPrimary = args.options.primary;
-        if (args.isTreeParent)
-            this.isTreeParent = true;
-        if (args.isTreeChildren)
-            this.isTreeChildren = true;
-        if (!this._type)
-            this._type = args.type;
-    }
-    Object.defineProperty(RelationMetadata.prototype, "entityTarget", {
-        // ---------------------------------------------------------------------
-        // Accessors
-        // ---------------------------------------------------------------------
-        /**
-         * Gets relation's entity target.
-         * Original target returns target of the class where relation is.
-         * This class can be an abstract class, but relation even is from that class,
-         * but its more related to a specific entity. That's why we need this field.
-         */
-        get: function () {
-            return this.entityMetadata.target;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "name", {
-        /**
-         * Gets the name of column in the database.
-         * //Cannot be used with many-to-many relations since they don't have a column in the database.
-         * //Also only owning sides of the relations have this property.
-         */
-        get: function () {
-            // if (!this.isOwning || this.isManyToMany)
-            if (this.isOwning) {
-                if (this.joinTable) {
-                    return this.joinTable.joinColumnName;
-                }
-                else if (this.joinColumn) {
-                    return this.joinColumn.name;
-                }
-            }
-            else if (this.hasInverseSide) {
-                if (this.inverseRelation.joinTable) {
-                    return this.inverseRelation.joinTable.inverseJoinColumnName;
-                }
-                else if (this.inverseRelation.joinColumn && this.inverseRelation.joinColumn.referencedColumn) {
-                    return this.inverseRelation.joinColumn.referencedColumn.fullName;
-                }
-            }
-            throw new Error("Relation name cannot be retrieved.");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "referencedColumnName", {
-        /**
-         * Gets the name of column to which this relation is referenced.
-         * //Cannot be used with many-to-many relations since all referenced are in the junction table.
-         * //Also only owning sides of the relations have this property.
-         */
-        get: function () {
-            // if (!this.isOwning)
-            //     throw new Error(`Only owning side of the relations can have information about referenced column names.`);
-            // for many-to-one and owner one-to-one relations we get referenced column from join column
-            /*if (this.joinColumn && this.joinColumn.referencedColumn && this.joinColumn.referencedColumn.name)
-                return this.joinColumn.referencedColumn.name;
-    
-            // for many-to-many relation we give referenced column depend of owner side
-            if (this.joinTable) { // need to check if this algorithm works correctly
-                if (this.isOwning) {
-                    return this.joinTable.referencedColumn.name;
-                } else {
-                    return this.joinTable.inverseReferencedColumn.name;
-                }
-            }*/
-            if (this.isOwning) {
-                if (this.joinTable) {
-                    return this.joinTable.referencedColumn.fullName;
-                }
-                else if (this.joinColumn) {
-                    return this.joinColumn.referencedColumn.fullName;
-                }
-            }
-            else if (this.hasInverseSide) {
-                if (this.inverseRelation.joinTable) {
-                    return this.inverseRelation.joinTable.inverseReferencedColumn.fullName;
-                }
-                else if (this.inverseRelation.joinColumn) {
-                    return this.inverseRelation.joinColumn.name; // todo: didn't get this logic here
-                }
-            }
-            // this should not be possible, but anyway throw error
-            throw new Error("Cannot get referenced column name of the relation " + this.entityMetadata.name + "#" + this.name);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "referencedColumn", {
-        /**
-         * Gets the column to which this relation is referenced.
-         */
-        get: function () {
-            if (this.isOwning) {
-                if (this.joinTable) {
-                    return this.joinTable.referencedColumn;
-                }
-                else if (this.joinColumn) {
-                    return this.joinColumn.referencedColumn;
-                }
-            }
-            else if (this.hasInverseSide) {
-                if (this.inverseRelation.joinTable) {
-                    return this.inverseRelation.joinTable.inverseReferencedColumn;
-                }
-                else if (this.inverseRelation.joinColumn) {
-                    return this.inverseRelation.joinColumn.referencedColumn;
-                }
-            }
-            // this should not be possible, but anyway throw error
-            throw new Error("Cannot get referenced column of the relation " + this.entityMetadata.name + "#" + this.name);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "type", {
-        /**
-         * Gets the property's type to which this relation is applied.
-         */
-        get: function () {
-            return this._type instanceof Function ? this._type() : this._type;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isOwning", {
         /**
          * Indicates if this side is an owner of this relation.
          */
-        get: function () {
-            return !!(this.isManyToOne ||
-                (this.isManyToMany && this.joinTable) ||
-                (this.isOneToOne && this.joinColumn));
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isOneToOne", {
+        this.isOwning = false;
         /**
          * Checks if this relation's type is "one-to-one".
          */
-        get: function () {
-            return this.relationType === RelationTypes_1.RelationTypes.ONE_TO_ONE;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isOneToOneOwner", {
+        this.isOneToOne = false;
         /**
          * Checks if this relation is owner side of the "one-to-one" relation.
          * Owner side means this side of relation has a join column in the table.
          */
-        get: function () {
-            return this.isOneToOne && this.isOwning;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isOneToOneNotOwner", {
+        this.isOneToOneOwner = false;
+        /**
+         * Checks if this relation has a join column (e.g. is it many-to-one or one-to-one owner side).
+         */
+        this.isWithJoinColumn = false;
         /**
          * Checks if this relation is NOT owner side of the "one-to-one" relation.
          * NOT owner side means this side of relation does not have a join column in the table.
          */
-        get: function () {
-            return this.isOneToOne && !this.isOwning;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isOneToMany", {
+        this.isOneToOneNotOwner = false;
         /**
          * Checks if this relation's type is "one-to-many".
          */
-        get: function () {
-            return this.relationType === RelationTypes_1.RelationTypes.ONE_TO_MANY;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isManyToOne", {
+        this.isOneToMany = false;
         /**
          * Checks if this relation's type is "many-to-one".
          */
-        get: function () {
-            return this.relationType === RelationTypes_1.RelationTypes.MANY_TO_ONE;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isManyToMany", {
+        this.isManyToOne = false;
         /**
          * Checks if this relation's type is "many-to-many".
          */
-        get: function () {
-            return this.relationType === RelationTypes_1.RelationTypes.MANY_TO_MANY;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isManyToManyOwner", {
+        this.isManyToMany = false;
         /**
          * Checks if this relation's type is "many-to-many", and is owner side of the relationship.
          * Owner side means this side of relation has a join table.
          */
-        get: function () {
-            return this.isManyToMany && this.isOwning;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "isManyToManyNotOwner", {
+        this.isManyToManyOwner = false;
         /**
          * Checks if this relation's type is "many-to-many", and is NOT owner side of the relationship.
          * Not owner side means this side of relation does not have a join table.
          */
-        get: function () {
-            return this.isManyToMany && !this.isOwning;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "hasInverseSide", {
+        this.isManyToManyNotOwner = false;
         /**
-         * Checks if inverse side is specified by a relation.
+         * Foreign keys created for this relation.
          */
-        get: function () {
-            return this.inverseEntityMetadata && this.inverseEntityMetadata.hasRelationWithPropertyName(this.inverseSideProperty);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "inverseSideProperty", {
+        this.foreignKeys = [];
         /**
-         * Gets the property name of the inverse side of the relation.
+         * Join table columns.
+         * Join columns can be obtained only from owner side of the relation.
+         * From non-owner side of the relation join columns will be empty.
+         * If this relation is a many-to-one/one-to-one then it takes join columns from the current entity.
+         * If this relation is many-to-many then it takes all owner join columns from the junction entity.
          */
-        get: function () {
-            if (this._inverseSideProperty) {
-                return this.computeInverseSide(this._inverseSideProperty);
-            }
-            else if (this.isTreeParent && this.entityMetadata.hasTreeChildrenRelation) {
-                return this.entityMetadata.treeChildrenRelation.propertyName;
-            }
-            else if (this.isTreeChildren && this.entityMetadata.hasTreeParentRelation) {
-                return this.entityMetadata.treeParentRelation.propertyName;
-            }
-            return "";
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(RelationMetadata.prototype, "inverseRelation", {
+        this.joinColumns = [];
         /**
-         * Gets the relation metadata of the inverse side of this relation.
+         * Inverse join table columns.
+         * Inverse join columns are supported only for many-to-many relations
+         * and can be obtained only from owner side of the relation.
+         * From non-owner side of the relation join columns will be undefined.
          */
-        get: function () {
-            var relation = this.inverseEntityMetadata.findRelationWithPropertyName(this.inverseSideProperty);
-            if (!relation)
-                throw new Error("Inverse side was not found in the relation " + this.entityMetadata.name + "#" + this.inverseSideProperty);
-            return relation;
-        },
-        enumerable: true,
-        configurable: true
-    });
+        this.inverseJoinColumns = [];
+        this.entityMetadata = options.entityMetadata;
+        this.embeddedMetadata = options.embeddedMetadata;
+        var args = options.args;
+        this.target = args.target;
+        this.propertyName = args.propertyName;
+        this.relationType = args.relationType;
+        if (args.inverseSideProperty)
+            this.givenInverseSidePropertyFactory = args.inverseSideProperty;
+        this.isLazy = args.isLazy || false;
+        this.isCascadeInsert = args.options.cascadeInsert || args.options.cascadeAll || false;
+        this.isCascadeUpdate = args.options.cascadeUpdate || args.options.cascadeAll || false;
+        this.isCascadeRemove = args.options.cascadeRemove || args.options.cascadeAll || false;
+        this.isNullable = args.options.nullable !== false;
+        this.onDelete = args.options.onDelete;
+        this.isPrimary = args.options.primary || false;
+        this.isTreeParent = args.isTreeParent || false;
+        this.isTreeChildren = args.isTreeChildren || false;
+        this.type = args.type instanceof Function ? args.type() : args.type;
+        this.isOneToOne = this.relationType === "one-to-one";
+        this.isOneToMany = this.relationType === "one-to-many";
+        this.isManyToOne = this.relationType === "many-to-one";
+        this.isManyToMany = this.relationType === "many-to-many";
+        this.isOneToOneNotOwner = this.isOneToOne ? true : false;
+        this.isManyToManyNotOwner = this.isManyToMany ? true : false;
+    }
     // ---------------------------------------------------------------------
     // Public Methods
     // ---------------------------------------------------------------------
     /**
-     * Gets given entity's relation's value.
-     * Using of this method helps to access value of the lazy loaded relation.
+     * Extracts column value from the given entity.
+     * If column is in embedded (or recursive embedded) it extracts its value from there.
      */
     RelationMetadata.prototype.getEntityValue = function (entity) {
-        return this.isLazy ? entity["__" + this.propertyName + "__"] : entity[this.propertyName];
-    };
-    /**
-     * Checks if given entity has a value in a relation.
-     */
-    RelationMetadata.prototype.hasEntityValue = function (entity) {
-        return this.isLazy ? entity["__" + this.propertyName + "__"] : entity[this.propertyName];
-    };
-    /**
-     * todo: lazy relations are not supported here? implement logic?
-     *
-     * examples:
-     *
-     * - isOneToOneNotOwner or isOneToMany:
-     *  Post has a Category.
-     *  Post is owner side.
-     *  Category is inverse side.
-     *  Post.category is mapped to Category.id
-     *
-     *  if from Post relation we are passing Category here,
-     *  it should return a post.category
-     */
-    RelationMetadata.prototype.getOwnEntityRelationId = function (ownEntity) {
-        if (this.isManyToManyOwner) {
-            return ownEntity[this.joinTable.referencedColumn.propertyName];
+        // extract column value from embeddeds of entity if column is in embedded
+        if (this.embeddedMetadata) {
+            // example: post[data][information][counters].id where "data", "information" and "counters" are embeddeds
+            // we need to get value of "id" column from the post real entity object
+            // first step - we extract all parent properties of the entity relative to this column, e.g. [data, information, counters]
+            var propertyNames = this.embeddedMetadata.parentPropertyNames.slice();
+            // next we need to access post[data][information][counters][this.propertyName] to get column value from the counters
+            // this recursive function takes array of generated property names and gets the post[data][information][counters] embed
+            var extractEmbeddedColumnValue_1 = function (propertyNames, value) {
+                var propertyName = propertyNames.shift();
+                return propertyName ? extractEmbeddedColumnValue_1(propertyNames, value[propertyName]) : value;
+            };
+            // once we get nested embed object we get its column, e.g. post[data][information][counters][this.propertyName]
+            var embeddedObject = extractEmbeddedColumnValue_1(propertyNames, entity);
+            return embeddedObject ? embeddedObject[this.isLazy ? "__" + this.propertyName + "__" : this.propertyName] : undefined;
         }
-        else if (this.isManyToManyNotOwner) {
-            return ownEntity[this.inverseRelation.joinTable.inverseReferencedColumn.propertyName];
-        }
-        else if (this.isOneToOneOwner || this.isManyToOne) {
-            return ownEntity[this.joinColumn.propertyName];
-        }
-        else if (this.isOneToOneNotOwner || this.isOneToMany) {
-            return ownEntity[this.inverseRelation.joinColumn.referencedColumn.propertyName];
+        else {
+            return entity[this.isLazy ? "__" + this.propertyName + "__" : this.propertyName];
         }
     };
     /**
-     *
-     * examples:
-     *
-     * - isOneToOneNotOwner or isOneToMany:
-     *  Post has a Category.
-     *  Post is owner side.
-     *  Category is inverse side.
-     *  Post.category is mapped to Category.id
-     *
-     *  if from Post relation we are passing Category here,
-     *  it should return a category.id
-     *
-     *  @deprecated Looks like this method does not make sence and does same as getOwnEntityRelationId ?
+     * Sets given entity's relation's value.
+     * Using of this method helps to set entity relation's value of the lazy and non-lazy relations.
      */
-    RelationMetadata.prototype.getInverseEntityRelationId = function (inverseEntity) {
-        if (this.isManyToManyOwner) {
-            return inverseEntity[this.joinTable.inverseReferencedColumn.propertyName];
+    RelationMetadata.prototype.setEntityValue = function (entity, value) {
+        var propertyName = this.isLazy ? "__" + this.propertyName + "__" : this.propertyName;
+        if (this.embeddedMetadata) {
+            // first step - we extract all parent properties of the entity relative to this column, e.g. [data, information, counters]
+            var extractEmbeddedColumnValue_2 = function (embeddedMetadatas, map) {
+                // if (!object[embeddedMetadata.propertyName])
+                //     object[embeddedMetadata.propertyName] = embeddedMetadata.create();
+                var embeddedMetadata = embeddedMetadatas.shift();
+                if (embeddedMetadata) {
+                    if (!map[embeddedMetadata.propertyName])
+                        map[embeddedMetadata.propertyName] = embeddedMetadata.create();
+                    extractEmbeddedColumnValue_2(embeddedMetadatas, map[embeddedMetadata.propertyName]);
+                    return map;
+                }
+                map[propertyName] = value;
+                return map;
+            };
+            return extractEmbeddedColumnValue_2(this.embeddedMetadata.embeddedMetadataTree.slice(), entity);
         }
-        else if (this.isManyToManyNotOwner) {
-            return inverseEntity[this.inverseRelation.joinTable.referencedColumn.propertyName];
+        else {
+            entity[propertyName] = value;
         }
-        else if (this.isOneToOneOwner || this.isManyToOne) {
-            return inverseEntity[this.joinColumn.referencedColumn.propertyName];
+    };
+    /**
+     * Creates entity id map from the given entity ids array.
+     */
+    RelationMetadata.prototype.createValueMap = function (value) {
+        var _this = this;
+        // extract column value from embeds of entity if column is in embedded
+        if (this.embeddedMetadata) {
+            // example: post[data][information][counters].id where "data", "information" and "counters" are embeddeds
+            // we need to get value of "id" column from the post real entity object and return it in a
+            // { data: { information: { counters: { id: ... } } } } format
+            // first step - we extract all parent properties of the entity relative to this column, e.g. [data, information, counters]
+            var propertyNames = this.embeddedMetadata.parentPropertyNames.slice();
+            // now need to access post[data][information][counters] to get column value from the counters
+            // and on each step we need to create complex literal object, e.g. first { data },
+            // then { data: { information } }, then { data: { information: { counters } } },
+            // then { data: { information: { counters: [this.propertyName]: entity[data][information][counters][this.propertyName] } } }
+            // this recursive function helps doing that
+            var extractEmbeddedColumnValue_3 = function (propertyNames, map) {
+                var propertyName = propertyNames.shift();
+                if (propertyName) {
+                    map[propertyName] = {};
+                    extractEmbeddedColumnValue_3(propertyNames, map[propertyName]);
+                    return map;
+                }
+                map[_this.propertyName] = value;
+                return map;
+            };
+            return extractEmbeddedColumnValue_3(propertyNames, {});
         }
-        else if (this.isOneToOneNotOwner || this.isOneToMany) {
-            return inverseEntity[this.inverseRelation.joinColumn.propertyName];
+        else {
+            return _a = {}, _a[this.propertyName] = value, _a;
         }
+        var _a;
     };
     // ---------------------------------------------------------------------
-    // Private Methods
+    // Builder Methods
     // ---------------------------------------------------------------------
     /**
-     * Inverse side set in the relation can be either string - property name of the column on inverse side,
-     * either can be a function that accepts a map of properties with the object and returns one of them.
-     * Second approach is used to achieve type-safety.
+     * Builds some depend relation metadata properties.
+     * This builder method should be used only after embedded metadata tree was build.
      */
-    RelationMetadata.prototype.computeInverseSide = function (inverseSide) {
-        var ownerEntityPropertiesMap = this.inverseEntityMetadata.createPropertiesMap();
-        if (typeof inverseSide === "function")
-            return inverseSide(ownerEntityPropertiesMap);
-        if (typeof inverseSide === "string")
-            return inverseSide;
-        // throw new Error("Cannot compute inverse side of the relation");
+    RelationMetadata.prototype.build = function () {
+        this.propertyPath = this.buildPropertyPath();
+    };
+    /**
+     * Registers given foreign keys in the relation.
+     * This builder method should be used to register foreign key in the relation.
+     */
+    RelationMetadata.prototype.registerForeignKeys = function () {
+        var foreignKeys = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            foreignKeys[_i] = arguments[_i];
+        }
+        (_a = this.foreignKeys).push.apply(_a, foreignKeys);
+        this.joinColumns = this.foreignKeys[0] ? this.foreignKeys[0].columns : [];
+        this.inverseJoinColumns = this.foreignKeys[1] ? this.foreignKeys[1].columns : [];
+        this.isOwning = this.isManyToOne || ((this.isManyToMany || this.isOneToOne) && this.joinColumns.length > 0);
+        this.isOneToOneOwner = this.isOneToOne && this.isOwning;
+        this.isOneToOneNotOwner = this.isOneToOne && !this.isOwning;
+        this.isManyToManyOwner = this.isManyToMany && this.isOwning;
+        this.isManyToManyNotOwner = this.isManyToMany && !this.isOwning;
+        this.isWithJoinColumn = this.isManyToOne || this.isOneToOneOwner;
+        var _a;
+    };
+    /**
+     * Registers a given junction entity metadata.
+     * This builder method can be called after junction entity metadata for the many-to-many relation was created.
+     */
+    RelationMetadata.prototype.registerJunctionEntityMetadata = function (junctionEntityMetadata) {
+        this.junctionEntityMetadata = junctionEntityMetadata;
+        this.joinTableName = junctionEntityMetadata.tableName;
+        if (this.inverseRelation) {
+            this.inverseRelation.junctionEntityMetadata = junctionEntityMetadata;
+            this.joinTableName = junctionEntityMetadata.tableName;
+        }
+    };
+    /**
+     * Builds inverse side property path based on given inverse side property factory.
+     * This builder method should be used only after properties map of the inverse entity metadata was build.
+     */
+    RelationMetadata.prototype.buildInverseSidePropertyPath = function () {
+        if (this.givenInverseSidePropertyFactory) {
+            var ownerEntityPropertiesMap = this.inverseEntityMetadata.propertiesMap;
+            if (typeof this.givenInverseSidePropertyFactory === "function")
+                return this.givenInverseSidePropertyFactory(ownerEntityPropertiesMap);
+            if (typeof this.givenInverseSidePropertyFactory === "string")
+                return this.givenInverseSidePropertyFactory;
+        }
+        else if (this.isTreeParent && this.entityMetadata.treeChildrenRelation) {
+            return this.entityMetadata.treeChildrenRelation.propertyName;
+        }
+        else if (this.isTreeChildren && this.entityMetadata.treeParentRelation) {
+            return this.entityMetadata.treeParentRelation.propertyName;
+        }
         return "";
+    };
+    /**
+     * Builds relation's property path based on its embedded tree.
+     */
+    RelationMetadata.prototype.buildPropertyPath = function () {
+        if (!this.embeddedMetadata || !this.embeddedMetadata.parentPropertyNames.length)
+            return this.propertyName;
+        return this.embeddedMetadata.parentPropertyNames.join(".") + "." + this.propertyName;
     };
     return RelationMetadata;
 }());

@@ -1,10 +1,8 @@
-import { Connection } from "../connection/Connection";
 import { QueryBuilder } from "../query-builder/QueryBuilder";
 import { ObjectLiteral } from "../common/ObjectLiteral";
 import { EntityManager } from "../entity-manager/EntityManager";
 import { Repository } from "./Repository";
 import { TreeRepository } from "./TreeRepository";
-import { SpecificRepository } from "./SpecificRepository";
 import { ObjectType } from "../common/ObjectType";
 /**
  * Provides abstract class for custom repositories that do not inherit from original orm Repository.
@@ -15,13 +13,9 @@ import { ObjectType } from "../common/ObjectType";
  */
 export declare class AbstractRepository<Entity extends ObjectLiteral> {
     /**
-     * Connection used by this repository.
-     */
-    protected connection: Connection;
-    /**
      * Gets entity manager that allows to perform repository operations with any entity.
      */
-    protected readonly entityManager: EntityManager;
+    protected manager: EntityManager;
     /**
      * Gets the original ORM repository for the entity that is managed by this repository.
      * If current repository does not manage any entity, then exception will be thrown.
@@ -32,11 +26,6 @@ export declare class AbstractRepository<Entity extends ObjectLiteral> {
      * If current repository does not manage any entity, then exception will be thrown.
      */
     protected readonly treeRepository: TreeRepository<Entity>;
-    /**
-     * Gets the original ORM specific repository for the entity that is managed by this repository.
-     * If current repository does not manage any entity, then exception will be thrown.
-     */
-    protected readonly specificRepository: SpecificRepository<Entity>;
     /**
      * Creates a new query builder for the repository's entity that can be used to build a sql query.
      * If current repository does not manage any entity, then exception will be thrown.
@@ -55,7 +44,8 @@ export declare class AbstractRepository<Entity extends ObjectLiteral> {
      */
     protected getTreeRepositoryFor<T>(entity: ObjectType<T>): TreeRepository<T>;
     /**
-     * Gets the original ORM specific repository for the given entity class.
+     * Gets custom repository's managed entity.
+     * If given custom repository does not manage any entity then undefined will be returned.
      */
-    protected getSpecificRepositoryFor<T>(entity: ObjectType<T>): SpecificRepository<T>;
+    private getCustomRepositoryTarget<T>(customRepository);
 }

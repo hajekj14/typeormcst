@@ -12,10 +12,10 @@ function JoinTable(options) {
             target: object.constructor,
             propertyName: propertyName,
             name: options.name,
-            joinColumn: options.joinColumn,
-            inverseJoinColumn: options.inverseJoinColumn
+            joinColumns: (options && options.joinColumn ? [options.joinColumn] : options.joinColumns),
+            inverseJoinColumns: (options && options.inverseJoinColumn ? [options.inverseJoinColumn] : options.inverseJoinColumns),
         };
-        index_1.getMetadataArgsStorage().joinTables.add(args);
+        index_1.getMetadataArgsStorage().joinTables.push(args);
     };
 }
 exports.JoinTable = JoinTable;

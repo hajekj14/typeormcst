@@ -38,7 +38,7 @@ export declare class ColumnSchema {
     constructor(options?: {
         name?: string;
         type?: string;
-        default?: string;
+        default?: any;
         isNullable?: boolean;
         isGenerated?: boolean;
         isPrimary?: boolean;

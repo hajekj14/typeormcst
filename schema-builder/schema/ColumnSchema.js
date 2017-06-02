@@ -61,7 +61,7 @@ var ColumnSchema = (function () {
      */
     ColumnSchema.create = function (columnMetadata, normalizedType) {
         var columnSchema = new ColumnSchema();
-        columnSchema.name = columnMetadata.fullName;
+        columnSchema.name = columnMetadata.databaseName;
         columnSchema.default = columnMetadata.default;
         columnSchema.comment = columnMetadata.comment;
         columnSchema.isGenerated = columnMetadata.isGenerated;

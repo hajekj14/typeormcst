@@ -1,5 +1,7 @@
 import { EntityMetadata } from "./EntityMetadata";
 import { IndexMetadataArgs } from "../metadata-args/IndexMetadataArgs";
+import { NamingStrategyInterface } from "../naming-strategy/NamingStrategyInterface";
+import { ColumnMetadata } from "./ColumnMetadata";
 /**
  * Index metadata contains all information about table's index.
  */
@@ -11,37 +13,50 @@ export declare class IndexMetadata {
     /**
      * Indicates if this index must be unique.
      */
-    readonly isUnique: boolean;
+    isUnique: boolean;
     /**
      * Target class to which metadata is applied.
      */
-    readonly target?: Function | string;
+    target?: Function | string;
     /**
-     * Composite index name.
+     * Indexed columns.
      */
-    private readonly _name;
+    columns: ColumnMetadata[];
     /**
-     * Columns combination to be used as index.
+     * User specified index name.
      */
-    private readonly _columns;
-    constructor(args: IndexMetadataArgs);
+    givenName?: string;
     /**
-     * Gets index's name.
+     * User specified column names.
      */
-    readonly name: string;
+    givenColumnNames?: ((object?: any) => (any[] | {
+        [key: string]: number;
+    })) | string[];
+    /**
+     * Final index name.
+     * If index name was given by a user then it stores normalized (by naming strategy) givenName.
+     * If index name was not given then its generated.
+     */
+    name: string;
     /**
      * Gets the table name on which index is applied.
      */
-    readonly tableName: string;
+    tableName: string;
     /**
-     * Gets the column names which are in this index.
+     * Map of column names with order set.
+     * Used only by MongoDB driver.
      */
-    readonly columns: string[];
-    /**
-     * Builds columns as a map of values where column name is key of object and value is a value provided by
-     * function or default value given to this function.
-     */
-    buildColumnsAsMap(defaultValue?: number): {
+    columnNamesWithOrderingMap: {
         [key: string]: number;
     };
+    constructor(options: {
+        entityMetadata: EntityMetadata;
+        columns?: ColumnMetadata[];
+        args?: IndexMetadataArgs;
+    });
+    /**
+     * Builds some depend index properties.
+     * Must be called after all entity metadata's properties map, columns and relations are built.
+     */
+    build(namingStrategy: NamingStrategyInterface): this;
 }

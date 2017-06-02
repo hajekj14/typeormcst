@@ -12,7 +12,7 @@ function AfterLoad() {
             propertyName: propertyName,
             type: EventListenerTypes_1.EventListenerTypes.AFTER_LOAD
         };
-        index_1.getMetadataArgsStorage().entityListeners.add(args);
+        index_1.getMetadataArgsStorage().entityListeners.push(args);
     };
 }
 exports.AfterLoad = AfterLoad;

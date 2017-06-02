@@ -22,13 +22,11 @@ function Transaction(connectionName) {
                 args[_i] = arguments[_i];
             }
             return index_1.getConnection(connectionName)
-                .entityManager
+                .manager
                 .transaction(function (entityManager) {
                 // gets all @TransactionEntityManager() decorator usages for this method
                 var indices = index_1.getMetadataArgsStorage()
-                    .transactionEntityManagers
-                    .filterByTarget(target.constructor)
-                    .toArray()
+                    .filterTransactionEntityManagers(target.constructor)
                     .filter(function (transactionEntityManager) { return transactionEntityManager.methodName === methodName; })
                     .map(function (transactionEntityManager) { return transactionEntityManager.index; });
                 var argsWithInjectedEntityManager;

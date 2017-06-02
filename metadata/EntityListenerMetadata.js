@@ -12,6 +12,16 @@ var EntityListenerMetadata = (function () {
         this.propertyName = args.propertyName;
         this.type = args.type;
     }
+    // ---------------------------------------------------------------------
+    // Public Methods
+    // ---------------------------------------------------------------------
+    /**
+     * Checks if entity listener is allowed to be executed on the given entity.
+     */
+    EntityListenerMetadata.prototype.isAllowed = function (entity) {
+        return this.target === entity.constructor ||
+            (this.target instanceof Function && entity.constructor.prototype instanceof this.target); // todo: also need to implement entity schema inheritance
+    };
     return EntityListenerMetadata;
 }());
 exports.EntityListenerMetadata = EntityListenerMetadata;

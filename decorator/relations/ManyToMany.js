@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var RelationTypes_1 = require("../../metadata/types/RelationTypes");
 var index_1 = require("../../index");
 /**
  * Many-to-many is a type of relationship when Entity1 can have multiple instances of Entity2, and Entity2 can have
@@ -29,13 +28,13 @@ function ManyToMany(typeFunction, inverseSideOrOptions, options) {
             target: object.constructor,
             propertyName: propertyName,
             // propertyType: reflectedType,
-            relationType: RelationTypes_1.RelationTypes.MANY_TO_MANY,
+            relationType: "many-to-many",
             isLazy: isLazy,
             type: typeFunction,
             inverseSideProperty: inverseSideProperty,
             options: options
         };
-        index_1.getMetadataArgsStorage().relations.add(args);
+        index_1.getMetadataArgsStorage().relations.push(args);
     };
 }
 exports.ManyToMany = ManyToMany;

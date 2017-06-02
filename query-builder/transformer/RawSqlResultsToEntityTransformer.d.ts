@@ -1,25 +1,40 @@
-import { AliasMap } from "../alias/AliasMap";
 import { Driver } from "../../driver/Driver";
-import { JoinMapping, RelationCountMeta } from "../QueryBuilder";
+import { RelationIdLoadResult } from "../relation-id/RelationIdLoadResult";
+import { ObjectLiteral } from "../../common/ObjectLiteral";
+import { ColumnMetadata } from "../../metadata/ColumnMetadata";
+import { Alias } from "../Alias";
+import { JoinAttribute } from "../JoinAttribute";
+import { RelationCountLoadResult } from "../relation-count/RelationCountLoadResult";
 /**
  * Transforms raw sql results returned from the database into entity object.
  * Entity is constructed based on its entity metadata.
  */
 export declare class RawSqlResultsToEntityTransformer {
-    private driver;
-    private aliasMap;
-    private joinMappings;
-    private relationCountMetas;
-    private enableRelationIdValues;
-    constructor(driver: Driver, aliasMap: AliasMap, joinMappings: JoinMapping[], relationCountMetas: RelationCountMeta[], enableRelationIdValues: boolean);
-    transform(rawSqlResults: any[]): any[];
+    protected driver: Driver;
+    protected joinAttributes: JoinAttribute[];
+    protected rawRelationIdResults: RelationIdLoadResult[];
+    protected rawRelationCountResults: RelationCountLoadResult[];
+    constructor(driver: Driver, joinAttributes: JoinAttribute[], rawRelationIdResults: RelationIdLoadResult[], rawRelationCountResults: RelationCountLoadResult[]);
     /**
      * Since db returns a duplicated rows of the data where accuracies of the same object can be duplicated
      * we need to group our result and we must have some unique id (primary key in our case)
      */
-    private groupAndTransform(rawSqlResults, alias);
+    transform(rawResults: any[], alias: Alias): any[];
+    /**
+     * Groups given raw results by ids of given alias.
+     */
+    protected group(rawResults: any[], alias: Alias): any[][];
     /**
      * Transforms set of data results into single entity.
      */
-    private transformIntoSingleResult(rawSqlResults, alias, metadata);
+    protected transformRawResultsGroup(rawResults: any[], alias: Alias): ObjectLiteral | undefined;
+    protected transformColumns(rawResults: any[], alias: Alias, entity: ObjectLiteral, columns: ColumnMetadata[]): boolean;
+    /**
+     * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity,l
+     */
+    protected transformJoins(rawResults: any[], entity: ObjectLiteral, alias: Alias): boolean;
+    protected transformRelationIds(rawSqlResults: any[], alias: Alias, entity: ObjectLiteral): boolean;
+    protected transformRelationCounts(rawSqlResults: any[], alias: Alias, entity: ObjectLiteral): boolean;
+    private createValueMapFromJoinColumns(relation, parentAlias, rawSqlResults);
+    private extractEntityPrimaryIds(relation, relationIdRawResult);
 }
