@@ -64,30 +64,36 @@ var RawSqlResultsToEntityTransformer = (function () {
                 entity = metadata.create();
         }
         // get value from columns selections and put them into newly created entity
-        hasColumns = this.transformColumns(rawResults, alias, entity, alias.metadata.columns);
-        // add columns tables metadata
-        if (alias.metadata.parentEntityMetadata)
-            hasParentColumns = this.transformColumns(rawResults, alias, entity, alias.metadata.parentEntityMetadata.columns);
+        hasColumns = this.transformColumns(rawResults, alias, entity, alias.metadata);
         hasRelations = this.transformJoins(rawResults, entity, alias);
         hasRelationIds = this.transformRelationIds(rawResults, alias, entity);
         hasRelationCounts = this.transformRelationCounts(rawResults, alias, entity);
         return (hasColumns || hasEmbeddedColumns || hasParentColumns || hasParentEmbeddedColumns || hasRelations || hasRelationIds || hasRelationCounts) ? entity : undefined;
     };
     // get value from columns selections and put them into object
-    RawSqlResultsToEntityTransformer.prototype.transformColumns = function (rawResults, alias, entity, columns) {
+    RawSqlResultsToEntityTransformer.prototype.transformColumns = function (rawResults, alias, entity, metadata) {
         var _this = this;
         var hasData = false;
-        columns.forEach(function (column) {
+        metadata.columns.forEach(function (column) {
             var value = rawResults[0][alias.name + "_" + column.databaseName];
             if (value === undefined || value === null || column.isVirtual || column.isParentId || column.isDiscriminator)
                 return;
             column.setEntityValue(entity, _this.driver.prepareHydratedValue(value, column));
             hasData = true;
         });
+        if (alias.metadata.parentEntityMetadata) {
+            alias.metadata.parentEntityMetadata.columns.forEach(function (column) {
+                var value = rawResults[0]["parentIdColumn_" + alias.metadata.parentEntityMetadata.tableName + "_" + column.databaseName];
+                if (value === undefined || value === null || column.isVirtual || column.isParentId || column.isDiscriminator)
+                    return;
+                column.setEntityValue(entity, _this.driver.prepareHydratedValue(value, column));
+                hasData = true;
+            });
+        }
         return hasData;
     };
     /**
-     * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity,l
+     * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity
      */
     RawSqlResultsToEntityTransformer.prototype.transformJoins = function (rawResults, entity, alias) {
         var _this = this;

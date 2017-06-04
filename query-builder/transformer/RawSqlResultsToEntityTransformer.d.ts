@@ -1,10 +1,10 @@
 import { Driver } from "../../driver/Driver";
 import { RelationIdLoadResult } from "../relation-id/RelationIdLoadResult";
 import { ObjectLiteral } from "../../common/ObjectLiteral";
-import { ColumnMetadata } from "../../metadata/ColumnMetadata";
 import { Alias } from "../Alias";
 import { JoinAttribute } from "../JoinAttribute";
 import { RelationCountLoadResult } from "../relation-count/RelationCountLoadResult";
+import { EntityMetadata } from "../../metadata/EntityMetadata";
 /**
  * Transforms raw sql results returned from the database into entity object.
  * Entity is constructed based on its entity metadata.
@@ -28,9 +28,9 @@ export declare class RawSqlResultsToEntityTransformer {
      * Transforms set of data results into single entity.
      */
     protected transformRawResultsGroup(rawResults: any[], alias: Alias): ObjectLiteral | undefined;
-    protected transformColumns(rawResults: any[], alias: Alias, entity: ObjectLiteral, columns: ColumnMetadata[]): boolean;
+    protected transformColumns(rawResults: any[], alias: Alias, entity: ObjectLiteral, metadata: EntityMetadata): boolean;
     /**
-     * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity,l
+     * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity
      */
     protected transformJoins(rawResults: any[], entity: ObjectLiteral, alias: Alias): boolean;
     protected transformRelationIds(rawSqlResults: any[], alias: Alias, entity: ObjectLiteral): boolean;

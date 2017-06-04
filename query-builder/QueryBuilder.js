@@ -35,7 +35,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var OracleDriver_1 = require("../driver/oracle/OracleDriver");
 var RawSqlResultsToEntityTransformer_1 = require("./transformer/RawSqlResultsToEntityTransformer");
 var SqlServerDriver_1 = require("../driver/sqlserver/SqlServerDriver");
 var QueryRunnerProvider_1 = require("../query-runner/QueryRunnerProvider");
@@ -54,6 +53,7 @@ var RelationIdLoader_1 = require("./relation-id/RelationIdLoader");
 var RelationIdMetadataToAttributeTransformer_1 = require("./relation-id/RelationIdMetadataToAttributeTransformer");
 var RelationCountLoader_1 = require("./relation-count/RelationCountLoader");
 var RelationCountMetadataToAttributeTransformer_1 = require("./relation-count/RelationCountMetadataToAttributeTransformer");
+var OracleDriver_1 = require("../driver/oracle/OracleDriver");
 // todo: fix problem with long aliases eg getMaxIdentifierLength
 // todo: fix replacing in .select("COUNT(post.id) AS cnt") statement
 // todo: implement joinAlways in relations and relationId
@@ -539,18 +539,6 @@ var QueryBuilder = (function () {
         sql = this.createSpecificExpression(sql);
         sql = this.connection.driver.escapeQueryWithParameters(sql, this.expressionMap.parameters)[0];
         return sql.trim();
-    };
-    QueryBuilder.prototype.createSpecificExpression = function (sql) {
-        if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
-            sql = 'SELECT * FROM (' + sql + ') WHERE ';
-            if (this.expressionMap.offset) {
-                sql += "\"RN\" > " + this.expressionMap.offset;
-            }
-            if (this.expressionMap.limit) {
-                sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
-            }
-        }
-        return sql;
     };
     /**
      * Gets generated sql without parameters being replaced.
@@ -1300,9 +1288,9 @@ var QueryBuilder = (function () {
             if (metadata.parentEntityMetadata && metadata.parentEntityMetadata.inheritanceType === "class-table" && metadata.parentIdColumns) {
                 var alias_2 = "parentIdColumn_" + metadata.parentEntityMetadata.tableName;
                 var condition = metadata.parentIdColumns.map(function (parentIdColumn) {
-                    return _this.expressionMap.mainAlias.name + "." + parentIdColumn.databaseName + "=" + ea(alias_2) + "." + parentIdColumn.propertyName;
+                    return _this.expressionMap.mainAlias.name + "." + parentIdColumn.propertyPath + " = " + alias_2 + "." + parentIdColumn.referencedColumn.propertyPath;
                 }).join(" AND ");
-                var join = " JOIN " + et(metadata.parentEntityMetadata.tableName) + " " + ea(alias_2) + " ON " + condition;
+                var join = " JOIN " + et(metadata.parentEntityMetadata.tableName) + " " + ea(alias_2) + " ON " + this.replacePropertyNames(condition);
                 joins.push(join);
             }
         }
@@ -1349,6 +1337,18 @@ var QueryBuilder = (function () {
             })
                 .join(", ");
         return "";
+    };
+    QueryBuilder.prototype.createSpecificExpression = function (sql) {
+        if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
+            sql = 'SELECT * FROM (' + sql + ') WHERE ';
+            if (this.expressionMap.offset) {
+                sql += "\"RN\" > " + this.expressionMap.offset;
+            }
+            if (this.expressionMap.limit) {
+                sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+            }
+        }
+        return sql;
     };
     QueryBuilder.prototype.createLimitExpression = function () {
         if (!this.expressionMap.limit || this.connection.driver instanceof OracleDriver_1.OracleDriver)
@@ -1407,9 +1407,9 @@ var QueryBuilder = (function () {
                 whereSubStrings.push(ea(alias) + "." + ec(primaryColumn.databaseName) + "=:id_" + index + "_" + secondIndex);
                 parameters["id_" + index + "_" + secondIndex] = primaryColumn.getEntityValue(id);
             });
-            metadata.parentIdColumns.forEach(function (primaryColumn, secondIndex) {
-                whereSubStrings.push(ea(alias) + "." + ec(id[primaryColumn.databaseName]) + "=:parentId_" + index + "_" + secondIndex);
-                parameters["parentId_" + index + "_" + secondIndex] = primaryColumn.getEntityValue(id);
+            metadata.parentIdColumns.forEach(function (parentIdColumn, secondIndex) {
+                whereSubStrings.push(ea(alias) + "." + ec(parentIdColumn.databaseName) + "=:parentId_" + index + "_" + secondIndex);
+                parameters["parentId_" + index + "_" + secondIndex] = parentIdColumn.getEntityValue(id);
             });
             // } else {
             //     if (metadata.primaryColumns.length > 0) {

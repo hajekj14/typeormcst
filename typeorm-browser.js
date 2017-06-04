@@ -1,3 +1,11 @@
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
         ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
@@ -42,14 +50,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
-};
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
 };
 System.register("typeorm/driver/DriverOptions", [], function (exports_1, context_1) {
     "use strict";
@@ -333,9 +333,1196 @@ System.register("typeorm/metadata-args/EmbeddedMetadataArgs", [], function (expo
         }
     };
 });
-System.register("typeorm/driver/error/ConnectionIsNotSetError", [], function (exports_9, context_9) {
+System.register("typeorm/query-builder/QueryBuilderUtils", [], function (exports_9, context_9) {
     "use strict";
     var __moduleName = context_9 && context_9.id;
+    var QueryBuilderUtils;
+    return {
+        setters: [],
+        execute: function () {
+            /**
+             * Helper utility functions for QueryBuilder.
+             */
+            QueryBuilderUtils = (function () {
+                function QueryBuilderUtils() {
+                }
+                /**
+                 * Checks if given value is a string representation of alias property,
+                 * e.g. "post.category" or "post.id".
+                 */
+                QueryBuilderUtils.isAliasProperty = function (str) {
+                    // alias property must be a string and must have a dot separator
+                    if (typeof str !== "string" || str.indexOf(".") === -1)
+                        return false;
+                    // extra alias and its property relation
+                    var _a = str.split("."), aliasName = _a[0], propertyName = _a[1]; // todo: what about relations in embedded?
+                    if (!aliasName || !propertyName)
+                        return false;
+                    // alias and property must be represented in a special format
+                    var aliasNameRegexp = /^[a-zA-Z0-9_-]+$/;
+                    if (!aliasNameRegexp.test(aliasName) || !aliasNameRegexp.test(propertyName))
+                        return false;
+                    return true;
+                };
+                return QueryBuilderUtils;
+            }());
+            exports_9("QueryBuilderUtils", QueryBuilderUtils);
+        }
+    };
+});
+System.register("typeorm/query-builder/Alias", [], function (exports_10, context_10) {
+    "use strict";
+    var __moduleName = context_10 && context_10.id;
+    var Alias;
+    return {
+        setters: [],
+        execute: function () {
+            /**
+             */
+            Alias = (function () {
+                function Alias(alias) {
+                    Object.assign(this, alias || {});
+                }
+                Object.defineProperty(Alias.prototype, "target", {
+                    get: function () {
+                        return this.metadata.target;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(Alias.prototype, "hasMetadata", {
+                    get: function () {
+                        return !!this._metadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(Alias.prototype, "metadata", {
+                    get: function () {
+                        if (!this._metadata)
+                            throw new Error("Cannot get entity metadata for the given alias \"" + this.name + "\"");
+                        return this._metadata;
+                    },
+                    set: function (metadata) {
+                        this._metadata = metadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                return Alias;
+            }());
+            exports_10("Alias", Alias);
+        }
+    };
+});
+System.register("typeorm/find-options/OrderByCondition", [], function (exports_11, context_11) {
+    "use strict";
+    var __moduleName = context_11 && context_11.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/query-builder/JoinOptions", [], function (exports_12, context_12) {
+    "use strict";
+    var __moduleName = context_12 && context_12.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/query-builder/JoinAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_13, context_13) {
+    "use strict";
+    var __moduleName = context_13 && context_13.id;
+    var QueryBuilderUtils_1, JoinAttribute;
+    return {
+        setters: [
+            function (QueryBuilderUtils_1_1) {
+                QueryBuilderUtils_1 = QueryBuilderUtils_1_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Stores all join attributes which will be used to build a JOIN query.
+             */
+            JoinAttribute = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function JoinAttribute(connection, queryExpressionMap, joinAttribute) {
+                    this.connection = connection;
+                    this.queryExpressionMap = queryExpressionMap;
+                    this.joinAttribute = joinAttribute;
+                    Object.assign(this, joinAttribute || {});
+                }
+                Object.defineProperty(JoinAttribute.prototype, "isMany", {
+                    // -------------------------------------------------------------------------
+                    // Public Methods
+                    // -------------------------------------------------------------------------
+                    get: function () {
+                        if (this.isMappingMany !== undefined)
+                            return this.isMappingMany;
+                        if (this.relation)
+                            return this.relation.isManyToMany || this.relation.isOneToMany;
+                        return false;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "tableName", {
+                    /**
+                     * Name of the table which we should join.
+                     */
+                    get: function () {
+                        return this.metadata ? this.metadata.tableName : this.entityOrProperty;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "parentAlias", {
+                    /**
+                     * Alias of the parent of this join.
+                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
+                            return undefined;
+                        return this.entityOrProperty.substr(0, this.entityOrProperty.indexOf("."));
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "relationPropertyPath", {
+                    /**
+                     * Relation property name of the parent.
+                     * This is used to understand what is joined.
+                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
+                            return undefined;
+                        return this.entityOrProperty.substr(this.entityOrProperty.indexOf(".") + 1);
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "relation", {
+                    /**
+                     * Relation of the parent.
+                     * This is used to understand what is joined.
+                     * This is available when join was made using "post.category" syntax.
+                     * Relation can be undefined if entityOrProperty is regular entity or custom table.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
+                            return undefined;
+                        var relationOwnerSelection = this.queryExpressionMap.findAliasByName(this.parentAlias);
+                        var metadata = relationOwnerSelection.metadata.parentEntityMetadata
+                            ? relationOwnerSelection.metadata.parentEntityMetadata
+                            : relationOwnerSelection.metadata;
+                        var relation = metadata.findRelationWithPropertyPath(this.relationPropertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + this.relationPropertyPath + " in entity was not found.");
+                        return relation;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "metadata", {
+                    /**
+                     * Metadata of the joined entity.
+                     * If table without entity was joined, then it will return undefined.
+                     */
+                    get: function () {
+                        var _this = this;
+                        // entityOrProperty is Entity class
+                        if (this.entityOrProperty instanceof Function)
+                            return this.connection.getMetadata(this.entityOrProperty);
+                        // entityOrProperty is relation, e.g. "post.category"
+                        if (this.relation)
+                            return this.relation.inverseEntityMetadata;
+                        if (typeof this.entityOrProperty === "string") {
+                            // first try to find entity with such name, this is needed when entity does not have a target class,
+                            // and its target is a string name (scenario when plain old javascript is used or entity schema is loaded from files)
+                            var metadata = this.connection.entityMetadatas.find(function (metadata) { return metadata.name === _this.entityOrProperty; });
+                            if (metadata)
+                                return metadata;
+                            // check if we have entity with such table name, and use its metadata if found
+                            return this.connection.entityMetadatas.find(function (metadata) { return metadata.tableName === _this.entityOrProperty; });
+                        }
+                        return undefined;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "junctionAlias", {
+                    /**
+                     * Generates alias of junction table, whose ids we get.
+                     */
+                    get: function () {
+                        if (!this.relation)
+                            throw new Error("Cannot get junction table for join without relation.");
+                        return this.relation.isOwning ? this.parentAlias + "_" + this.alias.name : this.alias.name + "_" + this.parentAlias;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "mapToPropertyParentAlias", {
+                    get: function () {
+                        if (!this.mapToProperty)
+                            return undefined;
+                        return this.mapToProperty.split(".")[0];
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(JoinAttribute.prototype, "mapToPropertyPropertyName", {
+                    get: function () {
+                        if (!this.mapToProperty)
+                            return undefined;
+                        return this.mapToProperty.split(".")[1];
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                return JoinAttribute;
+            }());
+            exports_13("JoinAttribute", JoinAttribute);
+        }
+    };
+});
+System.register("typeorm/query-builder/relation-count/RelationCountAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_14, context_14) {
+    "use strict";
+    var __moduleName = context_14 && context_14.id;
+    var QueryBuilderUtils_2, RelationCountAttribute;
+    return {
+        setters: [
+            function (QueryBuilderUtils_2_1) {
+                QueryBuilderUtils_2 = QueryBuilderUtils_2_1;
+            }
+        ],
+        execute: function () {
+            RelationCountAttribute = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function RelationCountAttribute(expressionMap, relationCountAttribute) {
+                    this.expressionMap = expressionMap;
+                    this.relationCountAttribute = relationCountAttribute;
+                    Object.assign(this, relationCountAttribute || {});
+                }
+                Object.defineProperty(RelationCountAttribute.prototype, "joinInverseSideMetadata", {
+                    // -------------------------------------------------------------------------
+                    // Public Methods
+                    // -------------------------------------------------------------------------
+                    get: function () {
+                        return this.relation.inverseEntityMetadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "parentAlias", {
+                    /**
+                     * Alias of the parent of this join.
+                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value must be a string representation of alias property");
+                        return this.relationName.split(".")[0];
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "relationProperty", {
+                    /**
+                     * Relation property name of the parent.
+                     * This is used to understand what is joined.
+                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value is a string representation of alias property");
+                        return this.relationName.split(".")[1];
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "junctionAlias", {
+                    get: function () {
+                        var _a = this.relationName.split("."), parentAlias = _a[0], relationProperty = _a[1];
+                        return parentAlias + "_" + relationProperty + "_relation_count";
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "relation", {
+                    /**
+                     * Relation of the parent.
+                     * This is used to understand what is joined.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value is a string representation of alias property");
+                        var _a = this.relationName.split("."), parentAlias = _a[0], propertyPath = _a[1];
+                        var relationOwnerSelection = this.expressionMap.findAliasByName(parentAlias);
+                        var relation = relationOwnerSelection.metadata.findRelationWithPropertyPath(propertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
+                        return relation;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "metadata", {
+                    /**
+                     * Metadata of the joined entity.
+                     * If table without entity was joined, then it will return undefined.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value is a string representation of alias property");
+                        var parentAlias = this.relationName.split(".")[0];
+                        var selection = this.expressionMap.findAliasByName(parentAlias);
+                        return selection.metadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationCountAttribute.prototype, "mapToPropertyPropertyName", {
+                    get: function () {
+                        return this.mapToProperty.split(".")[1];
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                return RelationCountAttribute;
+            }());
+            exports_14("RelationCountAttribute", RelationCountAttribute);
+        }
+    };
+});
+System.register("typeorm/query-builder/SelectQuery", [], function (exports_15, context_15) {
+    "use strict";
+    var __moduleName = context_15 && context_15.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/query-builder/QueryExpressionMap", ["typeorm/query-builder/Alias", "typeorm/query-builder/JoinAttribute", "typeorm/query-builder/relation-id/RelationIdAttribute", "typeorm/query-builder/relation-count/RelationCountAttribute"], function (exports_16, context_16) {
+    "use strict";
+    var __moduleName = context_16 && context_16.id;
+    var Alias_1, JoinAttribute_1, RelationIdAttribute_1, RelationCountAttribute_1, QueryExpressionMap;
+    return {
+        setters: [
+            function (Alias_1_1) {
+                Alias_1 = Alias_1_1;
+            },
+            function (JoinAttribute_1_1) {
+                JoinAttribute_1 = JoinAttribute_1_1;
+            },
+            function (RelationIdAttribute_1_1) {
+                RelationIdAttribute_1 = RelationIdAttribute_1_1;
+            },
+            function (RelationCountAttribute_1_1) {
+                RelationCountAttribute_1 = RelationCountAttribute_1_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Contains all properties of the QueryBuilder that needs to be build a final query.
+             */
+            QueryExpressionMap = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function QueryExpressionMap(connection) {
+                    this.connection = connection;
+                    /**
+                     * All aliases (including main alias) used in the query.
+                     */
+                    this.aliases = [];
+                    /**
+                     * Represents query type. QueryBuilder is able to build SELECT, UPDATE and DELETE queries.
+                     */
+                    this.queryType = "select";
+                    /**
+                     * Data needs to be SELECT-ed.
+                     */
+                    this.selects = [];
+                    /**
+                     * JOIN queries.
+                     */
+                    this.joinAttributes = [];
+                    /**
+                     * RelationId queries.
+                     */
+                    this.relationIdAttributes = [];
+                    /**
+                     * Relation count queries.
+                     */
+                    this.relationCountAttributes = [];
+                    /**
+                     * WHERE queries.
+                     */
+                    this.wheres = [];
+                    /**
+                     * HAVING queries.
+                     */
+                    this.havings = [];
+                    /**
+                     * ORDER BY queries.
+                     */
+                    this.orderBys = {};
+                    /**
+                     * GROUP BY queries.
+                     */
+                    this.groupBys = [];
+                    /**
+                     * Parameters used to be escaped in final query.
+                     */
+                    this.parameters = {};
+                    /**
+                     * Indicates if alias, table names and column names will be ecaped by driver, or not.
+                     *
+                     * todo: rename to isQuotingDisabled, also think if it should be named "escaping"
+                     */
+                    this.disableEscaping = true;
+                    /**
+                     * todo: needs more information.
+                     */
+                    this.ignoreParentTablesJoins = false;
+                    /**
+                     * Indicates if virtual columns should be included in entity result.
+                     *
+                     * todo: what to do with it? is it properly used? what about persistence?
+                     */
+                    this.enableRelationIdValues = false;
+                    /**
+                     * Extra where condition appended to the end of original where conditions with AND keyword.
+                     * Original condition will be wrapped into brackets.
+                     */
+                    this.extraAppendedAndWhereCondition = "";
+                }
+                /**
+                 * Creates a main alias and adds it to the current expression map.
+                 */
+                QueryExpressionMap.prototype.createMainAlias = function (options) {
+                    var alias = this.createAlias(options);
+                    // if main alias is already set then remove it from the array
+                    if (this.mainAlias)
+                        this.aliases.splice(this.aliases.indexOf(this.mainAlias));
+                    // set new main alias
+                    this.mainAlias = alias;
+                    return alias;
+                };
+                /**
+                 * Creates a new alias and adds it to the current expression map.
+                 */
+                QueryExpressionMap.prototype.createAlias = function (options) {
+                    var aliasName = options.name;
+                    if (!aliasName && options.tableName)
+                        aliasName = options.tableName;
+                    if (!aliasName && options.target instanceof Function)
+                        aliasName = options.target.name;
+                    if (!aliasName && typeof options.target === "string")
+                        aliasName = options.target;
+                    var alias = new Alias_1.Alias();
+                    if (aliasName)
+                        alias.name = aliasName;
+                    if (options.metadata)
+                        alias.metadata = options.metadata;
+                    if (options.target && !alias.hasMetadata)
+                        alias.metadata = this.connection.getMetadata(options.target);
+                    if (options.tableName)
+                        alias.tableName = options.tableName;
+                    this.aliases.push(alias);
+                    return alias;
+                };
+                /**
+                 * Finds alias with the given name.
+                 * If alias was not found it throw an exception.
+                 */
+                QueryExpressionMap.prototype.findAliasByName = function (aliasName) {
+                    var alias = this.aliases.find(function (alias) { return alias.name === aliasName; });
+                    if (!alias)
+                        throw new Error("\"" + aliasName + "\" alias was not found. Maybe you forgot to join it?");
+                    return alias;
+                };
+                /**
+                 * Copies all properties of the current QueryExpressionMap into a new one.
+                 * Useful when QueryBuilder needs to create a copy of itself.
+                 */
+                QueryExpressionMap.prototype.clone = function () {
+                    var _this = this;
+                    var map = new QueryExpressionMap(this.connection);
+                    map.queryType = this.queryType;
+                    map.selects = this.selects.map(function (select) { return select; });
+                    this.aliases.forEach(function (alias) { return map.aliases.push(new Alias_1.Alias(alias)); });
+                    map.mainAlias = this.mainAlias;
+                    map.updateSet = this.updateSet;
+                    map.joinAttributes = this.joinAttributes.map(function (join) { return new JoinAttribute_1.JoinAttribute(_this.connection, _this, join); });
+                    map.relationIdAttributes = this.relationIdAttributes.map(function (relationId) { return new RelationIdAttribute_1.RelationIdAttribute(_this, relationId); });
+                    map.relationCountAttributes = this.relationCountAttributes.map(function (relationCount) { return new RelationCountAttribute_1.RelationCountAttribute(_this, relationCount); });
+                    map.wheres = this.wheres.map(function (where) { return (__assign({}, where)); });
+                    map.havings = this.havings.map(function (having) { return (__assign({}, having)); });
+                    map.orderBys = Object.assign({}, this.orderBys);
+                    map.groupBys = this.groupBys.map(function (groupBy) { return groupBy; });
+                    map.limit = this.limit;
+                    map.offset = this.offset;
+                    map.skip = this.skip;
+                    map.take = this.take;
+                    map.lockMode = this.lockMode;
+                    map.lockVersion = this.lockVersion;
+                    map.parameters = Object.assign({}, this.parameters);
+                    map.disableEscaping = this.disableEscaping;
+                    map.ignoreParentTablesJoins = this.ignoreParentTablesJoins;
+                    map.enableRelationIdValues = this.enableRelationIdValues;
+                    return map;
+                };
+                return QueryExpressionMap;
+            }());
+            exports_16("QueryExpressionMap", QueryExpressionMap);
+        }
+    };
+});
+System.register("typeorm/query-builder/relation-id/RelationIdAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_17, context_17) {
+    "use strict";
+    var __moduleName = context_17 && context_17.id;
+    var QueryBuilderUtils_3, RelationIdAttribute;
+    return {
+        setters: [
+            function (QueryBuilderUtils_3_1) {
+                QueryBuilderUtils_3 = QueryBuilderUtils_3_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Stores all join relation id attributes which will be used to build a JOIN query.
+             */
+            RelationIdAttribute = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function RelationIdAttribute(queryExpressionMap, relationIdAttribute) {
+                    this.queryExpressionMap = queryExpressionMap;
+                    /**
+                     * Indicates if relation id should NOT be loaded as id map.
+                     */
+                    this.disableMixedMap = false;
+                    Object.assign(this, relationIdAttribute || {});
+                }
+                Object.defineProperty(RelationIdAttribute.prototype, "joinInverseSideMetadata", {
+                    // -------------------------------------------------------------------------
+                    // Public Methods
+                    // -------------------------------------------------------------------------
+                    get: function () {
+                        return this.relation.inverseEntityMetadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "parentAlias", {
+                    /**
+                     * Alias of the parent of this join.
+                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value must be a string representation of alias property");
+                        return this.relationName.substr(0, this.relationName.indexOf("."));
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "relationPropertyPath", {
+                    /**
+                     * Relation property name of the parent.
+                     * This is used to understand what is joined.
+                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
+                     * This value is extracted from entityOrProperty value.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value must be a string representation of alias property");
+                        return this.relationName.substr(this.relationName.indexOf(".") + 1);
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "relation", {
+                    /**
+                     * Relation of the parent.
+                     * This is used to understand what is joined.
+                     * This is available when join was made using "post.category" syntax.
+                     */
+                    get: function () {
+                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
+                            throw new Error("Given value must be a string representation of alias property");
+                        var relationOwnerSelection = this.queryExpressionMap.findAliasByName(this.parentAlias);
+                        var relation = relationOwnerSelection.metadata.findRelationWithPropertyPath(this.relationPropertyPath);
+                        if (!relation)
+                            throw new Error("Relation with property path " + this.relationPropertyPath + " in entity was not found.");
+                        return relation;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "junctionAlias", {
+                    /**
+                     * Generates alias of junction table, whose ids we get.
+                     */
+                    get: function () {
+                        var _a = this.relationName.split("."), parentAlias = _a[0], relationProperty = _a[1];
+                        return parentAlias + "_" + relationProperty + "_relation_id";
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "junctionMetadata", {
+                    /**
+                     * Metadata of the joined entity.
+                     * If extra condition without entity was joined, then it will return undefined.
+                     */
+                    get: function () {
+                        return this.relation.junctionEntityMetadata;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "mapToPropertyParentAlias", {
+                    get: function () {
+                        return this.mapToProperty.substr(0, this.mapToProperty.indexOf("."));
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(RelationIdAttribute.prototype, "mapToPropertyPropertyPath", {
+                    get: function () {
+                        return this.mapToProperty.substr(this.mapToProperty.indexOf(".") + 1);
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                return RelationIdAttribute;
+            }());
+            exports_17("RelationIdAttribute", RelationIdAttribute);
+        }
+    };
+});
+System.register("typeorm/query-builder/relation-id/RelationIdLoadResult", [], function (exports_18, context_18) {
+    "use strict";
+    var __moduleName = context_18 && context_18.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/query-builder/relation-count/RelationCountLoadResult", [], function (exports_19, context_19) {
+    "use strict";
+    var __moduleName = context_19 && context_19.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/util/OrmUtils", [], function (exports_20, context_20) {
+    "use strict";
+    var __moduleName = context_20 && context_20.id;
+    var OrmUtils;
+    return {
+        setters: [],
+        execute: function () {
+            OrmUtils = (function () {
+                function OrmUtils() {
+                }
+                OrmUtils.groupBy = function (array, propertyCallback) {
+                    return array.reduce(function (groupedArray, value) {
+                        var key = propertyCallback(value);
+                        var grouped = groupedArray.find(function (i) { return i.id === key; });
+                        if (!grouped) {
+                            grouped = { id: key, items: [] };
+                            groupedArray.push(grouped);
+                        }
+                        grouped.items.push(value);
+                        return groupedArray;
+                    }, []);
+                };
+                OrmUtils.isObject = function (item) {
+                    return (item && typeof item === "object" && !Array.isArray(item));
+                };
+                /**
+                 * Deep Object.assign.
+                 *
+                 * @see http://stackoverflow.com/a/34749873
+                 */
+                OrmUtils.mergeDeep = function (target) {
+                    var sources = [];
+                    for (var _i = 1; _i < arguments.length; _i++) {
+                        sources[_i - 1] = arguments[_i];
+                    }
+                    if (!sources.length)
+                        return target;
+                    var source = sources.shift();
+                    if (this.isObject(target) && this.isObject(source)) {
+                        for (var key in source) {
+                            if (this.isObject(source[key])) {
+                                if (!target[key])
+                                    Object.assign(target, (_a = {}, _a[key] = {}, _a));
+                                this.mergeDeep(target[key], source[key]);
+                            }
+                            else {
+                                Object.assign(target, (_b = {}, _b[key] = source[key], _b));
+                            }
+                        }
+                    }
+                    return this.mergeDeep.apply(this, [target].concat(sources));
+                    var _a, _b;
+                };
+                /**
+                 * Deep compare objects.
+                 *
+                 * @see http://stackoverflow.com/a/1144249
+                 */
+                OrmUtils.deepCompare = function () {
+                    var args = [];
+                    for (var _i = 0; _i < arguments.length; _i++) {
+                        args[_i] = arguments[_i];
+                    }
+                    var i, l, leftChain, rightChain;
+                    function compare2Objects(x, y) {
+                        var p;
+                        // remember that NaN === NaN returns false
+                        // and isNaN(undefined) returns true
+                        if (isNaN(x) && isNaN(y) && typeof x === "number" && typeof y === "number")
+                            return true;
+                        // Compare primitives and functions.
+                        // Check if both arguments link to the same object.
+                        // Especially useful on the step where we compare prototypes
+                        if (x === y)
+                            return true;
+                        if (x.equals instanceof Function && x.equals(y))
+                            return true;
+                        // Works in case when functions are created in constructor.
+                        // Comparing dates is a common scenario. Another built-ins?
+                        // We can even handle functions passed across iframes
+                        if ((typeof x === "function" && typeof y === "function") ||
+                            (x instanceof Date && y instanceof Date) ||
+                            (x instanceof RegExp && y instanceof RegExp) ||
+                            (x instanceof String && y instanceof String) ||
+                            (x instanceof Number && y instanceof Number))
+                            return x.toString() === y.toString();
+                        // At last checking prototypes as good as we can
+                        if (!(x instanceof Object && y instanceof Object))
+                            return false;
+                        if (x.isPrototypeOf(y) || y.isPrototypeOf(x))
+                            return false;
+                        if (x.constructor !== y.constructor)
+                            return false;
+                        if (x.prototype !== y.prototype)
+                            return false;
+                        // Check for infinitive linking loops
+                        if (leftChain.indexOf(x) > -1 || rightChain.indexOf(y) > -1)
+                            return false;
+                        // Quick checking of one object being a subset of another.
+                        // todo: cache the structure of arguments[0] for performance
+                        for (p in y) {
+                            if (y.hasOwnProperty(p) !== x.hasOwnProperty(p)) {
+                                return false;
+                            }
+                            else if (typeof y[p] !== typeof x[p]) {
+                                return false;
+                            }
+                        }
+                        for (p in x) {
+                            if (y.hasOwnProperty(p) !== x.hasOwnProperty(p)) {
+                                return false;
+                            }
+                            else if (typeof y[p] !== typeof x[p]) {
+                                return false;
+                            }
+                            switch (typeof (x[p])) {
+                                case "object":
+                                case "function":
+                                    leftChain.push(x);
+                                    rightChain.push(y);
+                                    if (!compare2Objects(x[p], y[p])) {
+                                        return false;
+                                    }
+                                    leftChain.pop();
+                                    rightChain.pop();
+                                    break;
+                                default:
+                                    if (x[p] !== y[p]) {
+                                        return false;
+                                    }
+                                    break;
+                            }
+                        }
+                        return true;
+                    }
+                    if (arguments.length < 1) {
+                        return true; // Die silently? Don't know how to handle such case, please help...
+                        // throw "Need two or more arguments to compare";
+                    }
+                    for (i = 1, l = arguments.length; i < l; i++) {
+                        leftChain = []; // Todo: this can be cached
+                        rightChain = [];
+                        if (!compare2Objects(arguments[0], arguments[i])) {
+                            return false;
+                        }
+                    }
+                    return true;
+                };
+                /**
+                 * Transforms given value into boolean value.
+                 */
+                OrmUtils.toBoolean = function (value) {
+                    if (typeof value === "boolean")
+                        return value;
+                    if (typeof value === "string")
+                        return value === "true" || value === "1";
+                    if (typeof value === "number")
+                        return value > 0;
+                    return false;
+                };
+                /**
+                 * Composes an object from the given array of keys and values.
+                 */
+                OrmUtils.zipObject = function (keys, values) {
+                    return keys.reduce(function (object, column, index) {
+                        object[column] = values[index];
+                        return object;
+                    }, {});
+                };
+                return OrmUtils;
+            }());
+            exports_20("OrmUtils", OrmUtils);
+        }
+    };
+});
+System.register("typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer", ["typeorm/util/OrmUtils"], function (exports_21, context_21) {
+    "use strict";
+    var __moduleName = context_21 && context_21.id;
+    var OrmUtils_1, RawSqlResultsToEntityTransformer;
+    return {
+        setters: [
+            function (OrmUtils_1_1) {
+                OrmUtils_1 = OrmUtils_1_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Transforms raw sql results returned from the database into entity object.
+             * Entity is constructed based on its entity metadata.
+             */
+            RawSqlResultsToEntityTransformer = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function RawSqlResultsToEntityTransformer(driver, joinAttributes, rawRelationIdResults, rawRelationCountResults) {
+                    this.driver = driver;
+                    this.joinAttributes = joinAttributes;
+                    this.rawRelationIdResults = rawRelationIdResults;
+                    this.rawRelationCountResults = rawRelationCountResults;
+                }
+                // -------------------------------------------------------------------------
+                // Public Methods
+                // -------------------------------------------------------------------------
+                /**
+                 * Since db returns a duplicated rows of the data where accuracies of the same object can be duplicated
+                 * we need to group our result and we must have some unique id (primary key in our case)
+                 */
+                RawSqlResultsToEntityTransformer.prototype.transform = function (rawResults, alias) {
+                    var _this = this;
+                    return this.group(rawResults, alias)
+                        .map(function (group) { return _this.transformRawResultsGroup(group, alias); })
+                        .filter(function (res) { return !!res; });
+                };
+                // -------------------------------------------------------------------------
+                // Protected Methods
+                // -------------------------------------------------------------------------
+                /**
+                 * Groups given raw results by ids of given alias.
+                 */
+                RawSqlResultsToEntityTransformer.prototype.group = function (rawResults, alias) {
+                    var groupedResults = [];
+                    rawResults.forEach(function (rawResult) {
+                        var id = alias.metadata.primaryColumns.map(function (column) { return rawResult[alias.name + "_" + column.databaseName]; }).join("_"); // todo: check partial
+                        if (!id)
+                            return;
+                        var group = groupedResults.find(function (groupedResult) { return groupedResult.id === id; });
+                        if (!group) {
+                            group = { id: id, items: [] };
+                            groupedResults.push(group);
+                        }
+                        group.items.push(rawResult);
+                    });
+                    return groupedResults.map(function (group) { return group.items; });
+                };
+                /**
+                 * Transforms set of data results into single entity.
+                 */
+                RawSqlResultsToEntityTransformer.prototype.transformRawResultsGroup = function (rawResults, alias) {
+                    var hasColumns = false, hasEmbeddedColumns = false, hasParentColumns = false, hasParentEmbeddedColumns = false, hasRelations = false, hasRelationIds = false, hasRelationCounts = false;
+                    var entity = alias.metadata.create();
+                    if (alias.metadata.discriminatorColumn) {
+                        var discriminatorValues_1 = rawResults.map(function (result) { return result[alias.name + "_" + alias.metadata.discriminatorColumn.databaseName]; });
+                        var metadata = alias.metadata.childEntityMetadatas.find(function (childEntityMetadata) {
+                            return !!discriminatorValues_1.find(function (value) { return value === childEntityMetadata.discriminatorValue; });
+                        });
+                        if (metadata)
+                            entity = metadata.create();
+                    }
+                    // get value from columns selections and put them into newly created entity
+                    hasColumns = this.transformColumns(rawResults, alias, entity, alias.metadata);
+                    hasRelations = this.transformJoins(rawResults, entity, alias);
+                    hasRelationIds = this.transformRelationIds(rawResults, alias, entity);
+                    hasRelationCounts = this.transformRelationCounts(rawResults, alias, entity);
+                    return (hasColumns || hasEmbeddedColumns || hasParentColumns || hasParentEmbeddedColumns || hasRelations || hasRelationIds || hasRelationCounts) ? entity : undefined;
+                };
+                // get value from columns selections and put them into object
+                RawSqlResultsToEntityTransformer.prototype.transformColumns = function (rawResults, alias, entity, metadata) {
+                    var _this = this;
+                    var hasData = false;
+                    metadata.columns.forEach(function (column) {
+                        var value = rawResults[0][alias.name + "_" + column.databaseName];
+                        if (value === undefined || value === null || column.isVirtual || column.isParentId || column.isDiscriminator)
+                            return;
+                        column.setEntityValue(entity, _this.driver.prepareHydratedValue(value, column));
+                        hasData = true;
+                    });
+                    if (alias.metadata.parentEntityMetadata) {
+                        alias.metadata.parentEntityMetadata.columns.forEach(function (column) {
+                            var value = rawResults[0]["parentIdColumn_" + alias.metadata.parentEntityMetadata.tableName + "_" + column.databaseName];
+                            if (value === undefined || value === null || column.isVirtual || column.isParentId || column.isDiscriminator)
+                                return;
+                            column.setEntityValue(entity, _this.driver.prepareHydratedValue(value, column));
+                            hasData = true;
+                        });
+                    }
+                    return hasData;
+                };
+                /**
+                 * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity
+                 */
+                RawSqlResultsToEntityTransformer.prototype.transformJoins = function (rawResults, entity, alias) {
+                    var _this = this;
+                    var hasData = false;
+                    var discriminatorValue = "";
+                    if (alias.metadata.discriminatorColumn)
+                        discriminatorValue = rawResults[0][alias.name + "_" + alias.metadata.discriminatorColumn.databaseName];
+                    this.joinAttributes.forEach(function (join) {
+                        // skip joins without metadata
+                        if (!join.metadata)
+                            return;
+                        // this check need to avoid setting properties than not belong to entity when single table inheritance used.
+                        var metadata = alias.metadata.childEntityMetadatas.find(function (childEntityMetadata) { return discriminatorValue === childEntityMetadata.discriminatorValue; });
+                        if (metadata && join.relation && metadata.target !== join.relation.target)
+                            return;
+                        // some checks to make sure this join is for current alias
+                        if (join.mapToProperty) {
+                            if (join.mapToPropertyParentAlias !== alias.name)
+                                return;
+                        }
+                        else {
+                            if (!join.relation || join.parentAlias !== alias.name || join.relationPropertyPath !== join.relation.propertyPath)
+                                return;
+                        }
+                        // transform joined data into entities
+                        var mappedEntities = _this.transform(rawResults, join.alias);
+                        var result = !join.isMany ? mappedEntities[0] : mappedEntities;
+                        if (!result)
+                            return;
+                        // if join was mapped to some property then save result to that property
+                        if (join.mapToPropertyPropertyName) {
+                            entity[join.mapToPropertyPropertyName] = result; // todo: fix embeds
+                        }
+                        else {
+                            // console.log(result);
+                            join.relation.setEntityValue(entity, result);
+                        }
+                        hasData = true;
+                    });
+                    return hasData;
+                };
+                RawSqlResultsToEntityTransformer.prototype.transformRelationIds = function (rawSqlResults, alias, entity) {
+                    var _this = this;
+                    var hasData = false;
+                    this.rawRelationIdResults.forEach(function (rawRelationIdResult) {
+                        if (rawRelationIdResult.relationIdAttribute.parentAlias !== alias.name)
+                            return;
+                        var relation = rawRelationIdResult.relationIdAttribute.relation;
+                        var valueMap = _this.createValueMapFromJoinColumns(relation, rawRelationIdResult.relationIdAttribute.parentAlias, rawSqlResults);
+                        if (valueMap === undefined || valueMap === null)
+                            return;
+                        var idMaps = rawRelationIdResult.results.map(function (result) {
+                            var entityPrimaryIds = _this.extractEntityPrimaryIds(relation, result);
+                            if (!alias.metadata.compareIds(entityPrimaryIds, valueMap))
+                                return;
+                            var columns;
+                            if (relation.isManyToOne || relation.isOneToOneOwner) {
+                                columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                            }
+                            else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
+                                columns = relation.inverseEntityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
+                            }
+                            else {
+                                if (relation.isOwning) {
+                                    columns = relation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
+                                }
+                                else {
+                                    columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                                }
+                            }
+                            // const idMapColumns = (relation.isOneToMany || relation.isOneToOneNotOwner) ? columns : columns.map(column => column.referencedColumn!);
+                            // const idMap = idMapColumns.reduce((idMap, column) => {
+                            //     return OrmUtils.mergeDeep(idMap, column.createValueMap(result[column.databaseName]));
+                            // }, {} as ObjectLiteral); // need to create reusable function for this process
+                            var idMap = columns.reduce(function (idMap, column) {
+                                if (relation.isOneToMany || relation.isOneToOneNotOwner) {
+                                    return OrmUtils_1.OrmUtils.mergeDeep(idMap, column.createValueMap(result[column.databaseName]));
+                                }
+                                else {
+                                    return OrmUtils_1.OrmUtils.mergeDeep(idMap, column.referencedColumn.createValueMap(result[column.databaseName]));
+                                }
+                            }, {});
+                            if (columns.length === 1 && rawRelationIdResult.relationIdAttribute.disableMixedMap === false) {
+                                if (relation.isOneToMany || relation.isOneToOneNotOwner) {
+                                    return columns[0].getEntityValue(idMap);
+                                }
+                                else {
+                                    return columns[0].referencedColumn.getEntityValue(idMap);
+                                }
+                            }
+                            return idMap;
+                        }).filter(function (result) { return result; });
+                        var properties = rawRelationIdResult.relationIdAttribute.mapToPropertyPropertyPath.split(".");
+                        var mapToProperty = function (properties, map, value) {
+                            var property = properties.shift();
+                            if (property && properties.length === 0) {
+                                map[property] = value;
+                                return map;
+                            }
+                            else if (property && properties.length > 0) {
+                                mapToProperty(properties, map[property], value);
+                            }
+                            else {
+                                return map;
+                            }
+                        };
+                        if (relation.isOneToOne || relation.isManyToOne) {
+                            mapToProperty(properties, entity, idMaps[0]);
+                        }
+                        else {
+                            mapToProperty(properties, entity, idMaps);
+                        }
+                        hasData = true;
+                    });
+                    return hasData;
+                };
+                RawSqlResultsToEntityTransformer.prototype.transformRelationCounts = function (rawSqlResults, alias, entity) {
+                    var hasData = false;
+                    this.rawRelationCountResults
+                        .filter(function (rawRelationCountResult) { return rawRelationCountResult.relationCountAttribute.parentAlias === alias.name; })
+                        .forEach(function (rawRelationCountResult) {
+                        var relation = rawRelationCountResult.relationCountAttribute.relation;
+                        var referenceColumnName;
+                        if (relation.isOneToMany) {
+                            referenceColumnName = relation.inverseRelation.joinColumns[0].referencedColumn.databaseName; // todo: fix joinColumns[0]
+                        }
+                        else {
+                            referenceColumnName = relation.isOwning ? relation.joinColumns[0].referencedColumn.databaseName : relation.inverseRelation.joinColumns[0].referencedColumn.databaseName;
+                        }
+                        var referenceColumnValue = rawSqlResults[0][alias.name + "_" + referenceColumnName]; // we use zero index since its grouped data // todo: selection with alias for entity columns wont work
+                        if (referenceColumnValue !== undefined && referenceColumnValue !== null) {
+                            entity[rawRelationCountResult.relationCountAttribute.mapToPropertyPropertyName] = 0;
+                            rawRelationCountResult.results
+                                .filter(function (result) { return result["parentId"] === referenceColumnValue; })
+                                .forEach(function (result) {
+                                entity[rawRelationCountResult.relationCountAttribute.mapToPropertyPropertyName] = parseInt(result["cnt"]);
+                                hasData = true;
+                            });
+                        }
+                    });
+                    return hasData;
+                };
+                RawSqlResultsToEntityTransformer.prototype.createValueMapFromJoinColumns = function (relation, parentAlias, rawSqlResults) {
+                    var columns;
+                    if (relation.isManyToOne || relation.isOneToOneOwner) {
+                        columns = relation.entityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
+                    }
+                    else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
+                        columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                    }
+                    else {
+                        if (relation.isOwning) {
+                            columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                        }
+                        else {
+                            columns = relation.inverseRelation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
+                        }
+                    }
+                    return columns.reduce(function (valueMap, column) {
+                        rawSqlResults.forEach(function (rawSqlResult) {
+                            if (relation.isManyToOne || relation.isOneToOneOwner) {
+                                valueMap[column.databaseName] = rawSqlResult[parentAlias + "_" + column.databaseName];
+                            }
+                            else {
+                                valueMap[column.databaseName] = rawSqlResult[parentAlias + "_" + column.referencedColumn.databaseName];
+                            }
+                        });
+                        return valueMap;
+                    }, {});
+                };
+                RawSqlResultsToEntityTransformer.prototype.extractEntityPrimaryIds = function (relation, relationIdRawResult) {
+                    var columns;
+                    if (relation.isManyToOne || relation.isOneToOneOwner) {
+                        columns = relation.entityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
+                    }
+                    else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
+                        columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                    }
+                    else {
+                        if (relation.isOwning) {
+                            columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
+                        }
+                        else {
+                            columns = relation.inverseRelation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
+                        }
+                    }
+                    return columns.reduce(function (data, column) {
+                        data[column.databaseName] = relationIdRawResult[column.databaseName];
+                        return data;
+                    }, {});
+                };
+                return RawSqlResultsToEntityTransformer;
+            }());
+            exports_21("RawSqlResultsToEntityTransformer", RawSqlResultsToEntityTransformer);
+        }
+    };
+});
+System.register("typeorm/driver/error/ConnectionIsNotSetError", [], function (exports_22, context_22) {
+    "use strict";
+    var __moduleName = context_22 && context_22.id;
     var ConnectionIsNotSetError;
     return {
         setters: [],
@@ -353,22 +1540,22 @@ System.register("typeorm/driver/error/ConnectionIsNotSetError", [], function (ex
                 }
                 return ConnectionIsNotSetError;
             }(Error));
-            exports_9("ConnectionIsNotSetError", ConnectionIsNotSetError);
+            exports_22("ConnectionIsNotSetError", ConnectionIsNotSetError);
         }
     };
 });
-System.register("typeorm/driver/DatabaseConnection", [], function (exports_10, context_10) {
+System.register("typeorm/driver/DatabaseConnection", [], function (exports_23, context_23) {
     "use strict";
-    var __moduleName = context_10 && context_10.id;
+    var __moduleName = context_23 && context_23.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/driver/error/DriverPackageNotInstalledError", [], function (exports_11, context_11) {
+System.register("typeorm/driver/error/DriverPackageNotInstalledError", [], function (exports_24, context_24) {
     "use strict";
-    var __moduleName = context_11 && context_11.id;
+    var __moduleName = context_24 && context_24.id;
     var DriverPackageNotInstalledError;
     return {
         setters: [],
@@ -386,13 +1573,13 @@ System.register("typeorm/driver/error/DriverPackageNotInstalledError", [], funct
                 }
                 return DriverPackageNotInstalledError;
             }(Error));
-            exports_11("DriverPackageNotInstalledError", DriverPackageNotInstalledError);
+            exports_24("DriverPackageNotInstalledError", DriverPackageNotInstalledError);
         }
     };
 });
-System.register("typeorm/driver/DriverUtils", [], function (exports_12, context_12) {
+System.register("typeorm/driver/DriverUtils", [], function (exports_25, context_25) {
     "use strict";
-    var __moduleName = context_12 && context_12.id;
+    var __moduleName = context_25 && context_25.id;
     var DriverUtils;
     return {
         setters: [],
@@ -463,22 +1650,22 @@ System.register("typeorm/driver/DriverUtils", [], function (exports_12, context_
                 };
                 return DriverUtils;
             }());
-            exports_12("DriverUtils", DriverUtils);
+            exports_25("DriverUtils", DriverUtils);
         }
     };
 });
-System.register("typeorm/logger/LoggerOptions", [], function (exports_13, context_13) {
+System.register("typeorm/logger/LoggerOptions", [], function (exports_26, context_26) {
     "use strict";
-    var __moduleName = context_13 && context_13.id;
+    var __moduleName = context_26 && context_26.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/platform/PlatformTools", [], function (exports_14, context_14) {
+System.register("typeorm/platform/PlatformTools", [], function (exports_27, context_27) {
     "use strict";
-    var __moduleName = context_14 && context_14.id;
+    var __moduleName = context_27 && context_27.id;
     var PlatformTools;
     return {
         setters: [],
@@ -554,13 +1741,13 @@ System.register("typeorm/platform/PlatformTools", [], function (exports_14, cont
              * Type of the currently running platform.
              */
             PlatformTools.type = "browser";
-            exports_14("PlatformTools", PlatformTools);
+            exports_27("PlatformTools", PlatformTools);
         }
     };
 });
-System.register("typeorm/logger/Logger", ["typeorm/platform/PlatformTools"], function (exports_15, context_15) {
+System.register("typeorm/logger/Logger", ["typeorm/platform/PlatformTools"], function (exports_28, context_28) {
     "use strict";
-    var __moduleName = context_15 && context_15.id;
+    var __moduleName = context_28 && context_28.id;
     var PlatformTools_1, Logger;
     return {
         setters: [
@@ -659,13 +1846,13 @@ System.register("typeorm/logger/Logger", ["typeorm/platform/PlatformTools"], fun
                 };
                 return Logger;
             }());
-            exports_15("Logger", Logger);
+            exports_28("Logger", Logger);
         }
     };
 });
-System.register("typeorm/driver/error/TransactionAlreadyStartedError", [], function (exports_16, context_16) {
+System.register("typeorm/driver/error/TransactionAlreadyStartedError", [], function (exports_29, context_29) {
     "use strict";
-    var __moduleName = context_16 && context_16.id;
+    var __moduleName = context_29 && context_29.id;
     var TransactionAlreadyStartedError;
     return {
         setters: [],
@@ -683,13 +1870,13 @@ System.register("typeorm/driver/error/TransactionAlreadyStartedError", [], funct
                 }
                 return TransactionAlreadyStartedError;
             }(Error));
-            exports_16("TransactionAlreadyStartedError", TransactionAlreadyStartedError);
+            exports_29("TransactionAlreadyStartedError", TransactionAlreadyStartedError);
         }
     };
 });
-System.register("typeorm/driver/error/TransactionNotStartedError", [], function (exports_17, context_17) {
+System.register("typeorm/driver/error/TransactionNotStartedError", [], function (exports_30, context_30) {
     "use strict";
-    var __moduleName = context_17 && context_17.id;
+    var __moduleName = context_30 && context_30.id;
     var TransactionNotStartedError;
     return {
         setters: [],
@@ -707,13 +1894,13 @@ System.register("typeorm/driver/error/TransactionNotStartedError", [], function 
                 }
                 return TransactionNotStartedError;
             }(Error));
-            exports_17("TransactionNotStartedError", TransactionNotStartedError);
+            exports_30("TransactionNotStartedError", TransactionNotStartedError);
         }
     };
 });
-System.register("typeorm/driver/error/DataTypeNotSupportedByDriverError", [], function (exports_18, context_18) {
+System.register("typeorm/driver/error/DataTypeNotSupportedByDriverError", [], function (exports_31, context_31) {
     "use strict";
-    var __moduleName = context_18 && context_18.id;
+    var __moduleName = context_31 && context_31.id;
     var DataTypeNotSupportedByDriverError;
     return {
         setters: [],
@@ -731,22 +1918,22 @@ System.register("typeorm/driver/error/DataTypeNotSupportedByDriverError", [], fu
                 }
                 return DataTypeNotSupportedByDriverError;
             }(Error));
-            exports_18("DataTypeNotSupportedByDriverError", DataTypeNotSupportedByDriverError);
+            exports_31("DataTypeNotSupportedByDriverError", DataTypeNotSupportedByDriverError);
         }
     };
 });
-System.register("typeorm/metadata-args/IndexMetadataArgs", [], function (exports_19, context_19) {
+System.register("typeorm/metadata-args/IndexMetadataArgs", [], function (exports_32, context_32) {
     "use strict";
-    var __moduleName = context_19 && context_19.id;
+    var __moduleName = context_32 && context_32.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/metadata/IndexMetadata", [], function (exports_20, context_20) {
+System.register("typeorm/metadata/IndexMetadata", [], function (exports_33, context_33) {
     "use strict";
-    var __moduleName = context_20 && context_20.id;
+    var __moduleName = context_33 && context_33.id;
     var IndexMetadata;
     return {
         setters: [],
@@ -840,13 +2027,13 @@ System.register("typeorm/metadata/IndexMetadata", [], function (exports_20, cont
                 };
                 return IndexMetadata;
             }());
-            exports_20("IndexMetadata", IndexMetadata);
+            exports_33("IndexMetadata", IndexMetadata);
         }
     };
 });
-System.register("typeorm/schema-builder/schema/IndexSchema", [], function (exports_21, context_21) {
+System.register("typeorm/schema-builder/schema/IndexSchema", [], function (exports_34, context_34) {
     "use strict";
-    var __moduleName = context_21 && context_21.id;
+    var __moduleName = context_34 && context_34.id;
     var IndexSchema;
     return {
         setters: [],
@@ -884,13 +2071,13 @@ System.register("typeorm/schema-builder/schema/IndexSchema", [], function (expor
                 };
                 return IndexSchema;
             }());
-            exports_21("IndexSchema", IndexSchema);
+            exports_34("IndexSchema", IndexSchema);
         }
     };
 });
-System.register("typeorm/schema-builder/schema/ForeignKeySchema", [], function (exports_22, context_22) {
+System.register("typeorm/schema-builder/schema/ForeignKeySchema", [], function (exports_35, context_35) {
     "use strict";
-    var __moduleName = context_22 && context_22.id;
+    var __moduleName = context_35 && context_35.id;
     var ForeignKeySchema;
     return {
         setters: [],
@@ -929,13 +2116,13 @@ System.register("typeorm/schema-builder/schema/ForeignKeySchema", [], function (
                 };
                 return ForeignKeySchema;
             }());
-            exports_22("ForeignKeySchema", ForeignKeySchema);
+            exports_35("ForeignKeySchema", ForeignKeySchema);
         }
     };
 });
-System.register("typeorm/schema-builder/schema/PrimaryKeySchema", [], function (exports_23, context_23) {
+System.register("typeorm/schema-builder/schema/PrimaryKeySchema", [], function (exports_36, context_36) {
     "use strict";
-    var __moduleName = context_23 && context_23.id;
+    var __moduleName = context_36 && context_36.id;
     var PrimaryKeySchema;
     return {
         setters: [],
@@ -962,13 +2149,13 @@ System.register("typeorm/schema-builder/schema/PrimaryKeySchema", [], function (
                 };
                 return PrimaryKeySchema;
             }());
-            exports_23("PrimaryKeySchema", PrimaryKeySchema);
+            exports_36("PrimaryKeySchema", PrimaryKeySchema);
         }
     };
 });
-System.register("typeorm/schema-builder/schema/TableSchema", ["typeorm/schema-builder/schema/ColumnSchema"], function (exports_24, context_24) {
+System.register("typeorm/schema-builder/schema/TableSchema", ["typeorm/schema-builder/schema/ColumnSchema"], function (exports_37, context_37) {
     "use strict";
-    var __moduleName = context_24 && context_24.id;
+    var __moduleName = context_37 && context_37.id;
     var ColumnSchema_1, TableSchema;
     return {
         setters: [
@@ -1176,13 +2363,13 @@ System.register("typeorm/schema-builder/schema/TableSchema", ["typeorm/schema-bu
                 };
                 return TableSchema;
             }());
-            exports_24("TableSchema", TableSchema);
+            exports_37("TableSchema", TableSchema);
         }
     };
 });
-System.register("typeorm/query-runner/error/QueryRunnerAlreadyReleasedError", [], function (exports_25, context_25) {
+System.register("typeorm/query-runner/error/QueryRunnerAlreadyReleasedError", [], function (exports_38, context_38) {
     "use strict";
-    var __moduleName = context_25 && context_25.id;
+    var __moduleName = context_38 && context_38.id;
     var QueryRunnerAlreadyReleasedError;
     return {
         setters: [],
@@ -1199,14 +2386,14 @@ System.register("typeorm/query-runner/error/QueryRunnerAlreadyReleasedError", []
                 }
                 return QueryRunnerAlreadyReleasedError;
             }(Error));
-            exports_25("QueryRunnerAlreadyReleasedError", QueryRunnerAlreadyReleasedError);
+            exports_38("QueryRunnerAlreadyReleasedError", QueryRunnerAlreadyReleasedError);
         }
     };
 });
-System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_26, context_26) {
+System.register("typeorm/driver/sqlserver/SqlServerQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_39, context_39) {
     "use strict";
-    var __moduleName = context_26 && context_26.id;
-    var TransactionAlreadyStartedError_1, TransactionNotStartedError_1, DataTypeNotSupportedByDriverError_1, ColumnSchema_2, TableSchema_1, ForeignKeySchema_1, PrimaryKeySchema_1, QueryRunnerAlreadyReleasedError_1, OracleQueryRunner;
+    var __moduleName = context_39 && context_39.id;
+    var TransactionAlreadyStartedError_1, TransactionNotStartedError_1, DataTypeNotSupportedByDriverError_1, ColumnSchema_2, TableSchema_1, ForeignKeySchema_1, PrimaryKeySchema_1, IndexSchema_1, QueryRunnerAlreadyReleasedError_1, SqlServerQueryRunner;
     return {
         setters: [
             function (TransactionAlreadyStartedError_1_1) {
@@ -1230,6 +2417,9 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
             function (PrimaryKeySchema_1_1) {
                 PrimaryKeySchema_1 = PrimaryKeySchema_1_1;
             },
+            function (IndexSchema_1_1) {
+                IndexSchema_1 = IndexSchema_1_1;
+            },
             function (QueryRunnerAlreadyReleasedError_1_1) {
                 QueryRunnerAlreadyReleasedError_1 = QueryRunnerAlreadyReleasedError_1_1;
             }
@@ -1237,14 +2427,12 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
         execute: function () {
             /**
              * Runs queries on a single mysql database connection.
-             *
-             * todo: this driver is not 100% finished yet, need to fix all issues that are left
              */
-            OracleQueryRunner = (function () {
+            SqlServerQueryRunner = (function () {
                 // -------------------------------------------------------------------------
                 // Constructor
                 // -------------------------------------------------------------------------
-                function OracleQueryRunner(databaseConnection, driver, logger) {
+                function SqlServerQueryRunner(databaseConnection, driver, logger) {
                     this.databaseConnection = databaseConnection;
                     this.driver = driver;
                     this.logger = logger;
@@ -1265,7 +2453,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                  * If connection is not from a pool, it should not be released.
                  * You cannot use this class's methods after its released.
                  */
-                OracleQueryRunner.prototype.release = function () {
+                SqlServerQueryRunner.prototype.release = function () {
                     if (this.databaseConnection.releaseCallback) {
                         this.isReleased = true;
                         return this.databaseConnection.releaseCallback();
@@ -1275,10 +2463,10 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Removes all tables from the currently connected database.
                  */
-                OracleQueryRunner.prototype.clearDatabase = function () {
+                SqlServerQueryRunner.prototype.clearDatabase = function () {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
-                        var disableForeignKeysCheckQuery, dropTablesQuery, enableForeignKeysCheckQuery, dropQueries, error_1;
+                        var allTablesSql, allTablesResults, tableNames, error_1;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1289,37 +2477,51 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                     _a.sent();
                                     _a.label = 2;
                                 case 2:
-                                    _a.trys.push([2, 8, 10, 12]);
-                                    disableForeignKeysCheckQuery = "SET FOREIGN_KEY_CHECKS = 0;";
-                                    dropTablesQuery = "SELECT concat('DROP TABLE IF EXISTS ', table_name, ';') AS query FROM information_schema.tables WHERE table_schema = '" + this.dbName + "'";
-                                    enableForeignKeysCheckQuery = "SET FOREIGN_KEY_CHECKS = 1;";
-                                    return [4 /*yield*/, this.query(disableForeignKeysCheckQuery)];
+                                    _a.trys.push([2, 7, 9, 11]);
+                                    allTablesSql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+                                    return [4 /*yield*/, this.query(allTablesSql)];
                                 case 3:
-                                    _a.sent();
-                                    return [4 /*yield*/, this.query(dropTablesQuery)];
+                                    allTablesResults = _a.sent();
+                                    tableNames = allTablesResults.map(function (result) { return result["TABLE_NAME"]; });
+                                    return [4 /*yield*/, Promise.all(tableNames.map(function (tableName) { return __awaiter(_this, void 0, void 0, function () {
+                                            var _this = this;
+                                            var dropForeignKeySql, dropFkQueries;
+                                            return __generator(this, function (_a) {
+                                                switch (_a.label) {
+                                                    case 0:
+                                                        dropForeignKeySql = "SELECT 'ALTER TABLE ' +  OBJECT_SCHEMA_NAME(parent_object_id) + '.[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT ' + name as query FROM sys.foreign_keys WHERE referenced_object_id = object_id('" + tableName + "')";
+                                                        return [4 /*yield*/, this.query(dropForeignKeySql)];
+                                                    case 1:
+                                                        dropFkQueries = _a.sent();
+                                                        return [2 /*return*/, Promise.all(dropFkQueries.map(function (result) { return result["query"]; }).map(function (dropQuery) {
+                                                                return _this.query(dropQuery);
+                                                            }))];
+                                                }
+                                            });
+                                        }); }))];
                                 case 4:
-                                    dropQueries = _a.sent();
-                                    return [4 /*yield*/, Promise.all(dropQueries.map(function (query) { return _this.query(query["query"]); }))];
+                                    _a.sent();
+                                    return [4 /*yield*/, Promise.all(tableNames.map(function (tableName) {
+                                            var dropTableSql = "DROP TABLE \"" + tableName + "\"";
+                                            return _this.query(dropTableSql);
+                                        }))];
                                 case 5:
                                     _a.sent();
-                                    return [4 /*yield*/, this.query(enableForeignKeysCheckQuery)];
+                                    return [4 /*yield*/, this.commitTransaction()];
                                 case 6:
                                     _a.sent();
-                                    return [4 /*yield*/, this.commitTransaction()];
+                                    return [3 /*break*/, 11];
                                 case 7:
-                                    _a.sent();
-                                    return [3 /*break*/, 12];
-                                case 8:
                                     error_1 = _a.sent();
                                     return [4 /*yield*/, this.rollbackTransaction()];
-                                case 9:
+                                case 8:
                                     _a.sent();
                                     throw error_1;
-                                case 10: return [4 /*yield*/, this.release()];
-                                case 11:
+                                case 9: return [4 /*yield*/, this.release()];
+                                case 10:
                                     _a.sent();
                                     return [7 /*endfinally*/];
-                                case 12: return [2 /*return*/];
+                                case 11: return [2 /*return*/];
                             }
                         });
                     });
@@ -1327,97 +2529,110 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Starts transaction.
                  */
-                OracleQueryRunner.prototype.beginTransaction = function () {
+                SqlServerQueryRunner.prototype.beginTransaction = function () {
                     return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
                                 throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                             if (this.databaseConnection.isTransactionActive)
                                 throw new TransactionAlreadyStartedError_1.TransactionAlreadyStartedError();
-                            // await this.query("START TRANSACTION");
-                            this.databaseConnection.isTransactionActive = true;
-                            return [2 /*return*/];
+                            return [2 /*return*/, new Promise(function (ok, fail) {
+                                    _this.databaseConnection.isTransactionActive = true;
+                                    _this.databaseConnection.transaction = _this.databaseConnection.connection.transaction();
+                                    _this.databaseConnection.transaction.begin(function (err) {
+                                        if (err) {
+                                            _this.databaseConnection.isTransactionActive = false;
+                                            return fail(err);
+                                        }
+                                        ok();
+                                    });
+                                })];
                         });
                     });
                 };
                 /**
                  * Commits transaction.
                  */
-                OracleQueryRunner.prototype.commitTransaction = function () {
+                SqlServerQueryRunner.prototype.commitTransaction = function () {
                     return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
                         return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_1.TransactionNotStartedError();
-                                    return [4 /*yield*/, this.query("COMMIT")];
-                                case 1:
-                                    _a.sent();
-                                    this.databaseConnection.isTransactionActive = false;
-                                    return [2 /*return*/];
-                            }
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
+                            if (!this.databaseConnection.isTransactionActive)
+                                throw new TransactionNotStartedError_1.TransactionNotStartedError();
+                            return [2 /*return*/, new Promise(function (ok, fail) {
+                                    _this.databaseConnection.transaction.commit(function (err) {
+                                        if (err)
+                                            return fail(err);
+                                        _this.databaseConnection.isTransactionActive = false;
+                                        ok();
+                                    });
+                                })];
                         });
                     });
                 };
                 /**
                  * Rollbacks transaction.
                  */
-                OracleQueryRunner.prototype.rollbackTransaction = function () {
+                SqlServerQueryRunner.prototype.rollbackTransaction = function () {
                     return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
                         return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_1.TransactionNotStartedError();
-                                    return [4 /*yield*/, this.query("ROLLBACK")];
-                                case 1:
-                                    _a.sent();
-                                    this.databaseConnection.isTransactionActive = false;
-                                    return [2 /*return*/];
-                            }
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
+                            if (!this.databaseConnection.isTransactionActive)
+                                throw new TransactionNotStartedError_1.TransactionNotStartedError();
+                            return [2 /*return*/, new Promise(function (ok, fail) {
+                                    _this.databaseConnection.transaction.rollback(function (err) {
+                                        if (err)
+                                            return fail(err);
+                                        _this.databaseConnection.isTransactionActive = false;
+                                        ok();
+                                    });
+                                })];
                         });
                     });
                 };
                 /**
                  * Checks if transaction is in progress.
                  */
-                OracleQueryRunner.prototype.isTransactionActive = function () {
+                SqlServerQueryRunner.prototype.isTransactionActive = function () {
                     return this.databaseConnection.isTransactionActive;
                 };
                 /**
                  * Executes a given SQL query.
                  */
-                OracleQueryRunner.prototype.query = function (query, parameters) {
+                SqlServerQueryRunner.prototype.query = function (query, parameters) {
                     var _this = this;
                     if (this.isReleased)
                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                     return new Promise(function (ok, fail) {
                         _this.logger.logQuery(query, parameters);
-                        var handler = function (err, result) {
+                        var request = new _this.driver.mssql.Request(_this.isTransactionActive() ? _this.databaseConnection.transaction : _this.databaseConnection.connection);
+                        if (parameters && parameters.length) {
+                            parameters.forEach(function (parameter, index) {
+                                request.input(index, parameters[index]);
+                            });
+                        }
+                        request.query(query, function (err, result) {
                             if (err) {
                                 _this.logger.logFailedQuery(query, parameters);
                                 _this.logger.logQueryError(err);
                                 return fail(err);
                             }
-                            ok(result.rows || result.outBinds);
-                        };
-                        var executionOptions = {
-                            autoCommit: _this.databaseConnection.isTransactionActive ? false : true
-                        };
-                        _this.databaseConnection.connection.execute(query, parameters || {}, executionOptions, handler);
+                            ok(result);
+                        });
                     });
                 };
                 /**
                  * Insert a new row with given values into given table.
                  */
-                OracleQueryRunner.prototype.insert = function (tableName, keyValues, generatedColumn) {
+                SqlServerQueryRunner.prototype.insert = function (tableName, keyValues, generatedColumn) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
-                        var keys, columns, values, parameters, insertSql, sql2, saveResult;
+                        var keys, columns, values, parameters, sql, result;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1425,21 +2640,15 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                                     keys = Object.keys(keyValues);
                                     columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
-                                    values = keys.map(function (key) { return ":" + key; }).join(", ");
+                                    values = keys.map(function (key, index) { return "@" + index; }).join(",");
                                     parameters = keys.map(function (key) { return keyValues[key]; });
-                                    insertSql = columns.length > 0
-                                        ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") VALUES (" + values + ")"
-                                        : "INSERT INTO " + this.driver.escapeTableName(tableName) + " DEFAULT VALUES";
-                                    if (!generatedColumn) return [3 /*break*/, 2];
-                                    sql2 = "declare lastId number; begin " + insertSql + " returning \"id\" into lastId; dbms_output.enable; dbms_output.put_line(lastId); dbms_output.get_line(:ln, :st); end;";
-                                    return [4 /*yield*/, this.query(sql2, parameters.concat([
-                                            { dir: this.driver.oracle.BIND_OUT, type: this.driver.oracle.STRING, maxSize: 32767 },
-                                            { dir: this.driver.oracle.BIND_OUT, type: this.driver.oracle.NUMBER }
-                                        ]))];
+                                    sql = columns.length > 0
+                                        ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "VALUES (" + values + ")"
+                                        : "INSERT INTO " + this.driver.escapeTableName(tableName) + " " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "DEFAULT VALUES ";
+                                    return [4 /*yield*/, this.query(sql, parameters)];
                                 case 1:
-                                    saveResult = _a.sent();
-                                    return [2 /*return*/, parseInt(saveResult[0])];
-                                case 2: return [2 /*return*/, this.query(insertSql, parameters)];
+                                    result = _a.sent();
+                                    return [2 /*return*/, generatedColumn ? result instanceof Array ? result[0][generatedColumn.databaseName] : result[generatedColumn.databaseName] : undefined];
                             }
                         });
                     });
@@ -1447,20 +2656,20 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Updates rows that match given conditions in the given table.
                  */
-                OracleQueryRunner.prototype.update = function (tableName, valuesMap, conditions) {
+                SqlServerQueryRunner.prototype.update = function (tableName, valuesMap, conditions) {
                     return __awaiter(this, void 0, void 0, function () {
-                        var updateValues, conditionString, sql, conditionParams, updateParams, allParameters;
+                        var conditionParams, updateParams, allParameters, updateValues, conditionString, sql;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    updateValues = this.parametrize(valuesMap).join(", ");
-                                    conditionString = this.parametrize(conditions).join(" AND ");
-                                    sql = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
                                     conditionParams = Object.keys(conditions).map(function (key) { return conditions[key]; });
                                     updateParams = Object.keys(valuesMap).map(function (key) { return valuesMap[key]; });
                                     allParameters = updateParams.concat(conditionParams);
+                                    updateValues = this.parametrize(valuesMap).join(", ");
+                                    conditionString = this.parametrize(conditions, updateParams.length).join(" AND ");
+                                    sql = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
                                     return [4 /*yield*/, this.query(sql, allParameters)];
                                 case 1:
                                     _a.sent();
@@ -1472,7 +2681,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Deletes from the given table by a given conditions.
                  */
-                OracleQueryRunner.prototype.delete = function (tableName, conditions, maybeParameters) {
+                SqlServerQueryRunner.prototype.delete = function (tableName, conditions, maybeParameters) {
                     return __awaiter(this, void 0, void 0, function () {
                         var conditionString, parameters, sql;
                         return __generator(this, function (_a) {
@@ -1494,7 +2703,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Inserts rows into the closure table.
                  */
-                OracleQueryRunner.prototype.insertIntoClosureTable = function (tableName, newEntityId, parentId, hasLevel) {
+                SqlServerQueryRunner.prototype.insertIntoClosureTable = function (tableName, newEntityId, parentId, hasLevel) {
                     return __awaiter(this, void 0, void 0, function () {
                         var sql, results;
                         return __generator(this, function (_a) {
@@ -1527,7 +2736,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Loads given table's data from the database.
                  */
-                OracleQueryRunner.prototype.loadTableSchema = function (tableName) {
+                SqlServerQueryRunner.prototype.loadTableSchema = function (tableName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableSchemas;
                         return __generator(this, function (_a) {
@@ -1543,9 +2752,10 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Loads all tables (with given names) from the database and creates a TableSchema from them.
                  */
-                OracleQueryRunner.prototype.loadTableSchemas = function (tableNames) {
+                SqlServerQueryRunner.prototype.loadTableSchemas = function (tableNames) {
                     return __awaiter(this, void 0, void 0, function () {
-                        var tableNamesString, tablesSql, columnsSql, indicesSql, foreignKeysSql, uniqueKeysSql, constraintsSql, _a, dbTables, dbColumns, constraints;
+                        var _this = this;
+                        var tableNamesString, tablesSql, columnsSql, constraintsSql, identityColumnsSql, indicesSql, _a, dbTables, dbColumns, dbConstraints, dbIdentityColumns, dbIndices;
                         return __generator(this, function (_b) {
                             switch (_b.label) {
                                 case 0:
@@ -1554,89 +2764,96 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                     // if no tables given then no need to proceed
                                     if (!tableNames || !tableNames.length)
                                         return [2 /*return*/, []];
-                                    tableNamesString = tableNames.map(function (name) { return "'" + name + "'"; }).join(", ");
-                                    tablesSql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME IN (" + tableNamesString + ")";
-                                    columnsSql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, NULLABLE, IDENTITY_COLUMN FROM all_tab_cols WHERE TABLE_NAME IN (" + tableNamesString + ")";
-                                    indicesSql = "SELECT * FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND INDEX_NAME != 'PRIMARY'";
-                                    foreignKeysSql = "SELECT * FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = '" + this.dbName + "' AND REFERENCED_COLUMN_NAME IS NOT NULL";
-                                    uniqueKeysSql = "SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND CONSTRAINT_TYPE = 'UNIQUE'";
-                                    constraintsSql = "SELECT cols.table_name, cols.column_name, cols.position, cons.constraint_type, cons.constraint_name\nFROM all_constraints cons, all_cons_columns cols WHERE cols.table_name IN (" + tableNamesString + ") \nAND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner ORDER BY cols.table_name, cols.position";
+                                    tableNamesString = tableNames.map(function (tableName) { return "'" + tableName + "'"; }).join(", ");
+                                    tablesSql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME IN (" + tableNamesString + ")";
+                                    columnsSql = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '" + this.dbName + "'";
+                                    constraintsSql = "SELECT columnUsages.*, tableConstraints.CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE columnUsages " +
+                                        "LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tableConstraints ON tableConstraints.CONSTRAINT_NAME = columnUsages.CONSTRAINT_NAME " +
+                                        ("WHERE columnUsages.TABLE_CATALOG = '" + this.dbName + "' AND tableConstraints.TABLE_CATALOG = '" + this.dbName + "'");
+                                    identityColumnsSql = "SELECT COLUMN_NAME, TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '" + this.dbName + "' AND COLUMNPROPERTY(object_id(TABLE_NAME), COLUMN_NAME, 'IsIdentity') = 1;";
+                                    indicesSql = "SELECT TABLE_NAME = t.name, INDEX_NAME = ind.name, IndexId = ind.index_id, ColumnId = ic.index_column_id, COLUMN_NAME = col.name, ind.*, ic.*, col.* " +
+                                        "FROM sys.indexes ind INNER JOIN sys.index_columns ic ON ind.object_id = ic.object_id and ind.index_id = ic.index_id INNER JOIN sys.columns col ON ic.object_id = col.object_id and ic.column_id = col.column_id " +
+                                        "INNER JOIN sys.tables t ON ind.object_id = t.object_id WHERE ind.is_primary_key = 0 AND ind.is_unique = 0 AND ind.is_unique_constraint = 0 AND t.is_ms_shipped = 0 ORDER BY t.name, ind.name, ind.index_id, ic.index_column_id";
                                     return [4 /*yield*/, Promise.all([
                                             this.query(tablesSql),
                                             this.query(columnsSql),
-                                            // this.query(indicesSql),
-                                            // this.query(foreignKeysSql),
-                                            // this.query(uniqueKeysSql),
                                             this.query(constraintsSql),
+                                            this.query(identityColumnsSql),
+                                            this.query(indicesSql),
                                         ])];
                                 case 1:
-                                    _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], constraints = _a[2];
+                                    _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], dbConstraints = _a[2], dbIdentityColumns = _a[3], dbIndices = _a[4];
                                     // if tables were not found in the db, no need to proceed
                                     if (!dbTables.length)
                                         return [2 /*return*/, []];
                                     // create table schemas for loaded tables
-                                    return [2 /*return*/, dbTables.map(function (dbTable) {
-                                            var tableSchema = new TableSchema_1.TableSchema(dbTable["TABLE_NAME"]);
-                                            // create column schemas from the loaded columns
-                                            tableSchema.columns = dbColumns
-                                                .filter(function (dbColumn) { return dbColumn["TABLE_NAME"] === tableSchema.name; })
-                                                .map(function (dbColumn) {
-                                                var isPrimary = !!constraints
-                                                    .find(function (constraint) {
-                                                    return constraint["TABLE_NAME"] === tableSchema.name &&
-                                                        constraint["CONSTRAINT_TYPE"] === "P" &&
-                                                        constraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"];
+                                    return [2 /*return*/, Promise.all(dbTables.map(function (dbTable) { return __awaiter(_this, void 0, void 0, function () {
+                                            var tableSchema;
+                                            return __generator(this, function (_a) {
+                                                tableSchema = new TableSchema_1.TableSchema(dbTable["TABLE_NAME"]);
+                                                // create column schemas from the loaded columns
+                                                tableSchema.columns = dbColumns
+                                                    .filter(function (dbColumn) { return dbColumn["TABLE_NAME"] === tableSchema.name; })
+                                                    .map(function (dbColumn) {
+                                                    var isPrimary = !!dbConstraints.find(function (dbConstraint) {
+                                                        return dbConstraint["TABLE_NAME"] === tableSchema.name &&
+                                                            dbConstraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"] &&
+                                                            dbConstraint["CONSTRAINT_TYPE"] === "PRIMARY KEY";
+                                                    });
+                                                    var isGenerated = !!dbIdentityColumns.find(function (column) {
+                                                        return column["TABLE_NAME"] === tableSchema.name &&
+                                                            column["COLUMN_NAME"] === dbColumn["COLUMN_NAME"];
+                                                    });
+                                                    var isUnique = !!dbConstraints.find(function (dbConstraint) {
+                                                        return dbConstraint["TABLE_NAME"] === tableSchema.name &&
+                                                            dbConstraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"] &&
+                                                            dbConstraint["CONSTRAINT_TYPE"] === "UNIQUE";
+                                                    });
+                                                    var columnSchema = new ColumnSchema_2.ColumnSchema();
+                                                    columnSchema.name = dbColumn["COLUMN_NAME"];
+                                                    columnSchema.type = dbColumn["DATA_TYPE"].toLowerCase() + (dbColumn["CHARACTER_MAXIMUM_LENGTH"] ? "(" + dbColumn["CHARACTER_MAXIMUM_LENGTH"] + ")" : ""); // todo: use normalize type?
+                                                    columnSchema.default = dbColumn["COLUMN_DEFAULT"] !== null && dbColumn["COLUMN_DEFAULT"] !== undefined ? dbColumn["COLUMN_DEFAULT"] : undefined;
+                                                    columnSchema.isNullable = dbColumn["IS_NULLABLE"] === "YES";
+                                                    columnSchema.isPrimary = isPrimary;
+                                                    columnSchema.isGenerated = isGenerated;
+                                                    columnSchema.isUnique = isUnique;
+                                                    columnSchema.comment = ""; // todo: less priority, implement this later
+                                                    return columnSchema;
                                                 });
-                                                var columnType = dbColumn["DATA_TYPE"].toLowerCase();
-                                                if (dbColumn["DATA_TYPE"].toLowerCase() === "varchar2" && dbColumn["DATA_LENGTH"] !== null) {
-                                                    columnType += "(" + dbColumn["DATA_LENGTH"] + ")";
-                                                }
-                                                else if (dbColumn["DATA_PRECISION"] !== null && dbColumn["DATA_SCALE"] !== null) {
-                                                    columnType += "(" + dbColumn["DATA_PRECISION"] + "," + dbColumn["DATA_SCALE"] + ")";
-                                                }
-                                                else if (dbColumn["DATA_SCALE"] !== null) {
-                                                    columnType += "(0," + dbColumn["DATA_SCALE"] + ")";
-                                                }
-                                                else if (dbColumn["DATA_PRECISION"] !== null) {
-                                                    columnType += "(" + dbColumn["DATA_PRECISION"] + ")";
-                                                }
-                                                var columnSchema = new ColumnSchema_2.ColumnSchema();
-                                                columnSchema.name = dbColumn["COLUMN_NAME"];
-                                                columnSchema.type = columnType;
-                                                columnSchema.default = dbColumn["COLUMN_DEFAULT"] !== null && dbColumn["COLUMN_DEFAULT"] !== undefined ? dbColumn["COLUMN_DEFAULT"] : undefined;
-                                                columnSchema.isNullable = dbColumn["NULLABLE"] !== "N";
-                                                columnSchema.isPrimary = isPrimary;
-                                                columnSchema.isGenerated = dbColumn["IDENTITY_COLUMN"] === "YES"; // todo
-                                                columnSchema.comment = ""; // todo
-                                                return columnSchema;
+                                                // create primary key schema
+                                                tableSchema.primaryKeys = dbConstraints
+                                                    .filter(function (dbConstraint) {
+                                                    return dbConstraint["TABLE_NAME"] === tableSchema.name &&
+                                                        dbConstraint["CONSTRAINT_TYPE"] === "PRIMARY KEY";
+                                                })
+                                                    .map(function (keyColumnUsage) {
+                                                    return new PrimaryKeySchema_1.PrimaryKeySchema(keyColumnUsage["CONSTRAINT_NAME"], keyColumnUsage["COLUMN_NAME"]);
+                                                });
+                                                // create foreign key schemas from the loaded indices
+                                                tableSchema.foreignKeys = dbConstraints
+                                                    .filter(function (dbConstraint) {
+                                                    return dbConstraint["TABLE_NAME"] === tableSchema.name &&
+                                                        dbConstraint["CONSTRAINT_TYPE"] === "FOREIGN KEY";
+                                                })
+                                                    .map(function (dbConstraint) { return new ForeignKeySchema_1.ForeignKeySchema(dbConstraint["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
+                                                // create index schemas from the loaded indices
+                                                tableSchema.indices = dbIndices
+                                                    .filter(function (dbIndex) {
+                                                    return dbIndex["TABLE_NAME"] === tableSchema.name &&
+                                                        (!tableSchema.foreignKeys.find(function (foreignKey) { return foreignKey.name === dbIndex["INDEX_NAME"]; })) &&
+                                                        (!tableSchema.primaryKeys.find(function (primaryKey) { return primaryKey.name === dbIndex["INDEX_NAME"]; }));
+                                                })
+                                                    .map(function (dbIndex) { return dbIndex["INDEX_NAME"]; })
+                                                    .filter(function (value, index, self) { return self.indexOf(value) === index; }) // unqiue
+                                                    .map(function (dbIndexName) {
+                                                    var columnNames = dbIndices
+                                                        .filter(function (dbIndex) { return dbIndex["TABLE_NAME"] === tableSchema.name && dbIndex["INDEX_NAME"] === dbIndexName; })
+                                                        .map(function (dbIndex) { return dbIndex["COLUMN_NAME"]; });
+                                                    return new IndexSchema_1.IndexSchema(dbTable["TABLE_NAME"], dbIndexName, columnNames, false /* todo: uniqueness? */);
+                                                });
+                                                return [2 /*return*/, tableSchema];
                                             });
-                                            // create primary key schema
-                                            tableSchema.primaryKeys = constraints
-                                                .filter(function (constraint) { return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "P"; })
-                                                .map(function (constraint) { return new PrimaryKeySchema_1.PrimaryKeySchema(constraint["CONSTRAINT_NAME"], constraint["COLUMN_NAME"]); });
-                                            // create foreign key schemas from the loaded indices
-                                            tableSchema.foreignKeys = constraints
-                                                .filter(function (constraint) { return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "R"; })
-                                                .map(function (constraint) { return new ForeignKeySchema_1.ForeignKeySchema(constraint["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
-                                            // console.log(tableSchema);
-                                            // create index schemas from the loaded indices
-                                            // tableSchema.indices = dbIndices
-                                            //     .filter(dbIndex => {
-                                            //         return  dbIndex["table_name"] === tableSchema.name &&
-                                            //             (!tableSchema.foreignKeys.find(foreignKey => foreignKey.name === dbIndex["INDEX_NAME"])) &&
-                                            //             (!tableSchema.primaryKeys.find(primaryKey => primaryKey.name === dbIndex["INDEX_NAME"]));
-                                            //     })
-                                            //     .map(dbIndex => dbIndex["INDEX_NAME"])
-                                            //     .filter((value, index, self) => self.indexOf(value) === index) // unqiue
-                                            //     .map(dbIndexName => {
-                                            //         const columnNames = dbIndices
-                                            //             .filter(dbIndex => dbIndex["TABLE_NAME"] === tableSchema.name && dbIndex["INDEX_NAME"] === dbIndexName)
-                                            //             .map(dbIndex => dbIndex["COLUMN_NAME"]);
-                                            //
-                                            //         return new IndexSchema(dbTable["TABLE_NAME"], dbIndexName, columnNames, false /* todo: uniqueness */);
-                                            //     });
-                                            return tableSchema;
-                                        })];
+                                        }); }))];
                             }
                         });
                     });
@@ -1644,13 +2861,13 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Checks if table with the given name exist in the database.
                  */
-                OracleQueryRunner.prototype.hasTable = function (tableName) {
+                SqlServerQueryRunner.prototype.hasTable = function (tableName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var sql, result;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
-                                    sql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME = '" + tableName + "'";
+                                    sql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME = '" + tableName + "'";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     result = _a.sent();
@@ -1662,7 +2879,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new table from the given table metadata and column metadatas.
                  */
-                OracleQueryRunner.prototype.createTable = function (table) {
+                SqlServerQueryRunner.prototype.createTable = function (table) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var columnDefinitions, sql, primaryKeyColumns;
@@ -1671,8 +2888,12 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                 case 0:
                                     if (this.isReleased)
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column); }).join(", ");
+                                    columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column, false); }).join(", ");
                                     sql = "CREATE TABLE \"" + table.name + "\" (" + columnDefinitions;
+                                    sql += table.columns
+                                        .filter(function (column) { return column.isUnique; })
+                                        .map(function (column) { return ", CONSTRAINT \"uk_" + table.name + "_" + column.name + "\" UNIQUE (\"" + column.name + "\")"; })
+                                        .join(" ");
                                     primaryKeyColumns = table.columns.filter(function (column) { return column.isPrimary; });
                                     if (primaryKeyColumns.length > 0)
                                         sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
@@ -1686,15 +2907,33 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                     });
                 };
                 /**
+                 * Drops the table.
+                 */
+                SqlServerQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE \"" + tableName + "\"";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
                  * Checks if column with the given name exist in the given table.
                  */
-                OracleQueryRunner.prototype.hasColumn = function (tableName, columnName) {
+                SqlServerQueryRunner.prototype.hasColumn = function (tableName, columnName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var sql, result;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
-                                    sql = "SELECT COLUMN_NAME FROM all_tab_cols WHERE TABLE_NAME = '" + tableName + "' AND COLUMN_NAME = '" + columnName + "'";
+                                    sql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME = '" + tableName + "' AND COLUMN_NAME = '" + columnName + "'";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     result = _a.sent();
@@ -1706,7 +2945,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new column from the column schema in the table.
                  */
-                OracleQueryRunner.prototype.addColumn = function (tableSchemaOrName, column) {
+                SqlServerQueryRunner.prototype.addColumn = function (tableSchemaOrName, column) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, sql;
                         return __generator(this, function (_a) {
@@ -1721,7 +2960,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new columns from the column schema in the table.
                  */
-                OracleQueryRunner.prototype.addColumns = function (tableSchemaOrName, columns) {
+                SqlServerQueryRunner.prototype.addColumns = function (tableSchemaOrName, columns) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var queries;
@@ -1742,7 +2981,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Renames column in the given table.
                  */
-                OracleQueryRunner.prototype.renameColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumnSchemaOrName) {
+                SqlServerQueryRunner.prototype.renameColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumnSchemaOrName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableSchema, oldColumn, newColumn;
                         return __generator(this, function (_a) {
@@ -1784,9 +3023,9 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Changes a column in the table.
                  */
-                OracleQueryRunner.prototype.changeColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumn) {
+                SqlServerQueryRunner.prototype.changeColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumn) {
                     return __awaiter(this, void 0, void 0, function () {
-                        var tableSchema, oldColumn, dropPrimarySql, dropSql, createSql, sql, sql, sql;
+                        var tableSchema, oldColumn, sql;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
@@ -1812,45 +3051,32 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                     }
                                     if (!oldColumn)
                                         throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
-                                    if (!(newColumn.isGenerated !== oldColumn.isGenerated)) return [3 /*break*/, 10];
-                                    if (!newColumn.isGenerated) return [3 /*break*/, 8];
-                                    if (!(tableSchema.primaryKeys.length > 0 && oldColumn.isPrimary)) return [3 /*break*/, 5];
-                                    dropPrimarySql = "ALTER TABLE \"" + tableSchema.name + "\" DROP CONSTRAINT \"" + tableSchema.primaryKeys[0].name + "\"";
-                                    return [4 /*yield*/, this.query(dropPrimarySql)];
+                                    if (!(newColumn.isGenerated !== oldColumn.isGenerated)) return [3 /*break*/, 6];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" DROP COLUMN \"" + newColumn.name + "\"")];
                                 case 4:
                                     _a.sent();
-                                    _a.label = 5;
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" ADD " + this.buildCreateColumnSql(newColumn))];
                                 case 5:
-                                    dropSql = "ALTER TABLE \"" + tableSchema.name + "\" DROP COLUMN \"" + newColumn.name + "\"";
-                                    return [4 /*yield*/, this.query(dropSql)];
-                                case 6:
                                     _a.sent();
-                                    createSql = "ALTER TABLE \"" + tableSchema.name + "\" ADD " + this.buildCreateColumnSql(newColumn);
-                                    return [4 /*yield*/, this.query(createSql)];
+                                    _a.label = 6;
+                                case 6:
+                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" ALTER COLUMN " + this.buildCreateColumnSql(newColumn, true);
+                                    return [4 /*yield*/, this.query(sql)];
                                 case 7:
                                     _a.sent();
-                                    return [3 /*break*/, 10];
+                                    if (!(newColumn.isUnique !== oldColumn.isUnique)) return [3 /*break*/, 11];
+                                    if (!(newColumn.isUnique === true)) return [3 /*break*/, 9];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" ADD CONSTRAINT \"uk_" + newColumn.name + "\" UNIQUE (\"" + newColumn.name + "\")")];
                                 case 8:
-                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" DROP IDENTITY";
-                                    return [4 /*yield*/, this.query(sql)];
+                                    _a.sent();
+                                    return [3 /*break*/, 11];
                                 case 9:
-                                    _a.sent();
-                                    _a.label = 10;
+                                    if (!(newColumn.isUnique === false)) return [3 /*break*/, 11];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" DROP CONSTRAINT \"uk_" + newColumn.name + "\"")];
                                 case 10:
-                                    if (!(newColumn.isNullable !== oldColumn.isNullable)) return [3 /*break*/, 12];
-                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" " + newColumn.type + " " + (newColumn.isNullable ? "NULL" : "NOT NULL");
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 11:
                                     _a.sent();
-                                    return [3 /*break*/, 14];
-                                case 12:
-                                    if (!(newColumn.type !== oldColumn.type)) return [3 /*break*/, 14];
-                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" " + newColumn.type;
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 13:
-                                    _a.sent();
-                                    _a.label = 14;
-                                case 14: return [2 /*return*/];
+                                    _a.label = 11;
+                                case 11: return [2 /*return*/];
                             }
                         });
                     });
@@ -1858,7 +3084,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Changes a column in the table.
                  */
-                OracleQueryRunner.prototype.changeColumns = function (tableSchema, changedColumns) {
+                SqlServerQueryRunner.prototype.changeColumns = function (tableSchema, changedColumns) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var updatePromises;
@@ -1883,7 +3109,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Drops column in the table.
                  */
-                OracleQueryRunner.prototype.dropColumn = function (tableSchemaOrName, columnSchemaOrName) {
+                SqlServerQueryRunner.prototype.dropColumn = function (tableSchemaOrName, columnSchemaOrName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, columnName;
                         return __generator(this, function (_a) {
@@ -1896,7 +3122,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Drops the columns in the table.
                  */
-                OracleQueryRunner.prototype.dropColumns = function (tableSchemaOrName, columnSchemasOrNames) {
+                SqlServerQueryRunner.prototype.dropColumns = function (tableSchemaOrName, columnSchemasOrNames) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var dropPromises;
@@ -1917,27 +3143,31 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Updates table's primary keys.
                  */
-                OracleQueryRunner.prototype.updatePrimaryKeys = function (dbTable) {
+                SqlServerQueryRunner.prototype.updatePrimaryKeys = function (dbTable) {
                     return __awaiter(this, void 0, void 0, function () {
-                        var primaryColumnNames;
+                        var oldPrimaryKeySql, oldPrimaryKey, primaryColumnNames;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    primaryColumnNames = dbTable.primaryKeys.map(function (primaryKey) { return "\"" + primaryKey.columnName + "\""; });
-                                    if (!(dbTable.primaryKeys.length > 0 && dbTable.primaryKeys[0].name)) return [3 /*break*/, 2];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" DROP CONSTRAINT \"" + dbTable.primaryKeys[0].name + "\"")];
+                                    oldPrimaryKeySql = "SELECT columnUsages.*, tableConstraints.CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE columnUsages\nLEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tableConstraints ON tableConstraints.CONSTRAINT_NAME = columnUsages.CONSTRAINT_NAME AND tableConstraints.CONSTRAINT_TYPE = 'PRIMARY KEY'\nWHERE columnUsages.TABLE_CATALOG = '" + this.dbName + "' AND tableConstraints.TABLE_CATALOG = '" + this.dbName + "'";
+                                    return [4 /*yield*/, this.query(oldPrimaryKeySql)];
                                 case 1:
-                                    _a.sent();
-                                    _a.label = 2;
+                                    oldPrimaryKey = _a.sent();
+                                    if (!(oldPrimaryKey.length > 0)) return [3 /*break*/, 3];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" DROP CONSTRAINT \"" + oldPrimaryKey[0]["CONSTRAINT_NAME"] + "\"")];
                                 case 2:
-                                    if (!(primaryColumnNames.length > 0)) return [3 /*break*/, 4];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
-                                case 3:
                                     _a.sent();
-                                    _a.label = 4;
-                                case 4: return [2 /*return*/];
+                                    _a.label = 3;
+                                case 3:
+                                    primaryColumnNames = dbTable.primaryKeys.map(function (primaryKey) { return "\"" + primaryKey.columnName + "\""; });
+                                    if (!(primaryColumnNames.length > 0)) return [3 /*break*/, 5];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
+                                case 4:
+                                    _a.sent();
+                                    _a.label = 5;
+                                case 5: return [2 /*return*/];
                             }
                         });
                     });
@@ -1945,7 +3175,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new foreign key.
                  */
-                OracleQueryRunner.prototype.createForeignKey = function (tableSchemaOrName, foreignKey) {
+                SqlServerQueryRunner.prototype.createForeignKey = function (tableSchemaOrName, foreignKey) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, columnNames, referencedColumnNames, sql;
                         return __generator(this, function (_a) {
@@ -1966,7 +3196,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new foreign keys.
                  */
-                OracleQueryRunner.prototype.createForeignKeys = function (tableSchemaOrName, foreignKeys) {
+                SqlServerQueryRunner.prototype.createForeignKeys = function (tableSchemaOrName, foreignKeys) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var promises;
@@ -1987,7 +3217,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Drops a foreign key from the table.
                  */
-                OracleQueryRunner.prototype.dropForeignKey = function (tableSchemaOrName, foreignKey) {
+                SqlServerQueryRunner.prototype.dropForeignKey = function (tableSchemaOrName, foreignKey) {
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, sql;
                         return __generator(this, function (_a) {
@@ -2002,7 +3232,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Drops a foreign keys from the table.
                  */
-                OracleQueryRunner.prototype.dropForeignKeys = function (tableSchemaOrName, foreignKeys) {
+                SqlServerQueryRunner.prototype.dropForeignKeys = function (tableSchemaOrName, foreignKeys) {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
                         var promises;
@@ -2023,7 +3253,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a new index.
                  */
-                OracleQueryRunner.prototype.createIndex = function (tableName, index) {
+                SqlServerQueryRunner.prototype.createIndex = function (tableName, index) {
                     return __awaiter(this, void 0, void 0, function () {
                         var columns, sql;
                         return __generator(this, function (_a) {
@@ -2032,7 +3262,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                     if (this.isReleased)
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
                                     columns = index.columnNames.map(function (columnName) { return "\"" + columnName + "\""; }).join(", ");
-                                    sql = "CREATE " + (index.isUnique ? "UNIQUE" : "") + " INDEX \"" + index.name + "\" ON \"" + tableName + "\"(" + columns + ")";
+                                    sql = "CREATE " + (index.isUnique ? "UNIQUE " : "") + "INDEX \"" + index.name + "\" ON \"" + tableName + "\"(" + columns + ")";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     _a.sent();
@@ -2044,7 +3274,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Drops an index from the table.
                  */
-                OracleQueryRunner.prototype.dropIndex = function (tableName, indexName) {
+                SqlServerQueryRunner.prototype.dropIndex = function (tableName, indexName) {
                     return __awaiter(this, void 0, void 0, function () {
                         var sql;
                         return __generator(this, function (_a) {
@@ -2052,7 +3282,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                                 case 0:
                                     if (this.isReleased)
                                         throw new QueryRunnerAlreadyReleasedError_1.QueryRunnerAlreadyReleasedError();
-                                    sql = "ALTER TABLE \"" + tableName + "\" DROP INDEX \"" + indexName + "\"";
+                                    sql = "DROP INDEX \"" + tableName + "\".\"" + indexName + "\"";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     _a.sent();
@@ -2064,75 +3294,61 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Creates a database type from a given column metadata.
                  */
-                OracleQueryRunner.prototype.normalizeType = function (typeOptions) {
+                SqlServerQueryRunner.prototype.normalizeType = function (typeOptions) {
                     switch (typeOptions.type) {
                         case "string":
                             if (typeOptions.fixedLength) {
-                                return "char(" + (typeOptions.length ? typeOptions.length : 255) + ")";
+                                return "nchar(" + (typeOptions.length ? typeOptions.length : 255) + ")";
                             }
                             else {
-                                return "varchar2(" + (typeOptions.length ? typeOptions.length : 255) + ")";
+                                return "nvarchar(" + (typeOptions.length ? typeOptions.length : 255) + ")";
                             }
                         case "text":
-                            return "clob";
+                            return "ntext";
                         case "boolean":
-                            return "number(1)";
+                            return "bit";
                         case "integer":
                         case "int":
-                            // if (column.isGenerated)
-                            //     return `number(22)`;
-                            if (typeOptions.precision && typeOptions.scale)
-                                return "number(" + typeOptions.precision + "," + typeOptions.scale + ")";
-                            if (typeOptions.precision)
-                                return "number(" + typeOptions.precision + ",0)";
-                            if (typeOptions.scale)
-                                return "number(0," + typeOptions.scale + ")";
-                            return "number(10,0)";
+                            return "int";
                         case "smallint":
-                            return "number(5)";
+                            return "smallint";
                         case "bigint":
-                            return "number(20)";
+                            return "bigint";
                         case "float":
-                            if (typeOptions.precision && typeOptions.scale)
-                                return "float(" + typeOptions.precision + "," + typeOptions.scale + ")";
-                            if (typeOptions.precision)
-                                return "float(" + typeOptions.precision + ",0)";
-                            if (typeOptions.scale)
-                                return "float(0," + typeOptions.scale + ")";
-                            return "float(126)";
+                            return "float";
                         case "double":
                         case "number":
-                            return "float(126)";
+                            return "real";
                         case "decimal":
-                            if (typeOptions.precision && typeOptions.scale) {
-                                return "decimal(" + typeOptions.precision + "," + typeOptions.scale + ")";
-                            }
-                            else if (typeOptions.scale) {
-                                return "decimal(0," + typeOptions.scale + ")";
-                            }
-                            else if (typeOptions.precision) {
-                                return "decimal(" + typeOptions.precision + ")";
-                            }
-                            else {
-                                return "decimal";
-                            }
+                            // if (column.precision && column.scale) {
+                            //     return `decimal(${column.precision},${column.scale})`;
+                            //
+                            // } else if (column.scale) {
+                            //     return `decimal(${column.scale})`;
+                            //
+                            // } else if (column.precision) {
+                            //     return `decimal(${column.precision})`;
+                            //
+                            // } else {
+                            return "decimal";
+                        // }
                         case "date":
                             return "date";
                         case "time":
-                            return "date";
+                            return "time";
                         case "datetime":
-                            return "timestamp(0)";
+                            return "datetime";
                         case "json":
-                            return "clob";
+                            return "text";
                         case "simple_array":
-                            return typeOptions.length ? "varchar2(" + typeOptions.length + ")" : "text";
+                            return typeOptions.length ? "nvarchar(" + typeOptions.length + ")" : "text";
                     }
-                    throw new DataTypeNotSupportedByDriverError_1.DataTypeNotSupportedByDriverError(typeOptions.type, "Oracle");
+                    throw new DataTypeNotSupportedByDriverError_1.DataTypeNotSupportedByDriverError(typeOptions.type, "SQLServer");
                 };
                 /**
                  * Checks if "DEFAULT" values in the column metadata and in the database schema are equal.
                  */
-                OracleQueryRunner.prototype.compareDefaultValues = function (columnMetadataValue, databaseValue) {
+                SqlServerQueryRunner.prototype.compareDefaultValues = function (columnMetadataValue, databaseValue) {
                     if (typeof columnMetadataValue === "number")
                         return columnMetadataValue === parseInt(databaseValue);
                     if (typeof columnMetadataValue === "boolean")
@@ -2144,7 +3360,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Truncates table.
                  */
-                OracleQueryRunner.prototype.truncate = function (tableName) {
+                SqlServerQueryRunner.prototype.truncate = function (tableName) {
                     return __awaiter(this, void 0, void 0, function () {
                         return __generator(this, function (_a) {
                             switch (_a.label) {
@@ -2156,7 +3372,7 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                         });
                     });
                 };
-                Object.defineProperty(OracleQueryRunner.prototype, "dbName", {
+                Object.defineProperty(SqlServerQueryRunner.prototype, "dbName", {
                     // -------------------------------------------------------------------------
                     // Protected Methods
                     // -------------------------------------------------------------------------
@@ -2172,29 +3388,33 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                 /**
                  * Parametrizes given object of values. Used to create column=value queries.
                  */
-                OracleQueryRunner.prototype.parametrize = function (objectLiteral) {
+                SqlServerQueryRunner.prototype.parametrize = function (objectLiteral, startFrom) {
                     var _this = this;
-                    return Object.keys(objectLiteral).map(function (key) { return _this.driver.escapeColumnName(key) + "=:" + key; });
+                    if (startFrom === void 0) { startFrom = 0; }
+                    return Object.keys(objectLiteral).map(function (key, index) {
+                        return _this.driver.escapeColumnName(key) + "=@" + (startFrom + index);
+                    });
                 };
                 /**
                  * Builds a query for create column.
                  */
-                OracleQueryRunner.prototype.buildCreateColumnSql = function (column) {
+                SqlServerQueryRunner.prototype.buildCreateColumnSql = function (column, skipIdentity) {
+                    if (skipIdentity === void 0) { skipIdentity = false; }
                     var c = "\"" + column.name + "\" " + column.type;
-                    if (column.isNullable !== true && !column.isGenerated)
+                    if (column.isNullable !== true)
                         c += " NOT NULL";
-                    // if (column.isPrimary === true && addPrimary)
+                    if (column.isGenerated === true && !skipIdentity)
+                        c += " IDENTITY(1,1)";
+                    // if (column.isPrimary === true && !skipPrimary)
                     //     c += " PRIMARY KEY";
-                    if (column.isGenerated === true)
-                        c += " GENERATED BY DEFAULT ON NULL AS IDENTITY";
-                    // if (column.comment) // todo: less priority, fix it later
-                    //     c += " COMMENT '" + column.comment + "'";
+                    if (column.comment)
+                        c += " COMMENT '" + column.comment + "'";
                     if (column.default !== undefined && column.default !== null) {
                         if (typeof column.default === "number") {
                             c += " DEFAULT " + column.default + "";
                         }
                         else if (typeof column.default === "boolean") {
-                            c += " DEFAULT " + (column.default === true ? "TRUE" : "FALSE") + "";
+                            c += " DEFAULT " + (column.default === true ? "1" : "0") + "";
                         }
                         else if (typeof column.default === "function") {
                             c += " DEFAULT " + column.default() + "";
@@ -2208,15 +3428,15 @@ System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/erro
                     }
                     return c;
                 };
-                return OracleQueryRunner;
+                return SqlServerQueryRunner;
             }());
-            exports_26("OracleQueryRunner", OracleQueryRunner);
+            exports_39("SqlServerQueryRunner", SqlServerQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/error/DriverOptionNotSetError", [], function (exports_27, context_27) {
+System.register("typeorm/driver/error/DriverOptionNotSetError", [], function (exports_40, context_40) {
     "use strict";
-    var __moduleName = context_27 && context_27.id;
+    var __moduleName = context_40 && context_40.id;
     var DriverOptionNotSetError;
     return {
         setters: [],
@@ -2234,13 +3454,13 @@ System.register("typeorm/driver/error/DriverOptionNotSetError", [], function (ex
                 }
                 return DriverOptionNotSetError;
             }(Error));
-            exports_27("DriverOptionNotSetError", DriverOptionNotSetError);
+            exports_40("DriverOptionNotSetError", DriverOptionNotSetError);
         }
     };
 });
-System.register("typeorm/util/DataTransformationUtils", [], function (exports_28, context_28) {
+System.register("typeorm/util/DataTransformationUtils", [], function (exports_41, context_41) {
     "use strict";
-    var __moduleName = context_28 && context_28.id;
+    var __moduleName = context_41 && context_41.id;
     var DataTransformationUtils;
     return {
         setters: [],
@@ -2366,13 +3586,13 @@ System.register("typeorm/util/DataTransformationUtils", [], function (exports_28
                 };
                 return DataTransformationUtils;
             }());
-            exports_28("DataTransformationUtils", DataTransformationUtils);
+            exports_41("DataTransformationUtils", DataTransformationUtils);
         }
     };
 });
-System.register("typeorm/lazy-loading/LazyRelationsWrapper", ["typeorm/query-builder/QueryBuilder"], function (exports_29, context_29) {
+System.register("typeorm/lazy-loading/LazyRelationsWrapper", ["typeorm/query-builder/QueryBuilder"], function (exports_42, context_42) {
     "use strict";
-    var __moduleName = context_29 && context_29.id;
+    var __moduleName = context_42 && context_42.id;
     var QueryBuilder_1, LazyRelationsWrapper;
     return {
         setters: [
@@ -2556,14 +3776,14 @@ System.register("typeorm/lazy-loading/LazyRelationsWrapper", ["typeorm/query-bui
                 };
                 return LazyRelationsWrapper;
             }());
-            exports_29("LazyRelationsWrapper", LazyRelationsWrapper);
+            exports_42("LazyRelationsWrapper", LazyRelationsWrapper);
         }
     };
 });
-System.register("typeorm/driver/oracle/OracleDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/oracle/OracleQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_30, context_30) {
+System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/sqlserver/SqlServerQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_43, context_43) {
     "use strict";
-    var __moduleName = context_30 && context_30.id;
-    var ConnectionIsNotSetError_1, DriverPackageNotInstalledError_1, DriverUtils_1, OracleQueryRunner_1, ColumnTypes_1, DriverOptionNotSetError_1, DataTransformationUtils_1, PlatformTools_2, OracleDriver;
+    var __moduleName = context_43 && context_43.id;
+    var ConnectionIsNotSetError_1, DriverPackageNotInstalledError_1, DriverUtils_1, SqlServerQueryRunner_1, ColumnTypes_1, DriverOptionNotSetError_1, DataTransformationUtils_1, PlatformTools_2, SqlServerDriver;
     return {
         setters: [
             function (ConnectionIsNotSetError_1_1) {
@@ -2575,8 +3795,8 @@ System.register("typeorm/driver/oracle/OracleDriver", ["typeorm/driver/error/Con
             function (DriverUtils_1_1) {
                 DriverUtils_1 = DriverUtils_1_1;
             },
-            function (OracleQueryRunner_1_1) {
-                OracleQueryRunner_1 = OracleQueryRunner_1_1;
+            function (SqlServerQueryRunner_1_1) {
+                SqlServerQueryRunner_1 = SqlServerQueryRunner_1_1;
             },
             function (ColumnTypes_1_1) {
                 ColumnTypes_1 = ColumnTypes_1_1;
@@ -2593,2509 +3813,6 @@ System.register("typeorm/driver/oracle/OracleDriver", ["typeorm/driver/error/Con
         ],
         execute: function () {
             /**
-             * Organizes communication with Oracle DBMS.
-             *
-             * todo: this driver is not 100% finished yet, need to fix all issues that are left
-             */
-            OracleDriver = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function OracleDriver(options, logger, oracle) {
-                    /**
-                     * Pool of database connections.
-                     */
-                    this.databaseConnectionPool = [];
-                    this.options = DriverUtils_1.DriverUtils.buildDriverOptions(options, { useSid: true });
-                    this.logger = logger;
-                    this.oracle = oracle;
-                    // validate options to make sure everything is set
-                    if (!this.options.host)
-                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("host");
-                    if (!this.options.username)
-                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("username");
-                    if (!this.options.sid)
-                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("sid");
-                    // if oracle package instance was not set explicitly then try to load it
-                    if (!oracle)
-                        this.loadDependencies();
-                    this.oracle.outFormat = this.oracle.OBJECT;
-                }
-                // -------------------------------------------------------------------------
-                // Public Methods
-                // -------------------------------------------------------------------------
-                /**
-                 * Performs connection to the database.
-                 * Based on pooling options, it can either create connection immediately,
-                 * either create a pool and create connection when needed.
-                 */
-                OracleDriver.prototype.connect = function () {
-                    var _this = this;
-                    // build connection options for the driver
-                    var options = Object.assign({}, {
-                        user: this.options.username,
-                        password: this.options.password,
-                        connectString: this.options.host + ":" + this.options.port + "/" + this.options.sid,
-                    }, this.options.extra || {});
-                    // pooling is enabled either when its set explicitly to true,
-                    // either when its not defined at all (e.g. enabled by default)
-                    if (this.options.usePool === undefined || this.options.usePool === true) {
-                        return new Promise(function (ok, fail) {
-                            _this.oracle.createPool(options, function (err, pool) {
-                                if (err)
-                                    return fail(err);
-                                _this.pool = pool;
-                                ok();
-                            });
-                        });
-                    }
-                    else {
-                        return new Promise(function (ok, fail) {
-                            _this.oracle.getConnection(options, function (err, connection) {
-                                if (err)
-                                    return fail(err);
-                                _this.databaseConnection = {
-                                    id: 1,
-                                    connection: connection,
-                                    isTransactionActive: false
-                                };
-                                _this.databaseConnection.connection.connect(function (err) { return err ? fail(err) : ok(); });
-                            });
-                        });
-                    }
-                };
-                /**
-                 * Closes connection with the database.
-                 */
-                OracleDriver.prototype.disconnect = function () {
-                    var _this = this;
-                    if (!this.databaseConnection && !this.pool)
-                        throw new ConnectionIsNotSetError_1.ConnectionIsNotSetError("oracle");
-                    return new Promise(function (ok, fail) {
-                        var handler = function (err) { return err ? fail(err) : ok(); };
-                        // if pooling is used, then disconnect from it
-                        if (_this.pool) {
-                            _this.pool.close(handler);
-                            _this.pool = undefined;
-                            _this.databaseConnectionPool = [];
-                        }
-                        // if single connection is opened, then close it
-                        if (_this.databaseConnection) {
-                            _this.databaseConnection.connection.close(handler);
-                            _this.databaseConnection = undefined;
-                        }
-                    });
-                };
-                /**
-                 * Creates a query runner used for common queries.
-                 */
-                OracleDriver.prototype.createQueryRunner = function () {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var databaseConnection;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (!this.databaseConnection && !this.pool)
-                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_1.ConnectionIsNotSetError("oracle"))];
-                                    return [4 /*yield*/, this.retrieveDatabaseConnection()];
-                                case 1:
-                                    databaseConnection = _a.sent();
-                                    return [2 /*return*/, new OracleQueryRunner_1.OracleQueryRunner(databaseConnection, this, this.logger)];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Access to the native implementation of the database.
-                 */
-                OracleDriver.prototype.nativeInterface = function () {
-                    return {
-                        driver: this.oracle,
-                        connection: this.databaseConnection ? this.databaseConnection.connection : undefined,
-                        pool: this.pool
-                    };
-                };
-                /**
-                 * Replaces parameters in the given sql with special escaping character
-                 * and an array of parameter names to be passed to a query.
-                 */
-                OracleDriver.prototype.escapeQueryWithParameters = function (sql, parameters) {
-                    if (!parameters || !Object.keys(parameters).length)
-                        return [sql, []];
-                    var escapedParameters = [];
-                    var keys = Object.keys(parameters).map(function (parameter) { return "(:" + parameter + "\\b)"; }).join("|");
-                    sql = sql.replace(new RegExp(keys, "g"), function (key) {
-                        escapedParameters.push(parameters[key.substr(1)]);
-                        return key;
-                    }); // todo: make replace only in value statements, otherwise problems
-                    return [sql, escapedParameters];
-                };
-                /**
-                 * Escapes a column name.
-                 */
-                OracleDriver.prototype.escapeColumnName = function (columnName) {
-                    return "\"" + columnName + "\""; // "`" + columnName + "`";
-                };
-                /**
-                 * Escapes an alias.
-                 */
-                OracleDriver.prototype.escapeAliasName = function (aliasName) {
-                    return "\"" + aliasName + "\"";
-                };
-                /**
-                 * Escapes a table name.
-                 */
-                OracleDriver.prototype.escapeTableName = function (tableName) {
-                    return "\"" + tableName + "\"";
-                };
-                /**
-                 * Prepares given value to a value to be persisted, based on its column type and metadata.
-                 */
-                OracleDriver.prototype.preparePersistentValue = function (value, columnMetadata) {
-                    if (value === null || value === undefined)
-                        return null;
-                    switch (columnMetadata.type) {
-                        case ColumnTypes_1.ColumnTypes.BOOLEAN:
-                            return value === true ? 1 : 0;
-                        case ColumnTypes_1.ColumnTypes.DATE:
-                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_1.ColumnTypes.TIME:
-                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToTimeString(value);
-                        case ColumnTypes_1.ColumnTypes.DATETIME:
-                            if (columnMetadata.localTimezone) {
-                                return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDatetimeString(value);
-                            }
-                            else {
-                                return DataTransformationUtils_1.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
-                            }
-                        case ColumnTypes_1.ColumnTypes.JSON:
-                            return JSON.stringify(value);
-                        case ColumnTypes_1.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_1.DataTransformationUtils.simpleArrayToString(value);
-                    }
-                    return value;
-                };
-                /**
-                 * Prepares given value to a value to be persisted, based on its column type or metadata.
-                 */
-                OracleDriver.prototype.prepareHydratedValue = function (value, columnMetadata) {
-                    switch (columnMetadata.type) {
-                        case ColumnTypes_1.ColumnTypes.BOOLEAN:
-                            return value ? true : false;
-                        case ColumnTypes_1.ColumnTypes.DATETIME:
-                            return DataTransformationUtils_1.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
-                        case ColumnTypes_1.ColumnTypes.DATE:
-                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_1.ColumnTypes.TIME:
-                            return DataTransformationUtils_1.DataTransformationUtils.mixedTimeToString(value);
-                        case ColumnTypes_1.ColumnTypes.JSON:
-                            return JSON.parse(value);
-                        case ColumnTypes_1.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_1.DataTransformationUtils.stringToSimpleArray(value);
-                    }
-                    return value;
-                };
-                // -------------------------------------------------------------------------
-                // Protected Methods
-                // -------------------------------------------------------------------------
-                /**
-                 * Retrieves a new database connection.
-                 * If pooling is enabled then connection from the pool will be retrieved.
-                 * Otherwise active connection will be returned.
-                 */
-                OracleDriver.prototype.retrieveDatabaseConnection = function () {
-                    var _this = this;
-                    if (this.pool) {
-                        return new Promise(function (ok, fail) {
-                            _this.pool.getConnection(function (err, connection) {
-                                if (err)
-                                    return fail(err);
-                                var dbConnection = _this.databaseConnectionPool.find(function (dbConnection) { return dbConnection.connection === connection; });
-                                if (!dbConnection) {
-                                    dbConnection = {
-                                        id: _this.databaseConnectionPool.length,
-                                        connection: connection,
-                                        isTransactionActive: false
-                                    };
-                                    dbConnection.releaseCallback = function () {
-                                        return new Promise(function (ok, fail) {
-                                            connection.close(function (err) {
-                                                if (err)
-                                                    return fail(err);
-                                                if (_this.pool && dbConnection) {
-                                                    _this.databaseConnectionPool.splice(_this.databaseConnectionPool.indexOf(dbConnection), 1);
-                                                }
-                                                ok();
-                                            });
-                                        });
-                                    };
-                                    _this.databaseConnectionPool.push(dbConnection);
-                                }
-                                ok(dbConnection);
-                            });
-                        });
-                    }
-                    if (this.databaseConnection)
-                        return Promise.resolve(this.databaseConnection);
-                    throw new ConnectionIsNotSetError_1.ConnectionIsNotSetError("oracle");
-                };
-                /**
-                 * If driver dependency is not given explicitly, then try to load it via "require".
-                 */
-                OracleDriver.prototype.loadDependencies = function () {
-                    try {
-                        this.oracle = PlatformTools_2.PlatformTools.load("oracledb");
-                    }
-                    catch (e) {
-                        throw new DriverPackageNotInstalledError_1.DriverPackageNotInstalledError("Oracle", "oracledb");
-                    }
-                };
-                return OracleDriver;
-            }());
-            exports_30("OracleDriver", OracleDriver);
-        }
-    };
-});
-System.register("typeorm/query-builder/QueryBuilderUtils", [], function (exports_31, context_31) {
-    "use strict";
-    var __moduleName = context_31 && context_31.id;
-    var QueryBuilderUtils;
-    return {
-        setters: [],
-        execute: function () {
-            /**
-             * Helper utility functions for QueryBuilder.
-             */
-            QueryBuilderUtils = (function () {
-                function QueryBuilderUtils() {
-                }
-                /**
-                 * Checks if given value is a string representation of alias property,
-                 * e.g. "post.category" or "post.id".
-                 */
-                QueryBuilderUtils.isAliasProperty = function (str) {
-                    // alias property must be a string and must have a dot separator
-                    if (typeof str !== "string" || str.indexOf(".") === -1)
-                        return false;
-                    // extra alias and its property relation
-                    var _a = str.split("."), aliasName = _a[0], propertyName = _a[1]; // todo: what about relations in embedded?
-                    if (!aliasName || !propertyName)
-                        return false;
-                    // alias and property must be represented in a special format
-                    var aliasNameRegexp = /^[a-zA-Z0-9_-]+$/;
-                    if (!aliasNameRegexp.test(aliasName) || !aliasNameRegexp.test(propertyName))
-                        return false;
-                    return true;
-                };
-                return QueryBuilderUtils;
-            }());
-            exports_31("QueryBuilderUtils", QueryBuilderUtils);
-        }
-    };
-});
-System.register("typeorm/query-builder/Alias", [], function (exports_32, context_32) {
-    "use strict";
-    var __moduleName = context_32 && context_32.id;
-    var Alias;
-    return {
-        setters: [],
-        execute: function () {
-            /**
-             */
-            Alias = (function () {
-                function Alias(alias) {
-                    Object.assign(this, alias || {});
-                }
-                Object.defineProperty(Alias.prototype, "target", {
-                    get: function () {
-                        return this.metadata.target;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(Alias.prototype, "hasMetadata", {
-                    get: function () {
-                        return !!this._metadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(Alias.prototype, "metadata", {
-                    get: function () {
-                        if (!this._metadata)
-                            throw new Error("Cannot get entity metadata for the given alias \"" + this.name + "\"");
-                        return this._metadata;
-                    },
-                    set: function (metadata) {
-                        this._metadata = metadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                return Alias;
-            }());
-            exports_32("Alias", Alias);
-        }
-    };
-});
-System.register("typeorm/find-options/OrderByCondition", [], function (exports_33, context_33) {
-    "use strict";
-    var __moduleName = context_33 && context_33.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/query-builder/JoinOptions", [], function (exports_34, context_34) {
-    "use strict";
-    var __moduleName = context_34 && context_34.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/query-builder/JoinAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_35, context_35) {
-    "use strict";
-    var __moduleName = context_35 && context_35.id;
-    var QueryBuilderUtils_1, JoinAttribute;
-    return {
-        setters: [
-            function (QueryBuilderUtils_1_1) {
-                QueryBuilderUtils_1 = QueryBuilderUtils_1_1;
-            }
-        ],
-        execute: function () {
-            /**
-             * Stores all join attributes which will be used to build a JOIN query.
-             */
-            JoinAttribute = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function JoinAttribute(connection, queryExpressionMap, joinAttribute) {
-                    this.connection = connection;
-                    this.queryExpressionMap = queryExpressionMap;
-                    this.joinAttribute = joinAttribute;
-                    Object.assign(this, joinAttribute || {});
-                }
-                Object.defineProperty(JoinAttribute.prototype, "isMany", {
-                    // -------------------------------------------------------------------------
-                    // Public Methods
-                    // -------------------------------------------------------------------------
-                    get: function () {
-                        if (this.isMappingMany !== undefined)
-                            return this.isMappingMany;
-                        if (this.relation)
-                            return this.relation.isManyToMany || this.relation.isOneToMany;
-                        return false;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "tableName", {
-                    /**
-                     * Name of the table which we should join.
-                     */
-                    get: function () {
-                        return this.metadata ? this.metadata.tableName : this.entityOrProperty;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "parentAlias", {
-                    /**
-                     * Alias of the parent of this join.
-                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
-                            return undefined;
-                        return this.entityOrProperty.substr(0, this.entityOrProperty.indexOf("."));
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "relationPropertyPath", {
-                    /**
-                     * Relation property name of the parent.
-                     * This is used to understand what is joined.
-                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
-                            return undefined;
-                        return this.entityOrProperty.substr(this.entityOrProperty.indexOf(".") + 1);
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "relation", {
-                    /**
-                     * Relation of the parent.
-                     * This is used to understand what is joined.
-                     * This is available when join was made using "post.category" syntax.
-                     * Relation can be undefined if entityOrProperty is regular entity or custom table.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_1.QueryBuilderUtils.isAliasProperty(this.entityOrProperty))
-                            return undefined;
-                        var relationOwnerSelection = this.queryExpressionMap.findAliasByName(this.parentAlias);
-                        var metadata = relationOwnerSelection.metadata.parentEntityMetadata
-                            ? relationOwnerSelection.metadata.parentEntityMetadata
-                            : relationOwnerSelection.metadata;
-                        var relation = metadata.findRelationWithPropertyPath(this.relationPropertyPath);
-                        if (!relation)
-                            throw new Error("Relation with property path " + this.relationPropertyPath + " in entity was not found.");
-                        return relation;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "metadata", {
-                    /**
-                     * Metadata of the joined entity.
-                     * If table without entity was joined, then it will return undefined.
-                     */
-                    get: function () {
-                        var _this = this;
-                        // entityOrProperty is Entity class
-                        if (this.entityOrProperty instanceof Function)
-                            return this.connection.getMetadata(this.entityOrProperty);
-                        // entityOrProperty is relation, e.g. "post.category"
-                        if (this.relation)
-                            return this.relation.inverseEntityMetadata;
-                        if (typeof this.entityOrProperty === "string") {
-                            // first try to find entity with such name, this is needed when entity does not have a target class,
-                            // and its target is a string name (scenario when plain old javascript is used or entity schema is loaded from files)
-                            var metadata = this.connection.entityMetadatas.find(function (metadata) { return metadata.name === _this.entityOrProperty; });
-                            if (metadata)
-                                return metadata;
-                            // check if we have entity with such table name, and use its metadata if found
-                            return this.connection.entityMetadatas.find(function (metadata) { return metadata.tableName === _this.entityOrProperty; });
-                        }
-                        return undefined;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "junctionAlias", {
-                    /**
-                     * Generates alias of junction table, whose ids we get.
-                     */
-                    get: function () {
-                        if (!this.relation)
-                            throw new Error("Cannot get junction table for join without relation.");
-                        return this.relation.isOwning ? this.parentAlias + "_" + this.alias.name : this.alias.name + "_" + this.parentAlias;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "mapToPropertyParentAlias", {
-                    get: function () {
-                        if (!this.mapToProperty)
-                            return undefined;
-                        return this.mapToProperty.split(".")[0];
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(JoinAttribute.prototype, "mapToPropertyPropertyName", {
-                    get: function () {
-                        if (!this.mapToProperty)
-                            return undefined;
-                        return this.mapToProperty.split(".")[1];
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                return JoinAttribute;
-            }());
-            exports_35("JoinAttribute", JoinAttribute);
-        }
-    };
-});
-System.register("typeorm/query-builder/relation-count/RelationCountAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_36, context_36) {
-    "use strict";
-    var __moduleName = context_36 && context_36.id;
-    var QueryBuilderUtils_2, RelationCountAttribute;
-    return {
-        setters: [
-            function (QueryBuilderUtils_2_1) {
-                QueryBuilderUtils_2 = QueryBuilderUtils_2_1;
-            }
-        ],
-        execute: function () {
-            RelationCountAttribute = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function RelationCountAttribute(expressionMap, relationCountAttribute) {
-                    this.expressionMap = expressionMap;
-                    this.relationCountAttribute = relationCountAttribute;
-                    Object.assign(this, relationCountAttribute || {});
-                }
-                Object.defineProperty(RelationCountAttribute.prototype, "joinInverseSideMetadata", {
-                    // -------------------------------------------------------------------------
-                    // Public Methods
-                    // -------------------------------------------------------------------------
-                    get: function () {
-                        return this.relation.inverseEntityMetadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "parentAlias", {
-                    /**
-                     * Alias of the parent of this join.
-                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value must be a string representation of alias property");
-                        return this.relationName.split(".")[0];
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "relationProperty", {
-                    /**
-                     * Relation property name of the parent.
-                     * This is used to understand what is joined.
-                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value is a string representation of alias property");
-                        return this.relationName.split(".")[1];
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "junctionAlias", {
-                    get: function () {
-                        var _a = this.relationName.split("."), parentAlias = _a[0], relationProperty = _a[1];
-                        return parentAlias + "_" + relationProperty + "_relation_count";
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "relation", {
-                    /**
-                     * Relation of the parent.
-                     * This is used to understand what is joined.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value is a string representation of alias property");
-                        var _a = this.relationName.split("."), parentAlias = _a[0], propertyPath = _a[1];
-                        var relationOwnerSelection = this.expressionMap.findAliasByName(parentAlias);
-                        var relation = relationOwnerSelection.metadata.findRelationWithPropertyPath(propertyPath);
-                        if (!relation)
-                            throw new Error("Relation with property path " + propertyPath + " in entity was not found.");
-                        return relation;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "metadata", {
-                    /**
-                     * Metadata of the joined entity.
-                     * If table without entity was joined, then it will return undefined.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_2.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value is a string representation of alias property");
-                        var parentAlias = this.relationName.split(".")[0];
-                        var selection = this.expressionMap.findAliasByName(parentAlias);
-                        return selection.metadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationCountAttribute.prototype, "mapToPropertyPropertyName", {
-                    get: function () {
-                        return this.mapToProperty.split(".")[1];
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                return RelationCountAttribute;
-            }());
-            exports_36("RelationCountAttribute", RelationCountAttribute);
-        }
-    };
-});
-System.register("typeorm/query-builder/SelectQuery", [], function (exports_37, context_37) {
-    "use strict";
-    var __moduleName = context_37 && context_37.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/query-builder/QueryExpressionMap", ["typeorm/query-builder/Alias", "typeorm/query-builder/JoinAttribute", "typeorm/query-builder/relation-id/RelationIdAttribute", "typeorm/query-builder/relation-count/RelationCountAttribute"], function (exports_38, context_38) {
-    "use strict";
-    var __moduleName = context_38 && context_38.id;
-    var Alias_1, JoinAttribute_1, RelationIdAttribute_1, RelationCountAttribute_1, QueryExpressionMap;
-    return {
-        setters: [
-            function (Alias_1_1) {
-                Alias_1 = Alias_1_1;
-            },
-            function (JoinAttribute_1_1) {
-                JoinAttribute_1 = JoinAttribute_1_1;
-            },
-            function (RelationIdAttribute_1_1) {
-                RelationIdAttribute_1 = RelationIdAttribute_1_1;
-            },
-            function (RelationCountAttribute_1_1) {
-                RelationCountAttribute_1 = RelationCountAttribute_1_1;
-            }
-        ],
-        execute: function () {
-            /**
-             * Contains all properties of the QueryBuilder that needs to be build a final query.
-             */
-            QueryExpressionMap = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function QueryExpressionMap(connection) {
-                    this.connection = connection;
-                    /**
-                     * All aliases (including main alias) used in the query.
-                     */
-                    this.aliases = [];
-                    /**
-                     * Represents query type. QueryBuilder is able to build SELECT, UPDATE and DELETE queries.
-                     */
-                    this.queryType = "select";
-                    /**
-                     * Data needs to be SELECT-ed.
-                     */
-                    this.selects = [];
-                    /**
-                     * JOIN queries.
-                     */
-                    this.joinAttributes = [];
-                    /**
-                     * RelationId queries.
-                     */
-                    this.relationIdAttributes = [];
-                    /**
-                     * Relation count queries.
-                     */
-                    this.relationCountAttributes = [];
-                    /**
-                     * WHERE queries.
-                     */
-                    this.wheres = [];
-                    /**
-                     * HAVING queries.
-                     */
-                    this.havings = [];
-                    /**
-                     * ORDER BY queries.
-                     */
-                    this.orderBys = {};
-                    /**
-                     * GROUP BY queries.
-                     */
-                    this.groupBys = [];
-                    /**
-                     * Parameters used to be escaped in final query.
-                     */
-                    this.parameters = {};
-                    /**
-                     * Indicates if alias, table names and column names will be ecaped by driver, or not.
-                     *
-                     * todo: rename to isQuotingDisabled, also think if it should be named "escaping"
-                     */
-                    this.disableEscaping = true;
-                    /**
-                     * todo: needs more information.
-                     */
-                    this.ignoreParentTablesJoins = false;
-                    /**
-                     * Indicates if virtual columns should be included in entity result.
-                     *
-                     * todo: what to do with it? is it properly used? what about persistence?
-                     */
-                    this.enableRelationIdValues = false;
-                    /**
-                     * Extra where condition appended to the end of original where conditions with AND keyword.
-                     * Original condition will be wrapped into brackets.
-                     */
-                    this.extraAppendedAndWhereCondition = "";
-                }
-                /**
-                 * Creates a main alias and adds it to the current expression map.
-                 */
-                QueryExpressionMap.prototype.createMainAlias = function (options) {
-                    var alias = this.createAlias(options);
-                    // if main alias is already set then remove it from the array
-                    if (this.mainAlias)
-                        this.aliases.splice(this.aliases.indexOf(this.mainAlias));
-                    // set new main alias
-                    this.mainAlias = alias;
-                    return alias;
-                };
-                /**
-                 * Creates a new alias and adds it to the current expression map.
-                 */
-                QueryExpressionMap.prototype.createAlias = function (options) {
-                    var aliasName = options.name;
-                    if (!aliasName && options.tableName)
-                        aliasName = options.tableName;
-                    if (!aliasName && options.target instanceof Function)
-                        aliasName = options.target.name;
-                    if (!aliasName && typeof options.target === "string")
-                        aliasName = options.target;
-                    var alias = new Alias_1.Alias();
-                    if (aliasName)
-                        alias.name = aliasName;
-                    if (options.metadata)
-                        alias.metadata = options.metadata;
-                    if (options.target && !alias.hasMetadata)
-                        alias.metadata = this.connection.getMetadata(options.target);
-                    if (options.tableName)
-                        alias.tableName = options.tableName;
-                    this.aliases.push(alias);
-                    return alias;
-                };
-                /**
-                 * Finds alias with the given name.
-                 * If alias was not found it throw an exception.
-                 */
-                QueryExpressionMap.prototype.findAliasByName = function (aliasName) {
-                    var alias = this.aliases.find(function (alias) { return alias.name === aliasName; });
-                    if (!alias)
-                        throw new Error("\"" + aliasName + "\" alias was not found. Maybe you forgot to join it?");
-                    return alias;
-                };
-                /**
-                 * Copies all properties of the current QueryExpressionMap into a new one.
-                 * Useful when QueryBuilder needs to create a copy of itself.
-                 */
-                QueryExpressionMap.prototype.clone = function () {
-                    var _this = this;
-                    var map = new QueryExpressionMap(this.connection);
-                    map.queryType = this.queryType;
-                    map.selects = this.selects.map(function (select) { return select; });
-                    this.aliases.forEach(function (alias) { return map.aliases.push(new Alias_1.Alias(alias)); });
-                    map.mainAlias = this.mainAlias;
-                    map.updateSet = this.updateSet;
-                    map.joinAttributes = this.joinAttributes.map(function (join) { return new JoinAttribute_1.JoinAttribute(_this.connection, _this, join); });
-                    map.relationIdAttributes = this.relationIdAttributes.map(function (relationId) { return new RelationIdAttribute_1.RelationIdAttribute(_this, relationId); });
-                    map.relationCountAttributes = this.relationCountAttributes.map(function (relationCount) { return new RelationCountAttribute_1.RelationCountAttribute(_this, relationCount); });
-                    map.wheres = this.wheres.map(function (where) { return (__assign({}, where)); });
-                    map.havings = this.havings.map(function (having) { return (__assign({}, having)); });
-                    map.orderBys = Object.assign({}, this.orderBys);
-                    map.groupBys = this.groupBys.map(function (groupBy) { return groupBy; });
-                    map.limit = this.limit;
-                    map.offset = this.offset;
-                    map.skip = this.skip;
-                    map.take = this.take;
-                    map.lockMode = this.lockMode;
-                    map.lockVersion = this.lockVersion;
-                    map.parameters = Object.assign({}, this.parameters);
-                    map.disableEscaping = this.disableEscaping;
-                    map.ignoreParentTablesJoins = this.ignoreParentTablesJoins;
-                    map.enableRelationIdValues = this.enableRelationIdValues;
-                    return map;
-                };
-                return QueryExpressionMap;
-            }());
-            exports_38("QueryExpressionMap", QueryExpressionMap);
-        }
-    };
-});
-System.register("typeorm/query-builder/relation-id/RelationIdAttribute", ["typeorm/query-builder/QueryBuilderUtils"], function (exports_39, context_39) {
-    "use strict";
-    var __moduleName = context_39 && context_39.id;
-    var QueryBuilderUtils_3, RelationIdAttribute;
-    return {
-        setters: [
-            function (QueryBuilderUtils_3_1) {
-                QueryBuilderUtils_3 = QueryBuilderUtils_3_1;
-            }
-        ],
-        execute: function () {
-            /**
-             * Stores all join relation id attributes which will be used to build a JOIN query.
-             */
-            RelationIdAttribute = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function RelationIdAttribute(queryExpressionMap, relationIdAttribute) {
-                    this.queryExpressionMap = queryExpressionMap;
-                    /**
-                     * Indicates if relation id should NOT be loaded as id map.
-                     */
-                    this.disableMixedMap = false;
-                    Object.assign(this, relationIdAttribute || {});
-                }
-                Object.defineProperty(RelationIdAttribute.prototype, "joinInverseSideMetadata", {
-                    // -------------------------------------------------------------------------
-                    // Public Methods
-                    // -------------------------------------------------------------------------
-                    get: function () {
-                        return this.relation.inverseEntityMetadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "parentAlias", {
-                    /**
-                     * Alias of the parent of this join.
-                     * For example, if we join ("post.category", "categoryAlias") then "post" is a parent alias.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value must be a string representation of alias property");
-                        return this.relationName.substr(0, this.relationName.indexOf("."));
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "relationPropertyPath", {
-                    /**
-                     * Relation property name of the parent.
-                     * This is used to understand what is joined.
-                     * For example, if we join ("post.category", "categoryAlias") then "category" is a relation property.
-                     * This value is extracted from entityOrProperty value.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value must be a string representation of alias property");
-                        return this.relationName.substr(this.relationName.indexOf(".") + 1);
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "relation", {
-                    /**
-                     * Relation of the parent.
-                     * This is used to understand what is joined.
-                     * This is available when join was made using "post.category" syntax.
-                     */
-                    get: function () {
-                        if (!QueryBuilderUtils_3.QueryBuilderUtils.isAliasProperty(this.relationName))
-                            throw new Error("Given value must be a string representation of alias property");
-                        var relationOwnerSelection = this.queryExpressionMap.findAliasByName(this.parentAlias);
-                        var relation = relationOwnerSelection.metadata.findRelationWithPropertyPath(this.relationPropertyPath);
-                        if (!relation)
-                            throw new Error("Relation with property path " + this.relationPropertyPath + " in entity was not found.");
-                        return relation;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "junctionAlias", {
-                    /**
-                     * Generates alias of junction table, whose ids we get.
-                     */
-                    get: function () {
-                        var _a = this.relationName.split("."), parentAlias = _a[0], relationProperty = _a[1];
-                        return parentAlias + "_" + relationProperty + "_relation_id";
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "junctionMetadata", {
-                    /**
-                     * Metadata of the joined entity.
-                     * If extra condition without entity was joined, then it will return undefined.
-                     */
-                    get: function () {
-                        return this.relation.junctionEntityMetadata;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "mapToPropertyParentAlias", {
-                    get: function () {
-                        return this.mapToProperty.substr(0, this.mapToProperty.indexOf("."));
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                Object.defineProperty(RelationIdAttribute.prototype, "mapToPropertyPropertyPath", {
-                    get: function () {
-                        return this.mapToProperty.substr(this.mapToProperty.indexOf(".") + 1);
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                return RelationIdAttribute;
-            }());
-            exports_39("RelationIdAttribute", RelationIdAttribute);
-        }
-    };
-});
-System.register("typeorm/query-builder/relation-id/RelationIdLoadResult", [], function (exports_40, context_40) {
-    "use strict";
-    var __moduleName = context_40 && context_40.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/query-builder/relation-count/RelationCountLoadResult", [], function (exports_41, context_41) {
-    "use strict";
-    var __moduleName = context_41 && context_41.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/util/OrmUtils", [], function (exports_42, context_42) {
-    "use strict";
-    var __moduleName = context_42 && context_42.id;
-    var OrmUtils;
-    return {
-        setters: [],
-        execute: function () {
-            OrmUtils = (function () {
-                function OrmUtils() {
-                }
-                OrmUtils.groupBy = function (array, propertyCallback) {
-                    return array.reduce(function (groupedArray, value) {
-                        var key = propertyCallback(value);
-                        var grouped = groupedArray.find(function (i) { return i.id === key; });
-                        if (!grouped) {
-                            grouped = { id: key, items: [] };
-                            groupedArray.push(grouped);
-                        }
-                        grouped.items.push(value);
-                        return groupedArray;
-                    }, []);
-                };
-                OrmUtils.isObject = function (item) {
-                    return (item && typeof item === "object" && !Array.isArray(item));
-                };
-                /**
-                 * Deep Object.assign.
-                 *
-                 * @see http://stackoverflow.com/a/34749873
-                 */
-                OrmUtils.mergeDeep = function (target) {
-                    var sources = [];
-                    for (var _i = 1; _i < arguments.length; _i++) {
-                        sources[_i - 1] = arguments[_i];
-                    }
-                    if (!sources.length)
-                        return target;
-                    var source = sources.shift();
-                    if (this.isObject(target) && this.isObject(source)) {
-                        for (var key in source) {
-                            if (this.isObject(source[key])) {
-                                if (!target[key])
-                                    Object.assign(target, (_a = {}, _a[key] = {}, _a));
-                                this.mergeDeep(target[key], source[key]);
-                            }
-                            else {
-                                Object.assign(target, (_b = {}, _b[key] = source[key], _b));
-                            }
-                        }
-                    }
-                    return this.mergeDeep.apply(this, [target].concat(sources));
-                    var _a, _b;
-                };
-                /**
-                 * Deep compare objects.
-                 *
-                 * @see http://stackoverflow.com/a/1144249
-                 */
-                OrmUtils.deepCompare = function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i] = arguments[_i];
-                    }
-                    var i, l, leftChain, rightChain;
-                    function compare2Objects(x, y) {
-                        var p;
-                        // remember that NaN === NaN returns false
-                        // and isNaN(undefined) returns true
-                        if (isNaN(x) && isNaN(y) && typeof x === "number" && typeof y === "number")
-                            return true;
-                        // Compare primitives and functions.
-                        // Check if both arguments link to the same object.
-                        // Especially useful on the step where we compare prototypes
-                        if (x === y)
-                            return true;
-                        if (x.equals instanceof Function && x.equals(y))
-                            return true;
-                        // Works in case when functions are created in constructor.
-                        // Comparing dates is a common scenario. Another built-ins?
-                        // We can even handle functions passed across iframes
-                        if ((typeof x === "function" && typeof y === "function") ||
-                            (x instanceof Date && y instanceof Date) ||
-                            (x instanceof RegExp && y instanceof RegExp) ||
-                            (x instanceof String && y instanceof String) ||
-                            (x instanceof Number && y instanceof Number))
-                            return x.toString() === y.toString();
-                        // At last checking prototypes as good as we can
-                        if (!(x instanceof Object && y instanceof Object))
-                            return false;
-                        if (x.isPrototypeOf(y) || y.isPrototypeOf(x))
-                            return false;
-                        if (x.constructor !== y.constructor)
-                            return false;
-                        if (x.prototype !== y.prototype)
-                            return false;
-                        // Check for infinitive linking loops
-                        if (leftChain.indexOf(x) > -1 || rightChain.indexOf(y) > -1)
-                            return false;
-                        // Quick checking of one object being a subset of another.
-                        // todo: cache the structure of arguments[0] for performance
-                        for (p in y) {
-                            if (y.hasOwnProperty(p) !== x.hasOwnProperty(p)) {
-                                return false;
-                            }
-                            else if (typeof y[p] !== typeof x[p]) {
-                                return false;
-                            }
-                        }
-                        for (p in x) {
-                            if (y.hasOwnProperty(p) !== x.hasOwnProperty(p)) {
-                                return false;
-                            }
-                            else if (typeof y[p] !== typeof x[p]) {
-                                return false;
-                            }
-                            switch (typeof (x[p])) {
-                                case "object":
-                                case "function":
-                                    leftChain.push(x);
-                                    rightChain.push(y);
-                                    if (!compare2Objects(x[p], y[p])) {
-                                        return false;
-                                    }
-                                    leftChain.pop();
-                                    rightChain.pop();
-                                    break;
-                                default:
-                                    if (x[p] !== y[p]) {
-                                        return false;
-                                    }
-                                    break;
-                            }
-                        }
-                        return true;
-                    }
-                    if (arguments.length < 1) {
-                        return true; // Die silently? Don't know how to handle such case, please help...
-                        // throw "Need two or more arguments to compare";
-                    }
-                    for (i = 1, l = arguments.length; i < l; i++) {
-                        leftChain = []; // Todo: this can be cached
-                        rightChain = [];
-                        if (!compare2Objects(arguments[0], arguments[i])) {
-                            return false;
-                        }
-                    }
-                    return true;
-                };
-                /**
-                 * Transforms given value into boolean value.
-                 */
-                OrmUtils.toBoolean = function (value) {
-                    if (typeof value === "boolean")
-                        return value;
-                    if (typeof value === "string")
-                        return value === "true" || value === "1";
-                    if (typeof value === "number")
-                        return value > 0;
-                    return false;
-                };
-                /**
-                 * Composes an object from the given array of keys and values.
-                 */
-                OrmUtils.zipObject = function (keys, values) {
-                    return keys.reduce(function (object, column, index) {
-                        object[column] = values[index];
-                        return object;
-                    }, {});
-                };
-                return OrmUtils;
-            }());
-            exports_42("OrmUtils", OrmUtils);
-        }
-    };
-});
-System.register("typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer", ["typeorm/util/OrmUtils"], function (exports_43, context_43) {
-    "use strict";
-    var __moduleName = context_43 && context_43.id;
-    var OrmUtils_1, RawSqlResultsToEntityTransformer;
-    return {
-        setters: [
-            function (OrmUtils_1_1) {
-                OrmUtils_1 = OrmUtils_1_1;
-            }
-        ],
-        execute: function () {
-            /**
-             * Transforms raw sql results returned from the database into entity object.
-             * Entity is constructed based on its entity metadata.
-             */
-            RawSqlResultsToEntityTransformer = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function RawSqlResultsToEntityTransformer(driver, joinAttributes, rawRelationIdResults, rawRelationCountResults) {
-                    this.driver = driver;
-                    this.joinAttributes = joinAttributes;
-                    this.rawRelationIdResults = rawRelationIdResults;
-                    this.rawRelationCountResults = rawRelationCountResults;
-                }
-                // -------------------------------------------------------------------------
-                // Public Methods
-                // -------------------------------------------------------------------------
-                /**
-                 * Since db returns a duplicated rows of the data where accuracies of the same object can be duplicated
-                 * we need to group our result and we must have some unique id (primary key in our case)
-                 */
-                RawSqlResultsToEntityTransformer.prototype.transform = function (rawResults, alias) {
-                    var _this = this;
-                    return this.group(rawResults, alias)
-                        .map(function (group) { return _this.transformRawResultsGroup(group, alias); })
-                        .filter(function (res) { return !!res; });
-                };
-                // -------------------------------------------------------------------------
-                // Protected Methods
-                // -------------------------------------------------------------------------
-                /**
-                 * Groups given raw results by ids of given alias.
-                 */
-                RawSqlResultsToEntityTransformer.prototype.group = function (rawResults, alias) {
-                    var groupedResults = [];
-                    rawResults.forEach(function (rawResult) {
-                        var id = alias.metadata.primaryColumns.map(function (column) { return rawResult[alias.name + "_" + column.databaseName]; }).join("_"); // todo: check partial
-                        if (!id)
-                            return;
-                        var group = groupedResults.find(function (groupedResult) { return groupedResult.id === id; });
-                        if (!group) {
-                            group = { id: id, items: [] };
-                            groupedResults.push(group);
-                        }
-                        group.items.push(rawResult);
-                    });
-                    return groupedResults.map(function (group) { return group.items; });
-                };
-                /**
-                 * Transforms set of data results into single entity.
-                 */
-                RawSqlResultsToEntityTransformer.prototype.transformRawResultsGroup = function (rawResults, alias) {
-                    var hasColumns = false, hasEmbeddedColumns = false, hasParentColumns = false, hasParentEmbeddedColumns = false, hasRelations = false, hasRelationIds = false, hasRelationCounts = false;
-                    var entity = alias.metadata.create();
-                    if (alias.metadata.discriminatorColumn) {
-                        var discriminatorValues_1 = rawResults.map(function (result) { return result[alias.name + "_" + alias.metadata.discriminatorColumn.databaseName]; });
-                        var metadata = alias.metadata.childEntityMetadatas.find(function (childEntityMetadata) {
-                            return !!discriminatorValues_1.find(function (value) { return value === childEntityMetadata.discriminatorValue; });
-                        });
-                        if (metadata)
-                            entity = metadata.create();
-                    }
-                    // get value from columns selections and put them into newly created entity
-                    hasColumns = this.transformColumns(rawResults, alias, entity, alias.metadata.columns);
-                    // add columns tables metadata
-                    if (alias.metadata.parentEntityMetadata)
-                        hasParentColumns = this.transformColumns(rawResults, alias, entity, alias.metadata.parentEntityMetadata.columns);
-                    hasRelations = this.transformJoins(rawResults, entity, alias);
-                    hasRelationIds = this.transformRelationIds(rawResults, alias, entity);
-                    hasRelationCounts = this.transformRelationCounts(rawResults, alias, entity);
-                    return (hasColumns || hasEmbeddedColumns || hasParentColumns || hasParentEmbeddedColumns || hasRelations || hasRelationIds || hasRelationCounts) ? entity : undefined;
-                };
-                // get value from columns selections and put them into object
-                RawSqlResultsToEntityTransformer.prototype.transformColumns = function (rawResults, alias, entity, columns) {
-                    var _this = this;
-                    var hasData = false;
-                    columns.forEach(function (column) {
-                        var value = rawResults[0][alias.name + "_" + column.databaseName];
-                        if (value === undefined || value === null || column.isVirtual || column.isParentId || column.isDiscriminator)
-                            return;
-                        column.setEntityValue(entity, _this.driver.prepareHydratedValue(value, column));
-                        hasData = true;
-                    });
-                    return hasData;
-                };
-                /**
-                 * Transforms joined entities in the given raw results by a given alias and stores to the given (parent) entity,l
-                 */
-                RawSqlResultsToEntityTransformer.prototype.transformJoins = function (rawResults, entity, alias) {
-                    var _this = this;
-                    var hasData = false;
-                    var discriminatorValue = "";
-                    if (alias.metadata.discriminatorColumn)
-                        discriminatorValue = rawResults[0][alias.name + "_" + alias.metadata.discriminatorColumn.databaseName];
-                    this.joinAttributes.forEach(function (join) {
-                        // skip joins without metadata
-                        if (!join.metadata)
-                            return;
-                        // this check need to avoid setting properties than not belong to entity when single table inheritance used.
-                        var metadata = alias.metadata.childEntityMetadatas.find(function (childEntityMetadata) { return discriminatorValue === childEntityMetadata.discriminatorValue; });
-                        if (metadata && join.relation && metadata.target !== join.relation.target)
-                            return;
-                        // some checks to make sure this join is for current alias
-                        if (join.mapToProperty) {
-                            if (join.mapToPropertyParentAlias !== alias.name)
-                                return;
-                        }
-                        else {
-                            if (!join.relation || join.parentAlias !== alias.name || join.relationPropertyPath !== join.relation.propertyPath)
-                                return;
-                        }
-                        // transform joined data into entities
-                        var mappedEntities = _this.transform(rawResults, join.alias);
-                        var result = !join.isMany ? mappedEntities[0] : mappedEntities;
-                        if (!result)
-                            return;
-                        // if join was mapped to some property then save result to that property
-                        if (join.mapToPropertyPropertyName) {
-                            entity[join.mapToPropertyPropertyName] = result; // todo: fix embeds
-                        }
-                        else {
-                            // console.log(result);
-                            join.relation.setEntityValue(entity, result);
-                        }
-                        hasData = true;
-                    });
-                    return hasData;
-                };
-                RawSqlResultsToEntityTransformer.prototype.transformRelationIds = function (rawSqlResults, alias, entity) {
-                    var _this = this;
-                    var hasData = false;
-                    this.rawRelationIdResults.forEach(function (rawRelationIdResult) {
-                        if (rawRelationIdResult.relationIdAttribute.parentAlias !== alias.name)
-                            return;
-                        var relation = rawRelationIdResult.relationIdAttribute.relation;
-                        var valueMap = _this.createValueMapFromJoinColumns(relation, rawRelationIdResult.relationIdAttribute.parentAlias, rawSqlResults);
-                        if (valueMap === undefined || valueMap === null)
-                            return;
-                        var idMaps = rawRelationIdResult.results.map(function (result) {
-                            var entityPrimaryIds = _this.extractEntityPrimaryIds(relation, result);
-                            if (!alias.metadata.compareIds(entityPrimaryIds, valueMap))
-                                return;
-                            var columns;
-                            if (relation.isManyToOne || relation.isOneToOneOwner) {
-                                columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                            }
-                            else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
-                                columns = relation.inverseEntityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
-                            }
-                            else {
-                                if (relation.isOwning) {
-                                    columns = relation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
-                                }
-                                else {
-                                    columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                                }
-                            }
-                            // const idMapColumns = (relation.isOneToMany || relation.isOneToOneNotOwner) ? columns : columns.map(column => column.referencedColumn!);
-                            // const idMap = idMapColumns.reduce((idMap, column) => {
-                            //     return OrmUtils.mergeDeep(idMap, column.createValueMap(result[column.databaseName]));
-                            // }, {} as ObjectLiteral); // need to create reusable function for this process
-                            var idMap = columns.reduce(function (idMap, column) {
-                                if (relation.isOneToMany || relation.isOneToOneNotOwner) {
-                                    return OrmUtils_1.OrmUtils.mergeDeep(idMap, column.createValueMap(result[column.databaseName]));
-                                }
-                                else {
-                                    return OrmUtils_1.OrmUtils.mergeDeep(idMap, column.referencedColumn.createValueMap(result[column.databaseName]));
-                                }
-                            }, {});
-                            if (columns.length === 1 && rawRelationIdResult.relationIdAttribute.disableMixedMap === false) {
-                                if (relation.isOneToMany || relation.isOneToOneNotOwner) {
-                                    return columns[0].getEntityValue(idMap);
-                                }
-                                else {
-                                    return columns[0].referencedColumn.getEntityValue(idMap);
-                                }
-                            }
-                            return idMap;
-                        }).filter(function (result) { return result; });
-                        var properties = rawRelationIdResult.relationIdAttribute.mapToPropertyPropertyPath.split(".");
-                        var mapToProperty = function (properties, map, value) {
-                            var property = properties.shift();
-                            if (property && properties.length === 0) {
-                                map[property] = value;
-                                return map;
-                            }
-                            else if (property && properties.length > 0) {
-                                mapToProperty(properties, map[property], value);
-                            }
-                            else {
-                                return map;
-                            }
-                        };
-                        if (relation.isOneToOne || relation.isManyToOne) {
-                            mapToProperty(properties, entity, idMaps[0]);
-                        }
-                        else {
-                            mapToProperty(properties, entity, idMaps);
-                        }
-                        hasData = true;
-                    });
-                    return hasData;
-                };
-                RawSqlResultsToEntityTransformer.prototype.transformRelationCounts = function (rawSqlResults, alias, entity) {
-                    var hasData = false;
-                    this.rawRelationCountResults
-                        .filter(function (rawRelationCountResult) { return rawRelationCountResult.relationCountAttribute.parentAlias === alias.name; })
-                        .forEach(function (rawRelationCountResult) {
-                        var relation = rawRelationCountResult.relationCountAttribute.relation;
-                        var referenceColumnName;
-                        if (relation.isOneToMany) {
-                            referenceColumnName = relation.inverseRelation.joinColumns[0].referencedColumn.databaseName; // todo: fix joinColumns[0]
-                        }
-                        else {
-                            referenceColumnName = relation.isOwning ? relation.joinColumns[0].referencedColumn.databaseName : relation.inverseRelation.joinColumns[0].referencedColumn.databaseName;
-                        }
-                        var referenceColumnValue = rawSqlResults[0][alias.name + "_" + referenceColumnName]; // we use zero index since its grouped data // todo: selection with alias for entity columns wont work
-                        if (referenceColumnValue !== undefined && referenceColumnValue !== null) {
-                            entity[rawRelationCountResult.relationCountAttribute.mapToPropertyPropertyName] = 0;
-                            rawRelationCountResult.results
-                                .filter(function (result) { return result["parentId"] === referenceColumnValue; })
-                                .forEach(function (result) {
-                                entity[rawRelationCountResult.relationCountAttribute.mapToPropertyPropertyName] = parseInt(result["cnt"]);
-                                hasData = true;
-                            });
-                        }
-                    });
-                    return hasData;
-                };
-                RawSqlResultsToEntityTransformer.prototype.createValueMapFromJoinColumns = function (relation, parentAlias, rawSqlResults) {
-                    var columns;
-                    if (relation.isManyToOne || relation.isOneToOneOwner) {
-                        columns = relation.entityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
-                    }
-                    else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
-                        columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                    }
-                    else {
-                        if (relation.isOwning) {
-                            columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                        }
-                        else {
-                            columns = relation.inverseRelation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
-                        }
-                    }
-                    return columns.reduce(function (valueMap, column) {
-                        rawSqlResults.forEach(function (rawSqlResult) {
-                            if (relation.isManyToOne || relation.isOneToOneOwner) {
-                                valueMap[column.databaseName] = rawSqlResult[parentAlias + "_" + column.databaseName];
-                            }
-                            else {
-                                valueMap[column.databaseName] = rawSqlResult[parentAlias + "_" + column.referencedColumn.databaseName];
-                            }
-                        });
-                        return valueMap;
-                    }, {});
-                };
-                RawSqlResultsToEntityTransformer.prototype.extractEntityPrimaryIds = function (relation, relationIdRawResult) {
-                    var columns;
-                    if (relation.isManyToOne || relation.isOneToOneOwner) {
-                        columns = relation.entityMetadata.primaryColumns.map(function (joinColumn) { return joinColumn; });
-                    }
-                    else if (relation.isOneToMany || relation.isOneToOneNotOwner) {
-                        columns = relation.inverseRelation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                    }
-                    else {
-                        if (relation.isOwning) {
-                            columns = relation.joinColumns.map(function (joinColumn) { return joinColumn; });
-                        }
-                        else {
-                            columns = relation.inverseRelation.inverseJoinColumns.map(function (joinColumn) { return joinColumn; });
-                        }
-                    }
-                    return columns.reduce(function (data, column) {
-                        data[column.databaseName] = relationIdRawResult[column.databaseName];
-                        return data;
-                    }, {});
-                };
-                return RawSqlResultsToEntityTransformer;
-            }());
-            exports_43("RawSqlResultsToEntityTransformer", RawSqlResultsToEntityTransformer);
-        }
-    };
-});
-System.register("typeorm/driver/sqlserver/SqlServerQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_44, context_44) {
-    "use strict";
-    var __moduleName = context_44 && context_44.id;
-    var TransactionAlreadyStartedError_2, TransactionNotStartedError_2, DataTypeNotSupportedByDriverError_2, ColumnSchema_3, TableSchema_2, ForeignKeySchema_2, PrimaryKeySchema_2, IndexSchema_1, QueryRunnerAlreadyReleasedError_2, SqlServerQueryRunner;
-    return {
-        setters: [
-            function (TransactionAlreadyStartedError_2_1) {
-                TransactionAlreadyStartedError_2 = TransactionAlreadyStartedError_2_1;
-            },
-            function (TransactionNotStartedError_2_1) {
-                TransactionNotStartedError_2 = TransactionNotStartedError_2_1;
-            },
-            function (DataTypeNotSupportedByDriverError_2_1) {
-                DataTypeNotSupportedByDriverError_2 = DataTypeNotSupportedByDriverError_2_1;
-            },
-            function (ColumnSchema_3_1) {
-                ColumnSchema_3 = ColumnSchema_3_1;
-            },
-            function (TableSchema_2_1) {
-                TableSchema_2 = TableSchema_2_1;
-            },
-            function (ForeignKeySchema_2_1) {
-                ForeignKeySchema_2 = ForeignKeySchema_2_1;
-            },
-            function (PrimaryKeySchema_2_1) {
-                PrimaryKeySchema_2 = PrimaryKeySchema_2_1;
-            },
-            function (IndexSchema_1_1) {
-                IndexSchema_1 = IndexSchema_1_1;
-            },
-            function (QueryRunnerAlreadyReleasedError_2_1) {
-                QueryRunnerAlreadyReleasedError_2 = QueryRunnerAlreadyReleasedError_2_1;
-            }
-        ],
-        execute: function () {
-            /**
-             * Runs queries on a single mysql database connection.
-             */
-            SqlServerQueryRunner = (function () {
-                // -------------------------------------------------------------------------
-                // Constructor
-                // -------------------------------------------------------------------------
-                function SqlServerQueryRunner(databaseConnection, driver, logger) {
-                    this.databaseConnection = databaseConnection;
-                    this.driver = driver;
-                    this.logger = logger;
-                    // -------------------------------------------------------------------------
-                    // Protected Properties
-                    // -------------------------------------------------------------------------
-                    /**
-                     * Indicates if connection for this query runner is released.
-                     * Once its released, query runner cannot run queries anymore.
-                     */
-                    this.isReleased = false;
-                }
-                // -------------------------------------------------------------------------
-                // Public Methods
-                // -------------------------------------------------------------------------
-                /**
-                 * Releases database connection. This is needed when using connection pooling.
-                 * If connection is not from a pool, it should not be released.
-                 * You cannot use this class's methods after its released.
-                 */
-                SqlServerQueryRunner.prototype.release = function () {
-                    if (this.databaseConnection.releaseCallback) {
-                        this.isReleased = true;
-                        return this.databaseConnection.releaseCallback();
-                    }
-                    return Promise.resolve();
-                };
-                /**
-                 * Removes all tables from the currently connected database.
-                 */
-                SqlServerQueryRunner.prototype.clearDatabase = function () {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var allTablesSql, allTablesResults, tableNames, error_2;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    return [4 /*yield*/, this.beginTransaction()];
-                                case 1:
-                                    _a.sent();
-                                    _a.label = 2;
-                                case 2:
-                                    _a.trys.push([2, 7, 9, 11]);
-                                    allTablesSql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-                                    return [4 /*yield*/, this.query(allTablesSql)];
-                                case 3:
-                                    allTablesResults = _a.sent();
-                                    tableNames = allTablesResults.map(function (result) { return result["TABLE_NAME"]; });
-                                    return [4 /*yield*/, Promise.all(tableNames.map(function (tableName) { return __awaiter(_this, void 0, void 0, function () {
-                                            var _this = this;
-                                            var dropForeignKeySql, dropFkQueries;
-                                            return __generator(this, function (_a) {
-                                                switch (_a.label) {
-                                                    case 0:
-                                                        dropForeignKeySql = "SELECT 'ALTER TABLE ' +  OBJECT_SCHEMA_NAME(parent_object_id) + '.[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT ' + name as query FROM sys.foreign_keys WHERE referenced_object_id = object_id('" + tableName + "')";
-                                                        return [4 /*yield*/, this.query(dropForeignKeySql)];
-                                                    case 1:
-                                                        dropFkQueries = _a.sent();
-                                                        return [2 /*return*/, Promise.all(dropFkQueries.map(function (result) { return result["query"]; }).map(function (dropQuery) {
-                                                                return _this.query(dropQuery);
-                                                            }))];
-                                                }
-                                            });
-                                        }); }))];
-                                case 4:
-                                    _a.sent();
-                                    return [4 /*yield*/, Promise.all(tableNames.map(function (tableName) {
-                                            var dropTableSql = "DROP TABLE \"" + tableName + "\"";
-                                            return _this.query(dropTableSql);
-                                        }))];
-                                case 5:
-                                    _a.sent();
-                                    return [4 /*yield*/, this.commitTransaction()];
-                                case 6:
-                                    _a.sent();
-                                    return [3 /*break*/, 11];
-                                case 7:
-                                    error_2 = _a.sent();
-                                    return [4 /*yield*/, this.rollbackTransaction()];
-                                case 8:
-                                    _a.sent();
-                                    throw error_2;
-                                case 9: return [4 /*yield*/, this.release()];
-                                case 10:
-                                    _a.sent();
-                                    return [7 /*endfinally*/];
-                                case 11: return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Starts transaction.
-                 */
-                SqlServerQueryRunner.prototype.beginTransaction = function () {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            if (this.databaseConnection.isTransactionActive)
-                                throw new TransactionAlreadyStartedError_2.TransactionAlreadyStartedError();
-                            return [2 /*return*/, new Promise(function (ok, fail) {
-                                    _this.databaseConnection.isTransactionActive = true;
-                                    _this.databaseConnection.transaction = _this.databaseConnection.connection.transaction();
-                                    _this.databaseConnection.transaction.begin(function (err) {
-                                        if (err) {
-                                            _this.databaseConnection.isTransactionActive = false;
-                                            return fail(err);
-                                        }
-                                        ok();
-                                    });
-                                })];
-                        });
-                    });
-                };
-                /**
-                 * Commits transaction.
-                 */
-                SqlServerQueryRunner.prototype.commitTransaction = function () {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            if (!this.databaseConnection.isTransactionActive)
-                                throw new TransactionNotStartedError_2.TransactionNotStartedError();
-                            return [2 /*return*/, new Promise(function (ok, fail) {
-                                    _this.databaseConnection.transaction.commit(function (err) {
-                                        if (err)
-                                            return fail(err);
-                                        _this.databaseConnection.isTransactionActive = false;
-                                        ok();
-                                    });
-                                })];
-                        });
-                    });
-                };
-                /**
-                 * Rollbacks transaction.
-                 */
-                SqlServerQueryRunner.prototype.rollbackTransaction = function () {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            if (!this.databaseConnection.isTransactionActive)
-                                throw new TransactionNotStartedError_2.TransactionNotStartedError();
-                            return [2 /*return*/, new Promise(function (ok, fail) {
-                                    _this.databaseConnection.transaction.rollback(function (err) {
-                                        if (err)
-                                            return fail(err);
-                                        _this.databaseConnection.isTransactionActive = false;
-                                        ok();
-                                    });
-                                })];
-                        });
-                    });
-                };
-                /**
-                 * Checks if transaction is in progress.
-                 */
-                SqlServerQueryRunner.prototype.isTransactionActive = function () {
-                    return this.databaseConnection.isTransactionActive;
-                };
-                /**
-                 * Executes a given SQL query.
-                 */
-                SqlServerQueryRunner.prototype.query = function (query, parameters) {
-                    var _this = this;
-                    if (this.isReleased)
-                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                    return new Promise(function (ok, fail) {
-                        _this.logger.logQuery(query, parameters);
-                        var request = new _this.driver.mssql.Request(_this.isTransactionActive() ? _this.databaseConnection.transaction : _this.databaseConnection.connection);
-                        if (parameters && parameters.length) {
-                            parameters.forEach(function (parameter, index) {
-                                request.input(index, parameters[index]);
-                            });
-                        }
-                        request.query(query, function (err, result) {
-                            if (err) {
-                                _this.logger.logFailedQuery(query, parameters);
-                                _this.logger.logQueryError(err);
-                                return fail(err);
-                            }
-                            ok(result);
-                        });
-                    });
-                };
-                /**
-                 * Insert a new row with given values into given table.
-                 */
-                SqlServerQueryRunner.prototype.insert = function (tableName, keyValues, generatedColumn) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var keys, columns, values, parameters, sql, result;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    keys = Object.keys(keyValues);
-                                    columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
-                                    values = keys.map(function (key, index) { return "@" + index; }).join(",");
-                                    parameters = keys.map(function (key) { return keyValues[key]; });
-                                    sql = columns.length > 0
-                                        ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "VALUES (" + values + ")"
-                                        : "INSERT INTO " + this.driver.escapeTableName(tableName) + " " + (generatedColumn ? "OUTPUT INSERTED." + generatedColumn.databaseName + " " : "") + "DEFAULT VALUES ";
-                                    return [4 /*yield*/, this.query(sql, parameters)];
-                                case 1:
-                                    result = _a.sent();
-                                    return [2 /*return*/, generatedColumn ? result instanceof Array ? result[0][generatedColumn.databaseName] : result[generatedColumn.databaseName] : undefined];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Updates rows that match given conditions in the given table.
-                 */
-                SqlServerQueryRunner.prototype.update = function (tableName, valuesMap, conditions) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var conditionParams, updateParams, allParameters, updateValues, conditionString, sql;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    conditionParams = Object.keys(conditions).map(function (key) { return conditions[key]; });
-                                    updateParams = Object.keys(valuesMap).map(function (key) { return valuesMap[key]; });
-                                    allParameters = updateParams.concat(conditionParams);
-                                    updateValues = this.parametrize(valuesMap).join(", ");
-                                    conditionString = this.parametrize(conditions, updateParams.length).join(" AND ");
-                                    sql = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
-                                    return [4 /*yield*/, this.query(sql, allParameters)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Deletes from the given table by a given conditions.
-                 */
-                SqlServerQueryRunner.prototype.delete = function (tableName, conditions, maybeParameters) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var conditionString, parameters, sql;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    conditionString = typeof conditions === "string" ? conditions : this.parametrize(conditions).join(" AND ");
-                                    parameters = conditions instanceof Object ? Object.keys(conditions).map(function (key) { return conditions[key]; }) : maybeParameters;
-                                    sql = "DELETE FROM " + this.driver.escapeTableName(tableName) + " WHERE " + conditionString;
-                                    return [4 /*yield*/, this.query(sql, parameters)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Inserts rows into the closure table.
-                 */
-                SqlServerQueryRunner.prototype.insertIntoClosureTable = function (tableName, newEntityId, parentId, hasLevel) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var sql, results;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    sql = "";
-                                    if (hasLevel) {
-                                        sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant, level) " +
-                                            ("SELECT ancestor, " + newEntityId + ", level + 1 FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId + " ") +
-                                            ("UNION ALL SELECT " + newEntityId + ", " + newEntityId + ", 1");
-                                    }
-                                    else {
-                                        sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant) " +
-                                            ("SELECT ancestor, " + newEntityId + " FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId + " ") +
-                                            ("UNION ALL SELECT " + newEntityId + ", " + newEntityId);
-                                    }
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    _a.sent();
-                                    return [4 /*yield*/, this.query("SELECT MAX(level) as level FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId)];
-                                case 2:
-                                    results = _a.sent();
-                                    return [2 /*return*/, results && results[0] && results[0]["level"] ? parseInt(results[0]["level"]) + 1 : 1];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Loads given table's data from the database.
-                 */
-                SqlServerQueryRunner.prototype.loadTableSchema = function (tableName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableSchemas;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, this.loadTableSchemas([tableName])];
-                                case 1:
-                                    tableSchemas = _a.sent();
-                                    return [2 /*return*/, tableSchemas.length > 0 ? tableSchemas[0] : undefined];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Loads all tables (with given names) from the database and creates a TableSchema from them.
-                 */
-                SqlServerQueryRunner.prototype.loadTableSchemas = function (tableNames) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var tableNamesString, tablesSql, columnsSql, constraintsSql, identityColumnsSql, indicesSql, _a, dbTables, dbColumns, dbConstraints, dbIdentityColumns, dbIndices;
-                        return __generator(this, function (_b) {
-                            switch (_b.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    // if no tables given then no need to proceed
-                                    if (!tableNames || !tableNames.length)
-                                        return [2 /*return*/, []];
-                                    tableNamesString = tableNames.map(function (tableName) { return "'" + tableName + "'"; }).join(", ");
-                                    tablesSql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME IN (" + tableNamesString + ")";
-                                    columnsSql = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '" + this.dbName + "'";
-                                    constraintsSql = "SELECT columnUsages.*, tableConstraints.CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE columnUsages " +
-                                        "LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tableConstraints ON tableConstraints.CONSTRAINT_NAME = columnUsages.CONSTRAINT_NAME " +
-                                        ("WHERE columnUsages.TABLE_CATALOG = '" + this.dbName + "' AND tableConstraints.TABLE_CATALOG = '" + this.dbName + "'");
-                                    identityColumnsSql = "SELECT COLUMN_NAME, TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '" + this.dbName + "' AND COLUMNPROPERTY(object_id(TABLE_NAME), COLUMN_NAME, 'IsIdentity') = 1;";
-                                    indicesSql = "SELECT TABLE_NAME = t.name, INDEX_NAME = ind.name, IndexId = ind.index_id, ColumnId = ic.index_column_id, COLUMN_NAME = col.name, ind.*, ic.*, col.* " +
-                                        "FROM sys.indexes ind INNER JOIN sys.index_columns ic ON ind.object_id = ic.object_id and ind.index_id = ic.index_id INNER JOIN sys.columns col ON ic.object_id = col.object_id and ic.column_id = col.column_id " +
-                                        "INNER JOIN sys.tables t ON ind.object_id = t.object_id WHERE ind.is_primary_key = 0 AND ind.is_unique = 0 AND ind.is_unique_constraint = 0 AND t.is_ms_shipped = 0 ORDER BY t.name, ind.name, ind.index_id, ic.index_column_id";
-                                    return [4 /*yield*/, Promise.all([
-                                            this.query(tablesSql),
-                                            this.query(columnsSql),
-                                            this.query(constraintsSql),
-                                            this.query(identityColumnsSql),
-                                            this.query(indicesSql),
-                                        ])];
-                                case 1:
-                                    _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], dbConstraints = _a[2], dbIdentityColumns = _a[3], dbIndices = _a[4];
-                                    // if tables were not found in the db, no need to proceed
-                                    if (!dbTables.length)
-                                        return [2 /*return*/, []];
-                                    // create table schemas for loaded tables
-                                    return [2 /*return*/, Promise.all(dbTables.map(function (dbTable) { return __awaiter(_this, void 0, void 0, function () {
-                                            var tableSchema;
-                                            return __generator(this, function (_a) {
-                                                tableSchema = new TableSchema_2.TableSchema(dbTable["TABLE_NAME"]);
-                                                // create column schemas from the loaded columns
-                                                tableSchema.columns = dbColumns
-                                                    .filter(function (dbColumn) { return dbColumn["TABLE_NAME"] === tableSchema.name; })
-                                                    .map(function (dbColumn) {
-                                                    var isPrimary = !!dbConstraints.find(function (dbConstraint) {
-                                                        return dbConstraint["TABLE_NAME"] === tableSchema.name &&
-                                                            dbConstraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"] &&
-                                                            dbConstraint["CONSTRAINT_TYPE"] === "PRIMARY KEY";
-                                                    });
-                                                    var isGenerated = !!dbIdentityColumns.find(function (column) {
-                                                        return column["TABLE_NAME"] === tableSchema.name &&
-                                                            column["COLUMN_NAME"] === dbColumn["COLUMN_NAME"];
-                                                    });
-                                                    var isUnique = !!dbConstraints.find(function (dbConstraint) {
-                                                        return dbConstraint["TABLE_NAME"] === tableSchema.name &&
-                                                            dbConstraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"] &&
-                                                            dbConstraint["CONSTRAINT_TYPE"] === "UNIQUE";
-                                                    });
-                                                    var columnSchema = new ColumnSchema_3.ColumnSchema();
-                                                    columnSchema.name = dbColumn["COLUMN_NAME"];
-                                                    columnSchema.type = dbColumn["DATA_TYPE"].toLowerCase() + (dbColumn["CHARACTER_MAXIMUM_LENGTH"] ? "(" + dbColumn["CHARACTER_MAXIMUM_LENGTH"] + ")" : ""); // todo: use normalize type?
-                                                    columnSchema.default = dbColumn["COLUMN_DEFAULT"] !== null && dbColumn["COLUMN_DEFAULT"] !== undefined ? dbColumn["COLUMN_DEFAULT"] : undefined;
-                                                    columnSchema.isNullable = dbColumn["IS_NULLABLE"] === "YES";
-                                                    columnSchema.isPrimary = isPrimary;
-                                                    columnSchema.isGenerated = isGenerated;
-                                                    columnSchema.isUnique = isUnique;
-                                                    columnSchema.comment = ""; // todo: less priority, implement this later
-                                                    return columnSchema;
-                                                });
-                                                // create primary key schema
-                                                tableSchema.primaryKeys = dbConstraints
-                                                    .filter(function (dbConstraint) {
-                                                    return dbConstraint["TABLE_NAME"] === tableSchema.name &&
-                                                        dbConstraint["CONSTRAINT_TYPE"] === "PRIMARY KEY";
-                                                })
-                                                    .map(function (keyColumnUsage) {
-                                                    return new PrimaryKeySchema_2.PrimaryKeySchema(keyColumnUsage["CONSTRAINT_NAME"], keyColumnUsage["COLUMN_NAME"]);
-                                                });
-                                                // create foreign key schemas from the loaded indices
-                                                tableSchema.foreignKeys = dbConstraints
-                                                    .filter(function (dbConstraint) {
-                                                    return dbConstraint["TABLE_NAME"] === tableSchema.name &&
-                                                        dbConstraint["CONSTRAINT_TYPE"] === "FOREIGN KEY";
-                                                })
-                                                    .map(function (dbConstraint) { return new ForeignKeySchema_2.ForeignKeySchema(dbConstraint["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
-                                                // create index schemas from the loaded indices
-                                                tableSchema.indices = dbIndices
-                                                    .filter(function (dbIndex) {
-                                                    return dbIndex["TABLE_NAME"] === tableSchema.name &&
-                                                        (!tableSchema.foreignKeys.find(function (foreignKey) { return foreignKey.name === dbIndex["INDEX_NAME"]; })) &&
-                                                        (!tableSchema.primaryKeys.find(function (primaryKey) { return primaryKey.name === dbIndex["INDEX_NAME"]; }));
-                                                })
-                                                    .map(function (dbIndex) { return dbIndex["INDEX_NAME"]; })
-                                                    .filter(function (value, index, self) { return self.indexOf(value) === index; }) // unqiue
-                                                    .map(function (dbIndexName) {
-                                                    var columnNames = dbIndices
-                                                        .filter(function (dbIndex) { return dbIndex["TABLE_NAME"] === tableSchema.name && dbIndex["INDEX_NAME"] === dbIndexName; })
-                                                        .map(function (dbIndex) { return dbIndex["COLUMN_NAME"]; });
-                                                    return new IndexSchema_1.IndexSchema(dbTable["TABLE_NAME"], dbIndexName, columnNames, false /* todo: uniqueness? */);
-                                                });
-                                                return [2 /*return*/, tableSchema];
-                                            });
-                                        }); }))];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Checks if table with the given name exist in the database.
-                 */
-                SqlServerQueryRunner.prototype.hasTable = function (tableName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var sql, result;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    sql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME = '" + tableName + "'";
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    result = _a.sent();
-                                    return [2 /*return*/, result.length ? true : false];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Creates a new table from the given table metadata and column metadatas.
-                 */
-                SqlServerQueryRunner.prototype.createTable = function (table) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var columnDefinitions, sql, primaryKeyColumns;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column, false); }).join(", ");
-                                    sql = "CREATE TABLE \"" + table.name + "\" (" + columnDefinitions;
-                                    sql += table.columns
-                                        .filter(function (column) { return column.isUnique; })
-                                        .map(function (column) { return ", CONSTRAINT \"uk_" + table.name + "_" + column.name + "\" UNIQUE (\"" + column.name + "\")"; })
-                                        .join(" ");
-                                    primaryKeyColumns = table.columns.filter(function (column) { return column.isPrimary; });
-                                    if (primaryKeyColumns.length > 0)
-                                        sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
-                                    sql += ")";
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Checks if column with the given name exist in the given table.
-                 */
-                SqlServerQueryRunner.prototype.hasColumn = function (tableName, columnName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var sql, result;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    sql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_CATALOG = '" + this.dbName + "' AND TABLE_NAME = '" + tableName + "' AND COLUMN_NAME = '" + columnName + "'";
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    result = _a.sent();
-                                    return [2 /*return*/, result.length ? true : false];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Creates a new column from the column schema in the table.
-                 */
-                SqlServerQueryRunner.prototype.addColumn = function (tableSchemaOrName, column) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableName, sql;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            sql = "ALTER TABLE \"" + tableName + "\" ADD " + this.buildCreateColumnSql(column);
-                            return [2 /*return*/, this.query(sql)];
-                        });
-                    });
-                };
-                /**
-                 * Creates a new columns from the column schema in the table.
-                 */
-                SqlServerQueryRunner.prototype.addColumns = function (tableSchemaOrName, columns) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var queries;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    queries = columns.map(function (column) { return _this.addColumn(tableSchemaOrName, column); });
-                                    return [4 /*yield*/, Promise.all(queries)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Renames column in the given table.
-                 */
-                SqlServerQueryRunner.prototype.renameColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumnSchemaOrName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableSchema, oldColumn, newColumn;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_2.TableSchema)) return [3 /*break*/, 1];
-                                    tableSchema = tableSchemaOrName;
-                                    return [3 /*break*/, 3];
-                                case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
-                                case 2:
-                                    tableSchema = _a.sent();
-                                    _a.label = 3;
-                                case 3:
-                                    if (!tableSchema)
-                                        throw new Error("Table " + tableSchemaOrName + " was not found.");
-                                    oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
-                                        oldColumn = oldColumnSchemaOrName;
-                                    }
-                                    else {
-                                        oldColumn = tableSchema.columns.find(function (column) { return column.name === oldColumnSchemaOrName; });
-                                    }
-                                    if (!oldColumn)
-                                        throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
-                                    newColumn = undefined;
-                                    if (newColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
-                                        newColumn = newColumnSchemaOrName;
-                                    }
-                                    else {
-                                        newColumn = oldColumn.clone();
-                                        newColumn.name = newColumnSchemaOrName;
-                                    }
-                                    return [2 /*return*/, this.changeColumn(tableSchema, oldColumn, newColumn)];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Changes a column in the table.
-                 */
-                SqlServerQueryRunner.prototype.changeColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumn) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableSchema, oldColumn, sql;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_2.TableSchema)) return [3 /*break*/, 1];
-                                    tableSchema = tableSchemaOrName;
-                                    return [3 /*break*/, 3];
-                                case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
-                                case 2:
-                                    tableSchema = _a.sent();
-                                    _a.label = 3;
-                                case 3:
-                                    if (!tableSchema)
-                                        throw new Error("Table " + tableSchemaOrName + " was not found.");
-                                    oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
-                                        oldColumn = oldColumnSchemaOrName;
-                                    }
-                                    else {
-                                        oldColumn = tableSchema.columns.find(function (column) { return column.name === oldColumnSchemaOrName; });
-                                    }
-                                    if (!oldColumn)
-                                        throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
-                                    if (!(newColumn.isGenerated !== oldColumn.isGenerated)) return [3 /*break*/, 6];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" DROP COLUMN \"" + newColumn.name + "\"")];
-                                case 4:
-                                    _a.sent();
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" ADD " + this.buildCreateColumnSql(newColumn))];
-                                case 5:
-                                    _a.sent();
-                                    _a.label = 6;
-                                case 6:
-                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" ALTER COLUMN " + this.buildCreateColumnSql(newColumn, true);
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 7:
-                                    _a.sent();
-                                    if (!(newColumn.isUnique !== oldColumn.isUnique)) return [3 /*break*/, 11];
-                                    if (!(newColumn.isUnique === true)) return [3 /*break*/, 9];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" ADD CONSTRAINT \"uk_" + newColumn.name + "\" UNIQUE (\"" + newColumn.name + "\")")];
-                                case 8:
-                                    _a.sent();
-                                    return [3 /*break*/, 11];
-                                case 9:
-                                    if (!(newColumn.isUnique === false)) return [3 /*break*/, 11];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + tableSchema.name + "\" DROP CONSTRAINT \"uk_" + newColumn.name + "\"")];
-                                case 10:
-                                    _a.sent();
-                                    _a.label = 11;
-                                case 11: return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Changes a column in the table.
-                 */
-                SqlServerQueryRunner.prototype.changeColumns = function (tableSchema, changedColumns) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var updatePromises;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    updatePromises = changedColumns.map(function (changedColumn) { return __awaiter(_this, void 0, void 0, function () {
-                                        return __generator(this, function (_a) {
-                                            return [2 /*return*/, this.changeColumn(tableSchema, changedColumn.oldColumn, changedColumn.newColumn)];
-                                        });
-                                    }); });
-                                    return [4 /*yield*/, Promise.all(updatePromises)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Drops column in the table.
-                 */
-                SqlServerQueryRunner.prototype.dropColumn = function (tableSchemaOrName, columnSchemaOrName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableName, columnName;
-                        return __generator(this, function (_a) {
-                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            columnName = columnSchemaOrName instanceof ColumnSchema_3.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
-                            return [2 /*return*/, this.query("ALTER TABLE \"" + tableName + "\" DROP COLUMN \"" + columnName + "\"")];
-                        });
-                    });
-                };
-                /**
-                 * Drops the columns in the table.
-                 */
-                SqlServerQueryRunner.prototype.dropColumns = function (tableSchemaOrName, columnSchemasOrNames) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var dropPromises;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    dropPromises = columnSchemasOrNames.map(function (column) { return _this.dropColumn(tableSchemaOrName, column); });
-                                    return [4 /*yield*/, Promise.all(dropPromises)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Updates table's primary keys.
-                 */
-                SqlServerQueryRunner.prototype.updatePrimaryKeys = function (dbTable) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var oldPrimaryKeySql, oldPrimaryKey, primaryColumnNames;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    oldPrimaryKeySql = "SELECT columnUsages.*, tableConstraints.CONSTRAINT_TYPE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE columnUsages\nLEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tableConstraints ON tableConstraints.CONSTRAINT_NAME = columnUsages.CONSTRAINT_NAME AND tableConstraints.CONSTRAINT_TYPE = 'PRIMARY KEY'\nWHERE columnUsages.TABLE_CATALOG = '" + this.dbName + "' AND tableConstraints.TABLE_CATALOG = '" + this.dbName + "'";
-                                    return [4 /*yield*/, this.query(oldPrimaryKeySql)];
-                                case 1:
-                                    oldPrimaryKey = _a.sent();
-                                    if (!(oldPrimaryKey.length > 0)) return [3 /*break*/, 3];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" DROP CONSTRAINT \"" + oldPrimaryKey[0]["CONSTRAINT_NAME"] + "\"")];
-                                case 2:
-                                    _a.sent();
-                                    _a.label = 3;
-                                case 3:
-                                    primaryColumnNames = dbTable.primaryKeys.map(function (primaryKey) { return "\"" + primaryKey.columnName + "\""; });
-                                    if (!(primaryColumnNames.length > 0)) return [3 /*break*/, 5];
-                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
-                                case 4:
-                                    _a.sent();
-                                    _a.label = 5;
-                                case 5: return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Creates a new foreign key.
-                 */
-                SqlServerQueryRunner.prototype.createForeignKey = function (tableSchemaOrName, foreignKey) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableName, columnNames, referencedColumnNames, sql;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            columnNames = foreignKey.columnNames.map(function (column) { return "\"" + column + "\""; }).join(", ");
-                            referencedColumnNames = foreignKey.referencedColumnNames.map(function (column) { return "\"" + column + "\""; }).join(",");
-                            sql = "ALTER TABLE \"" + tableName + "\" ADD CONSTRAINT \"" + foreignKey.name + "\" " +
-                                ("FOREIGN KEY (" + columnNames + ") ") +
-                                ("REFERENCES \"" + foreignKey.referencedTableName + "\"(" + referencedColumnNames + ")");
-                            if (foreignKey.onDelete)
-                                sql += " ON DELETE " + foreignKey.onDelete;
-                            return [2 /*return*/, this.query(sql)];
-                        });
-                    });
-                };
-                /**
-                 * Creates a new foreign keys.
-                 */
-                SqlServerQueryRunner.prototype.createForeignKeys = function (tableSchemaOrName, foreignKeys) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var promises;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    promises = foreignKeys.map(function (foreignKey) { return _this.createForeignKey(tableSchemaOrName, foreignKey); });
-                                    return [4 /*yield*/, Promise.all(promises)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Drops a foreign key from the table.
-                 */
-                SqlServerQueryRunner.prototype.dropForeignKey = function (tableSchemaOrName, foreignKey) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var tableName, sql;
-                        return __generator(this, function (_a) {
-                            if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            sql = "ALTER TABLE \"" + tableName + "\" DROP CONSTRAINT \"" + foreignKey.name + "\"";
-                            return [2 /*return*/, this.query(sql)];
-                        });
-                    });
-                };
-                /**
-                 * Drops a foreign keys from the table.
-                 */
-                SqlServerQueryRunner.prototype.dropForeignKeys = function (tableSchemaOrName, foreignKeys) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var _this = this;
-                        var promises;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    promises = foreignKeys.map(function (foreignKey) { return _this.dropForeignKey(tableSchemaOrName, foreignKey); });
-                                    return [4 /*yield*/, Promise.all(promises)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Creates a new index.
-                 */
-                SqlServerQueryRunner.prototype.createIndex = function (tableName, index) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var columns, sql;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    columns = index.columnNames.map(function (columnName) { return "\"" + columnName + "\""; }).join(", ");
-                                    sql = "CREATE " + (index.isUnique ? "UNIQUE " : "") + "INDEX \"" + index.name + "\" ON \"" + tableName + "\"(" + columns + ")";
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Drops an index from the table.
-                 */
-                SqlServerQueryRunner.prototype.dropIndex = function (tableName, indexName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        var sql;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
-                                    sql = "DROP INDEX \"" + tableName + "\".\"" + indexName + "\"";
-                                    return [4 /*yield*/, this.query(sql)];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                /**
-                 * Creates a database type from a given column metadata.
-                 */
-                SqlServerQueryRunner.prototype.normalizeType = function (typeOptions) {
-                    switch (typeOptions.type) {
-                        case "string":
-                            if (typeOptions.fixedLength) {
-                                return "nchar(" + (typeOptions.length ? typeOptions.length : 255) + ")";
-                            }
-                            else {
-                                return "nvarchar(" + (typeOptions.length ? typeOptions.length : 255) + ")";
-                            }
-                        case "text":
-                            return "ntext";
-                        case "boolean":
-                            return "bit";
-                        case "integer":
-                        case "int":
-                            return "int";
-                        case "smallint":
-                            return "smallint";
-                        case "bigint":
-                            return "bigint";
-                        case "float":
-                            return "float";
-                        case "double":
-                        case "number":
-                            return "real";
-                        case "decimal":
-                            // if (column.precision && column.scale) {
-                            //     return `decimal(${column.precision},${column.scale})`;
-                            //
-                            // } else if (column.scale) {
-                            //     return `decimal(${column.scale})`;
-                            //
-                            // } else if (column.precision) {
-                            //     return `decimal(${column.precision})`;
-                            //
-                            // } else {
-                            return "decimal";
-                        // }
-                        case "date":
-                            return "date";
-                        case "time":
-                            return "time";
-                        case "datetime":
-                            return "datetime";
-                        case "json":
-                            return "text";
-                        case "simple_array":
-                            return typeOptions.length ? "nvarchar(" + typeOptions.length + ")" : "text";
-                    }
-                    throw new DataTypeNotSupportedByDriverError_2.DataTypeNotSupportedByDriverError(typeOptions.type, "SQLServer");
-                };
-                /**
-                 * Checks if "DEFAULT" values in the column metadata and in the database schema are equal.
-                 */
-                SqlServerQueryRunner.prototype.compareDefaultValues = function (columnMetadataValue, databaseValue) {
-                    if (typeof columnMetadataValue === "number")
-                        return columnMetadataValue === parseInt(databaseValue);
-                    if (typeof columnMetadataValue === "boolean")
-                        return columnMetadataValue === (!!databaseValue || databaseValue === "false");
-                    if (typeof columnMetadataValue === "function")
-                        return columnMetadataValue() === databaseValue;
-                    return columnMetadataValue === databaseValue;
-                };
-                /**
-                 * Truncates table.
-                 */
-                SqlServerQueryRunner.prototype.truncate = function (tableName) {
-                    return __awaiter(this, void 0, void 0, function () {
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, this.query("TRUNCATE TABLE " + this.driver.escapeTableName(tableName))];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    });
-                };
-                Object.defineProperty(SqlServerQueryRunner.prototype, "dbName", {
-                    // -------------------------------------------------------------------------
-                    // Protected Methods
-                    // -------------------------------------------------------------------------
-                    /**
-                     * Database name shortcut.
-                     */
-                    get: function () {
-                        return this.driver.options.database;
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-                /**
-                 * Parametrizes given object of values. Used to create column=value queries.
-                 */
-                SqlServerQueryRunner.prototype.parametrize = function (objectLiteral, startFrom) {
-                    var _this = this;
-                    if (startFrom === void 0) { startFrom = 0; }
-                    return Object.keys(objectLiteral).map(function (key, index) {
-                        return _this.driver.escapeColumnName(key) + "=@" + (startFrom + index);
-                    });
-                };
-                /**
-                 * Builds a query for create column.
-                 */
-                SqlServerQueryRunner.prototype.buildCreateColumnSql = function (column, skipIdentity) {
-                    if (skipIdentity === void 0) { skipIdentity = false; }
-                    var c = "\"" + column.name + "\" " + column.type;
-                    if (column.isNullable !== true)
-                        c += " NOT NULL";
-                    if (column.isGenerated === true && !skipIdentity)
-                        c += " IDENTITY(1,1)";
-                    // if (column.isPrimary === true && !skipPrimary)
-                    //     c += " PRIMARY KEY";
-                    if (column.comment)
-                        c += " COMMENT '" + column.comment + "'";
-                    if (column.default !== undefined && column.default !== null) {
-                        if (typeof column.default === "number") {
-                            c += " DEFAULT " + column.default + "";
-                        }
-                        else if (typeof column.default === "boolean") {
-                            c += " DEFAULT " + (column.default === true ? "1" : "0") + "";
-                        }
-                        else if (typeof column.default === "function") {
-                            c += " DEFAULT " + column.default() + "";
-                        }
-                        else if (typeof column.default === "string") {
-                            c += " DEFAULT '" + column.default + "'";
-                        }
-                        else {
-                            c += " DEFAULT " + column.default + "";
-                        }
-                    }
-                    return c;
-                };
-                return SqlServerQueryRunner;
-            }());
-            exports_44("SqlServerQueryRunner", SqlServerQueryRunner);
-        }
-    };
-});
-System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/sqlserver/SqlServerQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_45, context_45) {
-    "use strict";
-    var __moduleName = context_45 && context_45.id;
-    var ConnectionIsNotSetError_2, DriverPackageNotInstalledError_2, DriverUtils_2, SqlServerQueryRunner_1, ColumnTypes_2, DriverOptionNotSetError_2, DataTransformationUtils_2, PlatformTools_3, SqlServerDriver;
-    return {
-        setters: [
-            function (ConnectionIsNotSetError_2_1) {
-                ConnectionIsNotSetError_2 = ConnectionIsNotSetError_2_1;
-            },
-            function (DriverPackageNotInstalledError_2_1) {
-                DriverPackageNotInstalledError_2 = DriverPackageNotInstalledError_2_1;
-            },
-            function (DriverUtils_2_1) {
-                DriverUtils_2 = DriverUtils_2_1;
-            },
-            function (SqlServerQueryRunner_1_1) {
-                SqlServerQueryRunner_1 = SqlServerQueryRunner_1_1;
-            },
-            function (ColumnTypes_2_1) {
-                ColumnTypes_2 = ColumnTypes_2_1;
-            },
-            function (DriverOptionNotSetError_2_1) {
-                DriverOptionNotSetError_2 = DriverOptionNotSetError_2_1;
-            },
-            function (DataTransformationUtils_2_1) {
-                DataTransformationUtils_2 = DataTransformationUtils_2_1;
-            },
-            function (PlatformTools_3_1) {
-                PlatformTools_3 = PlatformTools_3_1;
-            }
-        ],
-        execute: function () {
-            /**
              * Organizes communication with SQL Server DBMS.
              */
             SqlServerDriver = (function () {
@@ -5107,16 +3824,16 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                      * Pool of database connections.
                      */
                     this.databaseConnectionPool = [];
-                    this.options = DriverUtils_2.DriverUtils.buildDriverOptions(options);
+                    this.options = DriverUtils_1.DriverUtils.buildDriverOptions(options);
                     this.logger = logger;
                     this.mssql = mssql;
                     // validate options to make sure everything is set
                     if (!this.options.host)
-                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("host");
+                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("host");
                     if (!this.options.username)
-                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("username");
+                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("username");
                     if (!this.options.database)
-                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("database");
+                        throw new DriverOptionNotSetError_1.DriverOptionNotSetError("database");
                     // if mssql package instance was not set explicitly then try to load it
                     if (!mssql)
                         this.loadDependencies();
@@ -5169,7 +3886,7 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                     return __awaiter(this, void 0, void 0, function () {
                         return __generator(this, function (_a) {
                             if (!this.connection)
-                                throw new ConnectionIsNotSetError_2.ConnectionIsNotSetError("mssql");
+                                throw new ConnectionIsNotSetError_1.ConnectionIsNotSetError("mssql");
                             this.connection.close();
                             this.connection = undefined;
                             this.databaseConnection = undefined;
@@ -5188,7 +3905,7 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                             switch (_a.label) {
                                 case 0:
                                     if (!this.connection)
-                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_2.ConnectionIsNotSetError("mssql"))];
+                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_1.ConnectionIsNotSetError("mssql"))];
                                     return [4 /*yield*/, this.retrieveDatabaseConnection()];
                                 case 1:
                                     databaseConnection = _a.sent();
@@ -5256,23 +3973,23 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                     if (value === null || value === undefined)
                         return null;
                     switch (columnMetadata.type) {
-                        case ColumnTypes_2.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_1.ColumnTypes.BOOLEAN:
                             return value === true ? 1 : 0;
-                        case ColumnTypes_2.ColumnTypes.DATE:
-                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_2.ColumnTypes.TIME:
-                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToTimeString(value);
-                        case ColumnTypes_2.ColumnTypes.DATETIME:
+                        case ColumnTypes_1.ColumnTypes.DATE:
+                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_1.ColumnTypes.TIME:
+                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToTimeString(value);
+                        case ColumnTypes_1.ColumnTypes.DATETIME:
                             if (columnMetadata.localTimezone) {
-                                return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDatetimeString(value);
+                                return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDatetimeString(value);
                             }
                             else {
-                                return DataTransformationUtils_2.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
+                                return DataTransformationUtils_1.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
                             }
-                        case ColumnTypes_2.ColumnTypes.JSON:
+                        case ColumnTypes_1.ColumnTypes.JSON:
                             return JSON.stringify(value);
-                        case ColumnTypes_2.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_2.DataTransformationUtils.simpleArrayToString(value);
+                        case ColumnTypes_1.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_1.DataTransformationUtils.simpleArrayToString(value);
                     }
                     return value;
                 };
@@ -5281,18 +3998,18 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                  */
                 SqlServerDriver.prototype.prepareHydratedValue = function (value, columnMetadata) {
                     switch (columnMetadata.type) {
-                        case ColumnTypes_2.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_1.ColumnTypes.BOOLEAN:
                             return value ? true : false;
-                        case ColumnTypes_2.ColumnTypes.DATETIME:
-                            return DataTransformationUtils_2.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
-                        case ColumnTypes_2.ColumnTypes.DATE:
-                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_2.ColumnTypes.TIME:
-                            return DataTransformationUtils_2.DataTransformationUtils.mixedTimeToString(value);
-                        case ColumnTypes_2.ColumnTypes.JSON:
+                        case ColumnTypes_1.ColumnTypes.DATETIME:
+                            return DataTransformationUtils_1.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
+                        case ColumnTypes_1.ColumnTypes.DATE:
+                            return DataTransformationUtils_1.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_1.ColumnTypes.TIME:
+                            return DataTransformationUtils_1.DataTransformationUtils.mixedTimeToString(value);
+                        case ColumnTypes_1.ColumnTypes.JSON:
                             return JSON.parse(value);
-                        case ColumnTypes_2.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_2.DataTransformationUtils.stringToSimpleArray(value);
+                        case ColumnTypes_1.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_1.DataTransformationUtils.stringToSimpleArray(value);
                     }
                     return value;
                 };
@@ -5307,7 +4024,7 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                 SqlServerDriver.prototype.retrieveDatabaseConnection = function () {
                     var _this = this;
                     if (!this.connection)
-                        throw new ConnectionIsNotSetError_2.ConnectionIsNotSetError("mssql");
+                        throw new ConnectionIsNotSetError_1.ConnectionIsNotSetError("mssql");
                     return new Promise(function (ok, fail) {
                         if (_this.databaseConnection)
                             return ok(_this.databaseConnection);
@@ -5347,21 +4064,21 @@ System.register("typeorm/driver/sqlserver/SqlServerDriver", ["typeorm/driver/err
                  */
                 SqlServerDriver.prototype.loadDependencies = function () {
                     try {
-                        this.mssql = PlatformTools_3.PlatformTools.load("mssql");
+                        this.mssql = PlatformTools_2.PlatformTools.load("mssql");
                     }
                     catch (e) {
-                        throw new DriverPackageNotInstalledError_2.DriverPackageNotInstalledError("SQL Server", "mssql");
+                        throw new DriverPackageNotInstalledError_1.DriverPackageNotInstalledError("SQL Server", "mssql");
                     }
                 };
                 return SqlServerDriver;
             }());
-            exports_45("SqlServerDriver", SqlServerDriver);
+            exports_43("SqlServerDriver", SqlServerDriver);
         }
     };
 });
-System.register("typeorm/query-runner/QueryRunnerProvider", [], function (exports_46, context_46) {
+System.register("typeorm/query-runner/QueryRunnerProvider", [], function (exports_44, context_44) {
     "use strict";
-    var __moduleName = context_46 && context_46.id;
+    var __moduleName = context_44 && context_44.id;
     var QueryRunnerProvider;
     return {
         setters: [],
@@ -5446,13 +4163,13 @@ System.register("typeorm/query-runner/QueryRunnerProvider", [], function (export
                 };
                 return QueryRunnerProvider;
             }());
-            exports_46("QueryRunnerProvider", QueryRunnerProvider);
+            exports_44("QueryRunnerProvider", QueryRunnerProvider);
         }
     };
 });
-System.register("typeorm/query-builder/error/PessimisticLockTransactionRequiredError", [], function (exports_47, context_47) {
+System.register("typeorm/query-builder/error/PessimisticLockTransactionRequiredError", [], function (exports_45, context_45) {
     "use strict";
-    var __moduleName = context_47 && context_47.id;
+    var __moduleName = context_45 && context_45.id;
     var PessimisticLockTransactionRequiredError;
     return {
         setters: [],
@@ -5471,13 +4188,13 @@ System.register("typeorm/query-builder/error/PessimisticLockTransactionRequiredE
                 }
                 return PessimisticLockTransactionRequiredError;
             }(Error));
-            exports_47("PessimisticLockTransactionRequiredError", PessimisticLockTransactionRequiredError);
+            exports_45("PessimisticLockTransactionRequiredError", PessimisticLockTransactionRequiredError);
         }
     };
 });
-System.register("typeorm/query-builder/error/NoVersionOrUpdateDateColumnError", [], function (exports_48, context_48) {
+System.register("typeorm/query-builder/error/NoVersionOrUpdateDateColumnError", [], function (exports_46, context_46) {
     "use strict";
-    var __moduleName = context_48 && context_48.id;
+    var __moduleName = context_46 && context_46.id;
     var NoVersionOrUpdateDateColumnError;
     return {
         setters: [],
@@ -5496,13 +4213,13 @@ System.register("typeorm/query-builder/error/NoVersionOrUpdateDateColumnError", 
                 }
                 return NoVersionOrUpdateDateColumnError;
             }(Error));
-            exports_48("NoVersionOrUpdateDateColumnError", NoVersionOrUpdateDateColumnError);
+            exports_46("NoVersionOrUpdateDateColumnError", NoVersionOrUpdateDateColumnError);
         }
     };
 });
-System.register("typeorm/query-builder/error/OptimisticLockVersionMismatchError", [], function (exports_49, context_49) {
+System.register("typeorm/query-builder/error/OptimisticLockVersionMismatchError", [], function (exports_47, context_47) {
     "use strict";
-    var __moduleName = context_49 && context_49.id;
+    var __moduleName = context_47 && context_47.id;
     var OptimisticLockVersionMismatchError;
     return {
         setters: [],
@@ -5521,13 +4238,13 @@ System.register("typeorm/query-builder/error/OptimisticLockVersionMismatchError"
                 }
                 return OptimisticLockVersionMismatchError;
             }(Error));
-            exports_49("OptimisticLockVersionMismatchError", OptimisticLockVersionMismatchError);
+            exports_47("OptimisticLockVersionMismatchError", OptimisticLockVersionMismatchError);
         }
     };
 });
-System.register("typeorm/query-builder/error/OptimisticLockCanNotBeUsedError", [], function (exports_50, context_50) {
+System.register("typeorm/query-builder/error/OptimisticLockCanNotBeUsedError", [], function (exports_48, context_48) {
     "use strict";
-    var __moduleName = context_50 && context_50.id;
+    var __moduleName = context_48 && context_48.id;
     var OptimisticLockCanNotBeUsedError;
     return {
         setters: [],
@@ -5546,42 +4263,42 @@ System.register("typeorm/query-builder/error/OptimisticLockCanNotBeUsedError", [
                 }
                 return OptimisticLockCanNotBeUsedError;
             }(Error));
-            exports_50("OptimisticLockCanNotBeUsedError", OptimisticLockCanNotBeUsedError);
+            exports_48("OptimisticLockCanNotBeUsedError", OptimisticLockCanNotBeUsedError);
         }
     };
 });
-System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_51, context_51) {
+System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_49, context_49) {
     "use strict";
-    var __moduleName = context_51 && context_51.id;
-    var TransactionAlreadyStartedError_3, TransactionNotStartedError_3, DataTypeNotSupportedByDriverError_3, ColumnSchema_4, TableSchema_3, IndexSchema_2, ForeignKeySchema_3, PrimaryKeySchema_3, QueryRunnerAlreadyReleasedError_3, PostgresQueryRunner;
+    var __moduleName = context_49 && context_49.id;
+    var TransactionAlreadyStartedError_2, TransactionNotStartedError_2, DataTypeNotSupportedByDriverError_2, ColumnSchema_3, TableSchema_2, IndexSchema_2, ForeignKeySchema_2, PrimaryKeySchema_2, QueryRunnerAlreadyReleasedError_2, PostgresQueryRunner;
     return {
         setters: [
-            function (TransactionAlreadyStartedError_3_1) {
-                TransactionAlreadyStartedError_3 = TransactionAlreadyStartedError_3_1;
+            function (TransactionAlreadyStartedError_2_1) {
+                TransactionAlreadyStartedError_2 = TransactionAlreadyStartedError_2_1;
             },
-            function (TransactionNotStartedError_3_1) {
-                TransactionNotStartedError_3 = TransactionNotStartedError_3_1;
+            function (TransactionNotStartedError_2_1) {
+                TransactionNotStartedError_2 = TransactionNotStartedError_2_1;
             },
-            function (DataTypeNotSupportedByDriverError_3_1) {
-                DataTypeNotSupportedByDriverError_3 = DataTypeNotSupportedByDriverError_3_1;
+            function (DataTypeNotSupportedByDriverError_2_1) {
+                DataTypeNotSupportedByDriverError_2 = DataTypeNotSupportedByDriverError_2_1;
             },
-            function (ColumnSchema_4_1) {
-                ColumnSchema_4 = ColumnSchema_4_1;
+            function (ColumnSchema_3_1) {
+                ColumnSchema_3 = ColumnSchema_3_1;
             },
-            function (TableSchema_3_1) {
-                TableSchema_3 = TableSchema_3_1;
+            function (TableSchema_2_1) {
+                TableSchema_2 = TableSchema_2_1;
             },
             function (IndexSchema_2_1) {
                 IndexSchema_2 = IndexSchema_2_1;
             },
-            function (ForeignKeySchema_3_1) {
-                ForeignKeySchema_3 = ForeignKeySchema_3_1;
+            function (ForeignKeySchema_2_1) {
+                ForeignKeySchema_2 = ForeignKeySchema_2_1;
             },
-            function (PrimaryKeySchema_3_1) {
-                PrimaryKeySchema_3 = PrimaryKeySchema_3_1;
+            function (PrimaryKeySchema_2_1) {
+                PrimaryKeySchema_2 = PrimaryKeySchema_2_1;
             },
-            function (QueryRunnerAlreadyReleasedError_3_1) {
-                QueryRunnerAlreadyReleasedError_3 = QueryRunnerAlreadyReleasedError_3_1;
+            function (QueryRunnerAlreadyReleasedError_2_1) {
+                QueryRunnerAlreadyReleasedError_2 = QueryRunnerAlreadyReleasedError_2_1;
             }
         ],
         execute: function () {
@@ -5626,12 +4343,12 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                 PostgresQueryRunner.prototype.clearDatabase = function () {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
-                        var selectDropsQuery, dropQueries, error_3;
+                        var selectDropsQuery, dropQueries, error_2;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     return [4 /*yield*/, this.beginTransaction()];
                                 case 1:
                                     _a.sent();
@@ -5650,11 +4367,11 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                     _a.sent();
                                     return [3 /*break*/, 10];
                                 case 6:
-                                    error_3 = _a.sent();
+                                    error_2 = _a.sent();
                                     return [4 /*yield*/, this.rollbackTransaction()];
                                 case 7:
                                     _a.sent();
-                                    throw error_3;
+                                    throw error_2;
                                 case 8: return [4 /*yield*/, this.release()];
                                 case 9:
                                     _a.sent();
@@ -5673,9 +4390,9 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     if (this.databaseConnection.isTransactionActive)
-                                        throw new TransactionAlreadyStartedError_3.TransactionAlreadyStartedError();
+                                        throw new TransactionAlreadyStartedError_2.TransactionAlreadyStartedError();
                                     this.databaseConnection.isTransactionActive = true;
                                     return [4 /*yield*/, this.query("START TRANSACTION")];
                                 case 1:
@@ -5694,9 +4411,9 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_3.TransactionNotStartedError();
+                                        throw new TransactionNotStartedError_2.TransactionNotStartedError();
                                     return [4 /*yield*/, this.query("COMMIT")];
                                 case 1:
                                     _a.sent();
@@ -5715,9 +4432,9 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_3.TransactionNotStartedError();
+                                        throw new TransactionNotStartedError_2.TransactionNotStartedError();
                                     return [4 /*yield*/, this.query("ROLLBACK")];
                                 case 1:
                                     _a.sent();
@@ -5739,7 +4456,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                 PostgresQueryRunner.prototype.query = function (query, parameters) {
                     var _this = this;
                     if (this.isReleased)
-                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                     // console.log("query: ", query);
                     // console.log("parameters: ", parameters);
                     return new Promise(function (ok, fail) {
@@ -5767,7 +4484,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     keys = Object.keys(keyValues);
                                     columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
                                     values = keys.map(function (key, index) { return "$" + (index + 1); }).join(",");
@@ -5795,7 +4512,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     updateValues = this.parametrize(valuesMap).join(", ");
                                     conditionString = this.parametrize(conditions, Object.keys(valuesMap).length).join(" AND ");
                                     query = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
@@ -5820,7 +4537,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     conditionString = typeof conditions === "string" ? conditions : this.parametrize(conditions).join(" AND ");
                                     parameters = conditions instanceof Object ? Object.keys(conditions).map(function (key) { return conditions[key]; }) : maybeParameters;
                                     sql = "DELETE FROM " + this.driver.escapeTableName(tableName) + " WHERE " + conditionString;
@@ -5842,7 +4559,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     sql = "";
                                     if (hasLevel) {
                                         sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant, level) " +
@@ -5891,7 +4608,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_b.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     // if no tables given then no need to proceed
                                     if (!tableNames || !tableNames.length)
                                         return [2 /*return*/, []];
@@ -5917,7 +4634,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                         return [2 /*return*/, []];
                                     // create table schemas for loaded tables
                                     return [2 /*return*/, dbTables.map(function (dbTable) {
-                                            var tableSchema = new TableSchema_3.TableSchema(dbTable["table_name"]);
+                                            var tableSchema = new TableSchema_2.TableSchema(dbTable["table_name"]);
                                             // create column schemas from the loaded columns
                                             tableSchema.columns = dbColumns
                                                 .filter(function (dbColumn) { return dbColumn["table_name"] === tableSchema.name; })
@@ -5926,7 +4643,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                                 var isGenerated = dbColumn["column_default"] === "nextval('" + dbColumn["table_name"] + "_id_seq'::regclass)"
                                                     || dbColumn["column_default"] === "nextval('\"" + dbColumn["table_name"] + "_id_seq\"'::regclass)"
                                                     || /^uuid\_generate\_v\d\(\)/.test(dbColumn["column_default"]);
-                                                var columnSchema = new ColumnSchema_4.ColumnSchema();
+                                                var columnSchema = new ColumnSchema_3.ColumnSchema();
                                                 columnSchema.name = dbColumn["column_name"];
                                                 columnSchema.type = columnType;
                                                 columnSchema.default = dbColumn["column_default"] !== null && dbColumn["column_default"] !== undefined ? dbColumn["column_default"] : undefined;
@@ -5940,11 +4657,11 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                             // create primary key schema
                                             tableSchema.primaryKeys = primaryKeys
                                                 .filter(function (primaryKey) { return primaryKey["table_name"] === tableSchema.name; })
-                                                .map(function (primaryKey) { return new PrimaryKeySchema_3.PrimaryKeySchema(primaryKey["constraint_name"], primaryKey["column_name"]); });
+                                                .map(function (primaryKey) { return new PrimaryKeySchema_2.PrimaryKeySchema(primaryKey["constraint_name"], primaryKey["column_name"]); });
                                             // create foreign key schemas from the loaded indices
                                             tableSchema.foreignKeys = dbForeignKeys
                                                 .filter(function (dbForeignKey) { return dbForeignKey["table_name"] === tableSchema.name; })
-                                                .map(function (dbForeignKey) { return new ForeignKeySchema_3.ForeignKeySchema(dbForeignKey["constraint_name"], [], [], "", ""); }); // todo: fix missing params
+                                                .map(function (dbForeignKey) { return new ForeignKeySchema_2.ForeignKeySchema(dbForeignKey["constraint_name"], [], [], "", ""); }); // todo: fix missing params
                                             // create unique key schemas from the loaded indices
                                             /*tableSchema.uniqueKeys = dbUniqueKeys
                                                 .filter(dbUniqueKey => dbUniqueKey["table_name"] === tableSchema.name)
@@ -6002,7 +4719,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column, false); }).join(", ");
                                     return [4 /*yield*/, this.query("CREATE SCHEMA IF NOT EXISTS \"" + this.schemaName + "\"")];
                                 case 1:
@@ -6018,6 +4735,24 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                     sql += ")";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 2:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops the table.
+                 */
+                PostgresQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE \"" + tableName + "\"";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
                                     _a.sent();
                                     return [2 /*return*/];
                             }
@@ -6050,8 +4785,8 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                         var tableName, sql;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             sql = "ALTER TABLE \"" + tableName + "\" ADD " + this.buildCreateColumnSql(column, false);
                             return [2 /*return*/, this.query(sql)];
                         });
@@ -6068,7 +4803,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     queries = columns.map(function (column) { return _this.addColumn(tableSchemaOrName, column); });
                                     return [4 /*yield*/, Promise.all(queries)];
                                 case 1:
@@ -6088,7 +4823,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_3.TableSchema)) return [3 /*break*/, 1];
+                                    if (!(tableSchemaOrName instanceof TableSchema_2.TableSchema)) return [3 /*break*/, 1];
                                     tableSchema = tableSchemaOrName;
                                     return [3 /*break*/, 3];
                                 case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
@@ -6099,7 +4834,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                     if (!tableSchema)
                                         throw new Error("Table " + tableSchemaOrName + " was not found.");
                                     oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
                                         oldColumn = oldColumnSchemaOrName;
                                     }
                                     else {
@@ -6108,7 +4843,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                     if (!oldColumn)
                                         throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
                                     newColumn = undefined;
-                                    if (newColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
+                                    if (newColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
                                         newColumn = newColumnSchemaOrName;
                                     }
                                     else {
@@ -6130,9 +4865,9 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_3.TableSchema)) return [3 /*break*/, 1];
+                                    if (!(tableSchemaOrName instanceof TableSchema_2.TableSchema)) return [3 /*break*/, 1];
                                     tableSchema = tableSchemaOrName;
                                     return [3 /*break*/, 3];
                                 case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
@@ -6143,7 +4878,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                                     if (!tableSchema)
                                         throw new Error("Table " + tableSchemaOrName + " was not found.");
                                     oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_3.ColumnSchema) {
                                         oldColumn = oldColumnSchemaOrName;
                                     }
                                     else {
@@ -6229,7 +4964,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     updatePromises = changedColumns.map(function (changedColumn) { return __awaiter(_this, void 0, void 0, function () {
                                         return __generator(this, function (_a) {
                                             return [2 /*return*/, this.changeColumn(tableSchema, changedColumn.oldColumn, changedColumn.newColumn)];
@@ -6250,8 +4985,8 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, columnName;
                         return __generator(this, function (_a) {
-                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            columnName = columnSchemaOrName instanceof ColumnSchema_4.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
+                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            columnName = columnSchemaOrName instanceof ColumnSchema_3.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
                             return [2 /*return*/, this.query("ALTER TABLE \"" + tableName + "\" DROP \"" + columnName + "\"")];
                         });
                     });
@@ -6267,7 +5002,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     dropPromises = columnSchemasOrNames.map(function (column) { return _this.dropColumn(tableSchemaOrName, column); });
                                     return [4 /*yield*/, Promise.all(dropPromises)];
                                 case 1:
@@ -6287,7 +5022,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     primaryColumnNames = dbTable.primaryKeys.map(function (primaryKey) { return "\"" + primaryKey.columnName + "\""; });
                                     return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" DROP CONSTRAINT IF EXISTS \"" + dbTable.name + "_pkey\"")];
                                 case 1:
@@ -6313,8 +5048,8 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                         var tableName, sql;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             sql = "ALTER TABLE \"" + tableName + "\" ADD CONSTRAINT \"" + foreignKey.name + "\" " +
                                 ("FOREIGN KEY (\"" + foreignKey.columnNames.join("\", \"") + "\") ") +
                                 ("REFERENCES \"" + foreignKey.referencedTableName + "\"(\"" + foreignKey.referencedColumnNames.join("\", \"") + "\")");
@@ -6335,7 +5070,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     promises = foreignKeys.map(function (foreignKey) { return _this.createForeignKey(tableSchemaOrName, foreignKey); });
                                     return [4 /*yield*/, Promise.all(promises)];
                                 case 1:
@@ -6353,8 +5088,8 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                         var tableName, sql;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_2.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             sql = "ALTER TABLE \"" + tableName + "\" DROP CONSTRAINT \"" + foreignKey.name + "\"";
                             return [2 /*return*/, this.query(sql)];
                         });
@@ -6371,7 +5106,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     promises = foreignKeys.map(function (foreignKey) { return _this.dropForeignKey(tableSchemaOrName, foreignKey); });
                                     return [4 /*yield*/, Promise.all(promises)];
                                 case 1:
@@ -6391,7 +5126,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     columnNames = index.columnNames.map(function (columnName) { return "\"" + columnName + "\""; }).join(",");
                                     sql = "CREATE " + (index.isUnique ? "UNIQUE " : "") + "INDEX \"" + index.name + "\" ON \"" + tableName + "\"(" + columnNames + ")";
                                     return [4 /*yield*/, this.query(sql)];
@@ -6413,7 +5148,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_2.QueryRunnerAlreadyReleasedError();
                                     if (!isGenerated) return [3 /*break*/, 2];
                                     return [4 /*yield*/, this.query("ALTER SEQUENCE \"" + tableName + "_id_seq\" OWNED BY NONE")];
                                 case 1:
@@ -6495,7 +5230,7 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                         case "uuid":
                             return "uuid";
                     }
-                    throw new DataTypeNotSupportedByDriverError_3.DataTypeNotSupportedByDriverError(typeOptions.type, "Postgres");
+                    throw new DataTypeNotSupportedByDriverError_2.DataTypeNotSupportedByDriverError(typeOptions.type, "Postgres");
                 };
                 /**
                  * Checks if "DEFAULT" values in the column metadata and in the database schema are equal.
@@ -6581,39 +5316,39 @@ System.register("typeorm/driver/postgres/PostgresQueryRunner", ["typeorm/driver/
                 };
                 return PostgresQueryRunner;
             }());
-            exports_51("PostgresQueryRunner", PostgresQueryRunner);
+            exports_49("PostgresQueryRunner", PostgresQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/postgres/PostgresQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_52, context_52) {
+System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/postgres/PostgresQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_50, context_50) {
     "use strict";
-    var __moduleName = context_52 && context_52.id;
-    var ConnectionIsNotSetError_3, DriverPackageNotInstalledError_3, DriverUtils_3, ColumnTypes_3, PostgresQueryRunner_1, DriverOptionNotSetError_3, DataTransformationUtils_3, PlatformTools_4, PostgresDriver;
+    var __moduleName = context_50 && context_50.id;
+    var ConnectionIsNotSetError_2, DriverPackageNotInstalledError_2, DriverUtils_2, ColumnTypes_2, PostgresQueryRunner_1, DriverOptionNotSetError_2, DataTransformationUtils_2, PlatformTools_3, PostgresDriver;
     return {
         setters: [
-            function (ConnectionIsNotSetError_3_1) {
-                ConnectionIsNotSetError_3 = ConnectionIsNotSetError_3_1;
+            function (ConnectionIsNotSetError_2_1) {
+                ConnectionIsNotSetError_2 = ConnectionIsNotSetError_2_1;
             },
-            function (DriverPackageNotInstalledError_3_1) {
-                DriverPackageNotInstalledError_3 = DriverPackageNotInstalledError_3_1;
+            function (DriverPackageNotInstalledError_2_1) {
+                DriverPackageNotInstalledError_2 = DriverPackageNotInstalledError_2_1;
             },
-            function (DriverUtils_3_1) {
-                DriverUtils_3 = DriverUtils_3_1;
+            function (DriverUtils_2_1) {
+                DriverUtils_2 = DriverUtils_2_1;
             },
-            function (ColumnTypes_3_1) {
-                ColumnTypes_3 = ColumnTypes_3_1;
+            function (ColumnTypes_2_1) {
+                ColumnTypes_2 = ColumnTypes_2_1;
             },
             function (PostgresQueryRunner_1_1) {
                 PostgresQueryRunner_1 = PostgresQueryRunner_1_1;
             },
-            function (DriverOptionNotSetError_3_1) {
-                DriverOptionNotSetError_3 = DriverOptionNotSetError_3_1;
+            function (DriverOptionNotSetError_2_1) {
+                DriverOptionNotSetError_2 = DriverOptionNotSetError_2_1;
             },
-            function (DataTransformationUtils_3_1) {
-                DataTransformationUtils_3 = DataTransformationUtils_3_1;
+            function (DataTransformationUtils_2_1) {
+                DataTransformationUtils_2 = DataTransformationUtils_2_1;
             },
-            function (PlatformTools_4_1) {
-                PlatformTools_4 = PlatformTools_4_1;
+            function (PlatformTools_3_1) {
+                PlatformTools_3 = PlatformTools_3_1;
             }
         ],
         execute: function () {
@@ -6633,17 +5368,17 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                      * Pool of database connections.
                      */
                     this.databaseConnectionPool = [];
-                    this.options = DriverUtils_3.DriverUtils.buildDriverOptions(connectionOptions);
+                    this.options = DriverUtils_2.DriverUtils.buildDriverOptions(connectionOptions);
                     this.logger = logger;
                     this.postgres = postgres;
                     this.schemaName = connectionOptions.schemaName || "public";
                     // validate options to make sure everything is set
                     if (!this.options.host)
-                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("host");
+                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("host");
                     if (!this.options.username)
-                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("username");
+                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("username");
                     if (!this.options.database)
-                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("database");
+                        throw new DriverOptionNotSetError_2.DriverOptionNotSetError("database");
                     // if postgres package instance was not set explicitly then try to load it
                     if (!postgres)
                         this.loadDependencies();
@@ -6705,7 +5440,7 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                 PostgresDriver.prototype.disconnect = function () {
                     var _this = this;
                     if (!this.databaseConnection && !this.pool)
-                        throw new ConnectionIsNotSetError_3.ConnectionIsNotSetError("postgres");
+                        throw new ConnectionIsNotSetError_2.ConnectionIsNotSetError("postgres");
                     return new Promise(function (ok, fail) {
                         var handler = function (err) { return err ? fail(err) : ok(); };
                         if (_this.databaseConnection) {
@@ -6735,7 +5470,7 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                             switch (_a.label) {
                                 case 0:
                                     if (!this.databaseConnection && !this.pool)
-                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_3.ConnectionIsNotSetError("postgres"))];
+                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_2.ConnectionIsNotSetError("postgres"))];
                                     return [4 /*yield*/, this.retrieveDatabaseConnection()];
                                 case 1:
                                     databaseConnection = _a.sent();
@@ -6761,24 +5496,24 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                     if (value === null || value === undefined)
                         return null;
                     switch (column.type) {
-                        case ColumnTypes_3.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_2.ColumnTypes.BOOLEAN:
                             return value === true ? 1 : 0;
-                        case ColumnTypes_3.ColumnTypes.DATE:
-                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_3.ColumnTypes.TIME:
-                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToTimeString(value);
-                        case ColumnTypes_3.ColumnTypes.DATETIME:
+                        case ColumnTypes_2.ColumnTypes.DATE:
+                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_2.ColumnTypes.TIME:
+                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToTimeString(value);
+                        case ColumnTypes_2.ColumnTypes.DATETIME:
                             if (column.localTimezone) {
-                                return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDatetimeString(value);
+                                return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDatetimeString(value);
                             }
                             else {
-                                return DataTransformationUtils_3.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
+                                return DataTransformationUtils_2.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
                             }
-                        case ColumnTypes_3.ColumnTypes.JSON:
-                        case ColumnTypes_3.ColumnTypes.JSONB:
+                        case ColumnTypes_2.ColumnTypes.JSON:
+                        case ColumnTypes_2.ColumnTypes.JSONB:
                             return JSON.stringify(value);
-                        case ColumnTypes_3.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_3.DataTransformationUtils.simpleArrayToString(value);
+                        case ColumnTypes_2.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_2.DataTransformationUtils.simpleArrayToString(value);
                     }
                     return value;
                 };
@@ -6787,21 +5522,21 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                  */
                 PostgresDriver.prototype.prepareHydratedValue = function (value, columnMetadata) {
                     switch (columnMetadata.type) {
-                        case ColumnTypes_3.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_2.ColumnTypes.BOOLEAN:
                             return value ? true : false;
-                        case ColumnTypes_3.ColumnTypes.DATETIME:
-                            return DataTransformationUtils_3.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
-                        case ColumnTypes_3.ColumnTypes.DATE:
-                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_3.ColumnTypes.TIME:
-                            return DataTransformationUtils_3.DataTransformationUtils.mixedTimeToString(value);
-                        case ColumnTypes_3.ColumnTypes.JSON:
-                        case ColumnTypes_3.ColumnTypes.JSONB:
+                        case ColumnTypes_2.ColumnTypes.DATETIME:
+                            return DataTransformationUtils_2.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
+                        case ColumnTypes_2.ColumnTypes.DATE:
+                            return DataTransformationUtils_2.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_2.ColumnTypes.TIME:
+                            return DataTransformationUtils_2.DataTransformationUtils.mixedTimeToString(value);
+                        case ColumnTypes_2.ColumnTypes.JSON:
+                        case ColumnTypes_2.ColumnTypes.JSONB:
                             // pg(pg-types) have done JSON.parse conversion
                             // https://github.com/brianc/node-pg-types/blob/ed2d0e36e33217b34530727a98d20b325389e73a/lib/textParsers.js#L170
                             return value;
-                        case ColumnTypes_3.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_3.DataTransformationUtils.stringToSimpleArray(value);
+                        case ColumnTypes_2.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_2.DataTransformationUtils.stringToSimpleArray(value);
                     }
                     return value;
                 };
@@ -6895,57 +5630,57 @@ System.register("typeorm/driver/postgres/PostgresDriver", ["typeorm/driver/error
                     }
                     if (this.databaseConnection)
                         return Promise.resolve(this.databaseConnection);
-                    throw new ConnectionIsNotSetError_3.ConnectionIsNotSetError("postgres");
+                    throw new ConnectionIsNotSetError_2.ConnectionIsNotSetError("postgres");
                 };
                 /**
                  * If driver dependency is not given explicitly, then try to load it via "require".
                  */
                 PostgresDriver.prototype.loadDependencies = function () {
                     try {
-                        this.postgres = PlatformTools_4.PlatformTools.load("pg");
+                        this.postgres = PlatformTools_3.PlatformTools.load("pg");
                     }
                     catch (e) {
-                        throw new DriverPackageNotInstalledError_3.DriverPackageNotInstalledError("Postgres", "pg");
+                        throw new DriverPackageNotInstalledError_2.DriverPackageNotInstalledError("Postgres", "pg");
                     }
                 };
                 return PostgresDriver;
             }());
-            exports_52("PostgresDriver", PostgresDriver);
+            exports_50("PostgresDriver", PostgresDriver);
         }
     };
 });
-System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_53, context_53) {
+System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_51, context_51) {
     "use strict";
-    var __moduleName = context_53 && context_53.id;
-    var TransactionAlreadyStartedError_4, TransactionNotStartedError_4, DataTypeNotSupportedByDriverError_4, ColumnSchema_5, TableSchema_4, ForeignKeySchema_4, PrimaryKeySchema_4, IndexSchema_3, QueryRunnerAlreadyReleasedError_4, MysqlQueryRunner;
+    var __moduleName = context_51 && context_51.id;
+    var TransactionAlreadyStartedError_3, TransactionNotStartedError_3, DataTypeNotSupportedByDriverError_3, ColumnSchema_4, TableSchema_3, ForeignKeySchema_3, PrimaryKeySchema_3, IndexSchema_3, QueryRunnerAlreadyReleasedError_3, MysqlQueryRunner;
     return {
         setters: [
-            function (TransactionAlreadyStartedError_4_1) {
-                TransactionAlreadyStartedError_4 = TransactionAlreadyStartedError_4_1;
+            function (TransactionAlreadyStartedError_3_1) {
+                TransactionAlreadyStartedError_3 = TransactionAlreadyStartedError_3_1;
             },
-            function (TransactionNotStartedError_4_1) {
-                TransactionNotStartedError_4 = TransactionNotStartedError_4_1;
+            function (TransactionNotStartedError_3_1) {
+                TransactionNotStartedError_3 = TransactionNotStartedError_3_1;
             },
-            function (DataTypeNotSupportedByDriverError_4_1) {
-                DataTypeNotSupportedByDriverError_4 = DataTypeNotSupportedByDriverError_4_1;
+            function (DataTypeNotSupportedByDriverError_3_1) {
+                DataTypeNotSupportedByDriverError_3 = DataTypeNotSupportedByDriverError_3_1;
             },
-            function (ColumnSchema_5_1) {
-                ColumnSchema_5 = ColumnSchema_5_1;
+            function (ColumnSchema_4_1) {
+                ColumnSchema_4 = ColumnSchema_4_1;
             },
-            function (TableSchema_4_1) {
-                TableSchema_4 = TableSchema_4_1;
+            function (TableSchema_3_1) {
+                TableSchema_3 = TableSchema_3_1;
             },
-            function (ForeignKeySchema_4_1) {
-                ForeignKeySchema_4 = ForeignKeySchema_4_1;
+            function (ForeignKeySchema_3_1) {
+                ForeignKeySchema_3 = ForeignKeySchema_3_1;
             },
-            function (PrimaryKeySchema_4_1) {
-                PrimaryKeySchema_4 = PrimaryKeySchema_4_1;
+            function (PrimaryKeySchema_3_1) {
+                PrimaryKeySchema_3 = PrimaryKeySchema_3_1;
             },
             function (IndexSchema_3_1) {
                 IndexSchema_3 = IndexSchema_3_1;
             },
-            function (QueryRunnerAlreadyReleasedError_4_1) {
-                QueryRunnerAlreadyReleasedError_4 = QueryRunnerAlreadyReleasedError_4_1;
+            function (QueryRunnerAlreadyReleasedError_3_1) {
+                QueryRunnerAlreadyReleasedError_3 = QueryRunnerAlreadyReleasedError_3_1;
             }
         ],
         execute: function () {
@@ -6992,12 +5727,12 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                 MysqlQueryRunner.prototype.clearDatabase = function () {
                     return __awaiter(this, void 0, void 0, function () {
                         var _this = this;
-                        var disableForeignKeysCheckQuery, dropTablesQuery, enableForeignKeysCheckQuery, dropQueries, error_4;
+                        var disableForeignKeysCheckQuery, dropTablesQuery, enableForeignKeysCheckQuery, dropQueries, error_3;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     return [4 /*yield*/, this.beginTransaction()];
                                 case 1:
                                     _a.sent();
@@ -7024,11 +5759,11 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                     _a.sent();
                                     return [3 /*break*/, 12];
                                 case 8:
-                                    error_4 = _a.sent();
+                                    error_3 = _a.sent();
                                     return [4 /*yield*/, this.rollbackTransaction()];
                                 case 9:
                                     _a.sent();
-                                    throw error_4;
+                                    throw error_3;
                                 case 10: return [4 /*yield*/, this.release()];
                                 case 11:
                                     _a.sent();
@@ -7047,9 +5782,9 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     if (this.databaseConnection.isTransactionActive)
-                                        throw new TransactionAlreadyStartedError_4.TransactionAlreadyStartedError();
+                                        throw new TransactionAlreadyStartedError_3.TransactionAlreadyStartedError();
                                     this.databaseConnection.isTransactionActive = true;
                                     return [4 /*yield*/, this.query("START TRANSACTION")];
                                 case 1:
@@ -7068,9 +5803,9 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_4.TransactionNotStartedError();
+                                        throw new TransactionNotStartedError_3.TransactionNotStartedError();
                                     return [4 /*yield*/, this.query("COMMIT")];
                                 case 1:
                                     _a.sent();
@@ -7089,9 +5824,9 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     if (!this.databaseConnection.isTransactionActive)
-                                        throw new TransactionNotStartedError_4.TransactionNotStartedError();
+                                        throw new TransactionNotStartedError_3.TransactionNotStartedError();
                                     return [4 /*yield*/, this.query("ROLLBACK")];
                                 case 1:
                                     _a.sent();
@@ -7113,7 +5848,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                 MysqlQueryRunner.prototype.query = function (query, parameters) {
                     var _this = this;
                     if (this.isReleased)
-                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                     return new Promise(function (ok, fail) {
                         _this.logger.logQuery(query, parameters);
                         _this.databaseConnection.connection.query(query, parameters, function (err, result) {
@@ -7137,7 +5872,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     keys = Object.keys(keyValues);
                                     columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
                                     values = keys.map(function (key) { return "?"; }).join(",");
@@ -7161,7 +5896,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     updateValues = this.parametrize(valuesMap).join(", ");
                                     conditionString = this.parametrize(conditions).join(" AND ");
                                     sql = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
@@ -7186,7 +5921,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     conditionString = typeof conditions === "string" ? conditions : this.parametrize(conditions).join(" AND ");
                                     parameters = conditions instanceof Object ? Object.keys(conditions).map(function (key) { return conditions[key]; }) : maybeParameters;
                                     sql = "DELETE FROM " + this.driver.escapeTableName(tableName) + " WHERE " + conditionString;
@@ -7208,7 +5943,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     sql = "";
                                     if (hasLevel) {
                                         sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant, level) " +
@@ -7258,7 +5993,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_b.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     // if no tables given then no need to proceed
                                     if (!tableNames || !tableNames.length)
                                         return [2 /*return*/, []];
@@ -7284,7 +6019,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                             return __generator(this, function (_a) {
                                                 switch (_a.label) {
                                                     case 0:
-                                                        tableSchema = new TableSchema_4.TableSchema(dbTable["TABLE_NAME"]);
+                                                        tableSchema = new TableSchema_3.TableSchema(dbTable["TABLE_NAME"]);
                                                         return [4 /*yield*/, this.query("SHOW INDEX FROM `" + dbTable["TABLE_NAME"] + "` WHERE Key_name = 'PRIMARY'")];
                                                     case 1:
                                                         primaryKeys = _a.sent();
@@ -7292,7 +6027,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                                         tableSchema.columns = dbColumns
                                                             .filter(function (dbColumn) { return dbColumn["TABLE_NAME"] === tableSchema.name; })
                                                             .map(function (dbColumn) {
-                                                            var columnSchema = new ColumnSchema_5.ColumnSchema();
+                                                            var columnSchema = new ColumnSchema_4.ColumnSchema();
                                                             columnSchema.name = dbColumn["COLUMN_NAME"];
                                                             columnSchema.type = dbColumn["COLUMN_TYPE"].toLowerCase();
                                                             columnSchema.default = dbColumn["COLUMN_DEFAULT"] !== null && dbColumn["COLUMN_DEFAULT"] !== undefined ? dbColumn["COLUMN_DEFAULT"] : undefined;
@@ -7305,12 +6040,12 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                                         });
                                                         // create primary keys
                                                         tableSchema.primaryKeys = primaryKeys.map(function (primaryKey) {
-                                                            return new PrimaryKeySchema_4.PrimaryKeySchema(primaryKey["Key_name"], primaryKey["Column_name"]);
+                                                            return new PrimaryKeySchema_3.PrimaryKeySchema(primaryKey["Key_name"], primaryKey["Column_name"]);
                                                         });
                                                         // create foreign key schemas from the loaded indices
                                                         tableSchema.foreignKeys = dbForeignKeys
                                                             .filter(function (dbForeignKey) { return dbForeignKey["TABLE_NAME"] === tableSchema.name; })
-                                                            .map(function (dbForeignKey) { return new ForeignKeySchema_4.ForeignKeySchema(dbForeignKey["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
+                                                            .map(function (dbForeignKey) { return new ForeignKeySchema_3.ForeignKeySchema(dbForeignKey["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
                                                         // create index schemas from the loaded indices
                                                         tableSchema.indices = dbIndices
                                                             .filter(function (dbIndex) {
@@ -7371,13 +6106,31 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column, false); }).join(", ");
                                     sql = "CREATE TABLE `" + table.name + "` (" + columnDefinitions;
                                     primaryKeyColumns = table.columns.filter(function (column) { return column.isPrimary && !column.isGenerated; });
                                     if (primaryKeyColumns.length > 0)
                                         sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "`" + column.name + "`"; }).join(", ") + ")";
                                     sql += ") ENGINE=InnoDB;"; // todo: remove engine from here
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drop the table.
+                 */
+                MysqlQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE `" + tableName + "`";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     _a.sent();
@@ -7412,8 +6165,8 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                         var tableName, sql;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             sql = "ALTER TABLE `" + tableName + "` ADD " + this.buildCreateColumnSql(column, false);
                             return [2 /*return*/, this.query(sql)];
                         });
@@ -7430,7 +6183,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     queries = columns.map(function (column) { return _this.addColumn(tableSchemaOrName, column); });
                                     return [4 /*yield*/, Promise.all(queries)];
                                 case 1:
@@ -7450,7 +6203,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_4.TableSchema)) return [3 /*break*/, 1];
+                                    if (!(tableSchemaOrName instanceof TableSchema_3.TableSchema)) return [3 /*break*/, 1];
                                     tableSchema = tableSchemaOrName;
                                     return [3 /*break*/, 3];
                                 case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
@@ -7461,7 +6214,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                     if (!tableSchema)
                                         throw new Error("Table " + tableSchemaOrName + " was not found.");
                                     oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
                                         oldColumn = oldColumnSchemaOrName;
                                     }
                                     else {
@@ -7470,7 +6223,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                     if (!oldColumn)
                                         throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
                                     newColumn = undefined;
-                                    if (newColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                    if (newColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
                                         newColumn = newColumnSchemaOrName;
                                     }
                                     else {
@@ -7492,9 +6245,9 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     tableSchema = undefined;
-                                    if (!(tableSchemaOrName instanceof TableSchema_4.TableSchema)) return [3 /*break*/, 1];
+                                    if (!(tableSchemaOrName instanceof TableSchema_3.TableSchema)) return [3 /*break*/, 1];
                                     tableSchema = tableSchemaOrName;
                                     return [3 /*break*/, 3];
                                 case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
@@ -7505,7 +6258,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                                     if (!tableSchema)
                                         throw new Error("Table " + tableSchemaOrName + " was not found.");
                                     oldColumn = undefined;
-                                    if (oldColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_4.ColumnSchema) {
                                         oldColumn = oldColumnSchemaOrName;
                                     }
                                     else {
@@ -7534,7 +6287,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     updatePromises = changedColumns.map(function (changedColumn) { return __awaiter(_this, void 0, void 0, function () {
                                         return __generator(this, function (_a) {
                                             return [2 /*return*/, this.changeColumn(tableSchema, changedColumn.oldColumn, changedColumn.newColumn)];
@@ -7555,8 +6308,8 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                     return __awaiter(this, void 0, void 0, function () {
                         var tableName, columnName;
                         return __generator(this, function (_a) {
-                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
-                            columnName = columnSchemaOrName instanceof ColumnSchema_5.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
+                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            columnName = columnSchemaOrName instanceof ColumnSchema_4.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
                             return [2 /*return*/, this.query("ALTER TABLE `" + tableName + "` DROP `" + columnName + "`")];
                         });
                     });
@@ -7572,7 +6325,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     dropPromises = columnSchemasOrNames.map(function (column) { return _this.dropColumn(tableSchemaOrName, column); });
                                     return [4 /*yield*/, Promise.all(dropPromises)];
                                 case 1:
@@ -7592,7 +6345,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     if (!!tableSchema.hasGeneratedColumn) return [3 /*break*/, 2];
                                     return [4 /*yield*/, this.query("ALTER TABLE `" + tableSchema.name + "` DROP PRIMARY KEY")];
                                 case 1:
@@ -7618,8 +6371,8 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                         var tableName, columnNames, referencedColumnNames, sql;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             columnNames = foreignKey.columnNames.map(function (column) { return "`" + column + "`"; }).join(", ");
                             referencedColumnNames = foreignKey.referencedColumnNames.map(function (column) { return "`" + column + "`"; }).join(",");
                             sql = "ALTER TABLE `" + tableName + "` ADD CONSTRAINT `" + foreignKey.name + "` " +
@@ -7642,7 +6395,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     promises = foreignKeys.map(function (foreignKey) { return _this.createForeignKey(tableSchemaOrName, foreignKey); });
                                     return [4 /*yield*/, Promise.all(promises)];
                                 case 1:
@@ -7660,8 +6413,8 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                         var tableName;
                         return __generator(this, function (_a) {
                             if (this.isReleased)
-                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
-                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                                throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_3.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
                             return [2 /*return*/, this.query("ALTER TABLE `" + tableName + "` DROP FOREIGN KEY `" + foreignKey.name + "`")];
                         });
                     });
@@ -7677,7 +6430,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     promises = foreignKeys.map(function (foreignKey) { return _this.dropForeignKey(tableSchemaOrName, foreignKey); });
                                     return [4 /*yield*/, Promise.all(promises)];
                                 case 1:
@@ -7697,7 +6450,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     columns = index.columnNames.map(function (columnName) { return "`" + columnName + "`"; }).join(", ");
                                     sql = "CREATE " + (index.isUnique ? "UNIQUE " : "") + "INDEX `" + index.name + "` ON `" + tableName + "`(" + columns + ")";
                                     return [4 /*yield*/, this.query(sql)];
@@ -7718,7 +6471,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                             switch (_a.label) {
                                 case 0:
                                     if (this.isReleased)
-                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                        throw new QueryRunnerAlreadyReleasedError_3.QueryRunnerAlreadyReleasedError();
                                     sql = "ALTER TABLE `" + tableName + "` DROP INDEX `" + indexName + "`";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
@@ -7780,7 +6533,7 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                         case "simple_array":
                             return typeOptions.length ? "varchar(" + typeOptions.length + ")" : "text";
                     }
-                    throw new DataTypeNotSupportedByDriverError_4.DataTypeNotSupportedByDriverError(typeOptions.type, "MySQL/MariaDB");
+                    throw new DataTypeNotSupportedByDriverError_3.DataTypeNotSupportedByDriverError(typeOptions.type, "MySQL/MariaDB");
                 };
                 /**
                  * Checks if "DEFAULT" values in the column metadata and in the database schema are equal.
@@ -7865,39 +6618,39 @@ System.register("typeorm/driver/mysql/MysqlQueryRunner", ["typeorm/driver/error/
                 };
                 return MysqlQueryRunner;
             }());
-            exports_53("MysqlQueryRunner", MysqlQueryRunner);
+            exports_51("MysqlQueryRunner", MysqlQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/mysql/MysqlQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_54, context_54) {
+System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/mysql/MysqlQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_52, context_52) {
     "use strict";
-    var __moduleName = context_54 && context_54.id;
-    var ConnectionIsNotSetError_4, DriverPackageNotInstalledError_4, DriverUtils_4, MysqlQueryRunner_1, ColumnTypes_4, DriverOptionNotSetError_4, DataTransformationUtils_4, PlatformTools_5, MysqlDriver;
+    var __moduleName = context_52 && context_52.id;
+    var ConnectionIsNotSetError_3, DriverPackageNotInstalledError_3, DriverUtils_3, MysqlQueryRunner_1, ColumnTypes_3, DriverOptionNotSetError_3, DataTransformationUtils_3, PlatformTools_4, MysqlDriver;
     return {
         setters: [
-            function (ConnectionIsNotSetError_4_1) {
-                ConnectionIsNotSetError_4 = ConnectionIsNotSetError_4_1;
+            function (ConnectionIsNotSetError_3_1) {
+                ConnectionIsNotSetError_3 = ConnectionIsNotSetError_3_1;
             },
-            function (DriverPackageNotInstalledError_4_1) {
-                DriverPackageNotInstalledError_4 = DriverPackageNotInstalledError_4_1;
+            function (DriverPackageNotInstalledError_3_1) {
+                DriverPackageNotInstalledError_3 = DriverPackageNotInstalledError_3_1;
             },
-            function (DriverUtils_4_1) {
-                DriverUtils_4 = DriverUtils_4_1;
+            function (DriverUtils_3_1) {
+                DriverUtils_3 = DriverUtils_3_1;
             },
             function (MysqlQueryRunner_1_1) {
                 MysqlQueryRunner_1 = MysqlQueryRunner_1_1;
             },
-            function (ColumnTypes_4_1) {
-                ColumnTypes_4 = ColumnTypes_4_1;
+            function (ColumnTypes_3_1) {
+                ColumnTypes_3 = ColumnTypes_3_1;
             },
-            function (DriverOptionNotSetError_4_1) {
-                DriverOptionNotSetError_4 = DriverOptionNotSetError_4_1;
+            function (DriverOptionNotSetError_3_1) {
+                DriverOptionNotSetError_3 = DriverOptionNotSetError_3_1;
             },
-            function (DataTransformationUtils_4_1) {
-                DataTransformationUtils_4 = DataTransformationUtils_4_1;
+            function (DataTransformationUtils_3_1) {
+                DataTransformationUtils_3 = DataTransformationUtils_3_1;
             },
-            function (PlatformTools_5_1) {
-                PlatformTools_5 = PlatformTools_5_1;
+            function (PlatformTools_4_1) {
+                PlatformTools_4 = PlatformTools_4_1;
             }
         ],
         execute: function () {
@@ -7913,16 +6666,16 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                      * Pool of database connections.
                      */
                     this.databaseConnectionPool = [];
-                    this.options = DriverUtils_4.DriverUtils.buildDriverOptions(options);
+                    this.options = DriverUtils_3.DriverUtils.buildDriverOptions(options);
                     this.logger = logger;
                     this.mysql = mysql;
                     // validate options to make sure everything is set
                     if (!(this.options.host || (this.options.extra && this.options.extra.socketPath)))
-                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("socketPath and host");
+                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("socketPath and host");
                     if (!this.options.username)
-                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("username");
+                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("username");
                     if (!this.options.database)
-                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("database");
+                        throw new DriverOptionNotSetError_3.DriverOptionNotSetError("database");
                     // if mysql package instance was not set explicitly then try to load it
                     if (!mysql)
                         this.loadDependencies();
@@ -7969,7 +6722,7 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                 MysqlDriver.prototype.disconnect = function () {
                     var _this = this;
                     if (!this.databaseConnection && !this.pool)
-                        throw new ConnectionIsNotSetError_4.ConnectionIsNotSetError("mysql");
+                        throw new ConnectionIsNotSetError_3.ConnectionIsNotSetError("mysql");
                     return new Promise(function (ok, fail) {
                         var handler = function (err) { return err ? fail(err) : ok(); };
                         // if pooling is used, then disconnect from it
@@ -7995,7 +6748,7 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                             switch (_a.label) {
                                 case 0:
                                     if (!this.databaseConnection && !this.pool)
-                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_4.ConnectionIsNotSetError("mysql"))];
+                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_3.ConnectionIsNotSetError("mysql"))];
                                     return [4 /*yield*/, this.retrieveDatabaseConnection()];
                                 case 1:
                                     databaseConnection = _a.sent();
@@ -8054,23 +6807,23 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                     if (value === null || value === undefined)
                         return null;
                     switch (columnMetadata.type) {
-                        case ColumnTypes_4.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_3.ColumnTypes.BOOLEAN:
                             return value === true ? 1 : 0;
-                        case ColumnTypes_4.ColumnTypes.DATE:
-                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_4.ColumnTypes.TIME:
-                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToTimeString(value);
-                        case ColumnTypes_4.ColumnTypes.DATETIME:
+                        case ColumnTypes_3.ColumnTypes.DATE:
+                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_3.ColumnTypes.TIME:
+                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToTimeString(value);
+                        case ColumnTypes_3.ColumnTypes.DATETIME:
                             if (columnMetadata.localTimezone) {
-                                return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDatetimeString(value);
+                                return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDatetimeString(value);
                             }
                             else {
-                                return DataTransformationUtils_4.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
+                                return DataTransformationUtils_3.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
                             }
-                        case ColumnTypes_4.ColumnTypes.JSON:
+                        case ColumnTypes_3.ColumnTypes.JSON:
                             return JSON.stringify(value);
-                        case ColumnTypes_4.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_4.DataTransformationUtils.simpleArrayToString(value);
+                        case ColumnTypes_3.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_3.DataTransformationUtils.simpleArrayToString(value);
                     }
                     return value;
                 };
@@ -8079,18 +6832,18 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                  */
                 MysqlDriver.prototype.prepareHydratedValue = function (value, columnMetadata) {
                     switch (columnMetadata.type) {
-                        case ColumnTypes_4.ColumnTypes.BOOLEAN:
+                        case ColumnTypes_3.ColumnTypes.BOOLEAN:
                             return value ? true : false;
-                        case ColumnTypes_4.ColumnTypes.DATETIME:
-                            return DataTransformationUtils_4.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
-                        case ColumnTypes_4.ColumnTypes.DATE:
-                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDateString(value);
-                        case ColumnTypes_4.ColumnTypes.TIME:
-                            return DataTransformationUtils_4.DataTransformationUtils.mixedTimeToString(value);
-                        case ColumnTypes_4.ColumnTypes.JSON:
+                        case ColumnTypes_3.ColumnTypes.DATETIME:
+                            return DataTransformationUtils_3.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
+                        case ColumnTypes_3.ColumnTypes.DATE:
+                            return DataTransformationUtils_3.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_3.ColumnTypes.TIME:
+                            return DataTransformationUtils_3.DataTransformationUtils.mixedTimeToString(value);
+                        case ColumnTypes_3.ColumnTypes.JSON:
                             return JSON.parse(value);
-                        case ColumnTypes_4.ColumnTypes.SIMPLE_ARRAY:
-                            return DataTransformationUtils_4.DataTransformationUtils.stringToSimpleArray(value);
+                        case ColumnTypes_3.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_3.DataTransformationUtils.stringToSimpleArray(value);
                     }
                     return value;
                 };
@@ -8131,33 +6884,33 @@ System.register("typeorm/driver/mysql/MysqlDriver", ["typeorm/driver/error/Conne
                     }
                     if (this.databaseConnection)
                         return Promise.resolve(this.databaseConnection);
-                    throw new ConnectionIsNotSetError_4.ConnectionIsNotSetError("mysql");
+                    throw new ConnectionIsNotSetError_3.ConnectionIsNotSetError("mysql");
                 };
                 /**
                  * If driver dependency is not given explicitly, then try to load it via "require".
                  */
                 MysqlDriver.prototype.loadDependencies = function () {
                     try {
-                        this.mysql = PlatformTools_5.PlatformTools.load("mysql"); // try to load first supported package
+                        this.mysql = PlatformTools_4.PlatformTools.load("mysql"); // try to load first supported package
                     }
                     catch (e) {
                         try {
-                            this.mysql = PlatformTools_5.PlatformTools.load("mysql2"); // try to load second supported package
+                            this.mysql = PlatformTools_4.PlatformTools.load("mysql2"); // try to load second supported package
                         }
                         catch (e) {
-                            throw new DriverPackageNotInstalledError_4.DriverPackageNotInstalledError("Mysql", "mysql");
+                            throw new DriverPackageNotInstalledError_3.DriverPackageNotInstalledError("Mysql", "mysql");
                         }
                     }
                 };
                 return MysqlDriver;
             }());
-            exports_54("MysqlDriver", MysqlDriver);
+            exports_52("MysqlDriver", MysqlDriver);
         }
     };
 });
-System.register("typeorm/query-builder/error/LockNotSupportedOnGivenDriverError", [], function (exports_55, context_55) {
+System.register("typeorm/query-builder/error/LockNotSupportedOnGivenDriverError", [], function (exports_53, context_53) {
     "use strict";
-    var __moduleName = context_55 && context_55.id;
+    var __moduleName = context_53 && context_53.id;
     var LockNotSupportedOnGivenDriverError;
     return {
         setters: [],
@@ -8176,13 +6929,13 @@ System.register("typeorm/query-builder/error/LockNotSupportedOnGivenDriverError"
                 }
                 return LockNotSupportedOnGivenDriverError;
             }(Error));
-            exports_55("LockNotSupportedOnGivenDriverError", LockNotSupportedOnGivenDriverError);
+            exports_53("LockNotSupportedOnGivenDriverError", LockNotSupportedOnGivenDriverError);
         }
     };
 });
-System.register("typeorm/query-builder/relation-id/RelationIdLoader", ["typeorm/query-builder/QueryBuilder"], function (exports_56, context_56) {
+System.register("typeorm/query-builder/relation-id/RelationIdLoader", ["typeorm/query-builder/QueryBuilder"], function (exports_54, context_54) {
     "use strict";
-    var __moduleName = context_56 && context_56.id;
+    var __moduleName = context_54 && context_54.id;
     var QueryBuilder_2, RelationIdLoader;
     return {
         setters: [
@@ -8334,13 +7087,13 @@ System.register("typeorm/query-builder/relation-id/RelationIdLoader", ["typeorm/
                 };
                 return RelationIdLoader;
             }());
-            exports_56("RelationIdLoader", RelationIdLoader);
+            exports_54("RelationIdLoader", RelationIdLoader);
         }
     };
 });
-System.register("typeorm/query-builder/relation-id/RelationIdMetadataToAttributeTransformer", ["typeorm/query-builder/relation-id/RelationIdAttribute"], function (exports_57, context_57) {
+System.register("typeorm/query-builder/relation-id/RelationIdMetadataToAttributeTransformer", ["typeorm/query-builder/relation-id/RelationIdAttribute"], function (exports_55, context_55) {
     "use strict";
-    var __moduleName = context_57 && context_57.id;
+    var __moduleName = context_55 && context_55.id;
     var RelationIdAttribute_2, RelationIdMetadataToAttributeTransformer;
     return {
         setters: [
@@ -8399,13 +7152,13 @@ System.register("typeorm/query-builder/relation-id/RelationIdMetadataToAttribute
                 };
                 return RelationIdMetadataToAttributeTransformer;
             }());
-            exports_57("RelationIdMetadataToAttributeTransformer", RelationIdMetadataToAttributeTransformer);
+            exports_55("RelationIdMetadataToAttributeTransformer", RelationIdMetadataToAttributeTransformer);
         }
     };
 });
-System.register("typeorm/query-builder/relation-count/RelationCountLoader", ["typeorm/query-builder/QueryBuilder"], function (exports_58, context_58) {
+System.register("typeorm/query-builder/relation-count/RelationCountLoader", ["typeorm/query-builder/QueryBuilder"], function (exports_56, context_56) {
     "use strict";
-    var __moduleName = context_58 && context_58.id;
+    var __moduleName = context_56 && context_56.id;
     var QueryBuilder_3, RelationCountLoader;
     return {
         setters: [
@@ -8520,22 +7273,22 @@ System.register("typeorm/query-builder/relation-count/RelationCountLoader", ["ty
                 };
                 return RelationCountLoader;
             }());
-            exports_58("RelationCountLoader", RelationCountLoader);
+            exports_56("RelationCountLoader", RelationCountLoader);
         }
     };
 });
-System.register("typeorm/metadata-args/RelationCountMetadataArgs", [], function (exports_59, context_59) {
+System.register("typeorm/metadata-args/RelationCountMetadataArgs", [], function (exports_57, context_57) {
     "use strict";
-    var __moduleName = context_59 && context_59.id;
+    var __moduleName = context_57 && context_57.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/metadata/RelationCountMetadata", [], function (exports_60, context_60) {
+System.register("typeorm/metadata/RelationCountMetadata", [], function (exports_58, context_58) {
     "use strict";
-    var __moduleName = context_60 && context_60.id;
+    var __moduleName = context_58 && context_58.id;
     var RelationCountMetadata;
     return {
         setters: [],
@@ -8571,13 +7324,13 @@ System.register("typeorm/metadata/RelationCountMetadata", [], function (exports_
                 };
                 return RelationCountMetadata;
             }());
-            exports_60("RelationCountMetadata", RelationCountMetadata);
+            exports_58("RelationCountMetadata", RelationCountMetadata);
         }
     };
 });
-System.register("typeorm/query-builder/relation-count/RelationCountMetadataToAttributeTransformer", ["typeorm/query-builder/relation-count/RelationCountAttribute"], function (exports_61, context_61) {
+System.register("typeorm/query-builder/relation-count/RelationCountMetadataToAttributeTransformer", ["typeorm/query-builder/relation-count/RelationCountAttribute"], function (exports_59, context_59) {
     "use strict";
-    var __moduleName = context_61 && context_61.id;
+    var __moduleName = context_59 && context_59.id;
     var RelationCountAttribute_2, RelationCountMetadataToAttributeTransformer;
     return {
         setters: [
@@ -8636,19 +7389,1341 @@ System.register("typeorm/query-builder/relation-count/RelationCountMetadataToAtt
                 };
                 return RelationCountMetadataToAttributeTransformer;
             }());
-            exports_61("RelationCountMetadataToAttributeTransformer", RelationCountMetadataToAttributeTransformer);
+            exports_59("RelationCountMetadataToAttributeTransformer", RelationCountMetadataToAttributeTransformer);
         }
     };
 });
-System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/OracleDriver", "typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer", "typeorm/driver/sqlserver/SqlServerDriver", "typeorm/query-runner/QueryRunnerProvider", "typeorm/query-builder/error/PessimisticLockTransactionRequiredError", "typeorm/query-builder/error/NoVersionOrUpdateDateColumnError", "typeorm/query-builder/error/OptimisticLockVersionMismatchError", "typeorm/query-builder/error/OptimisticLockCanNotBeUsedError", "typeorm/driver/postgres/PostgresDriver", "typeorm/driver/mysql/MysqlDriver", "typeorm/query-builder/error/LockNotSupportedOnGivenDriverError", "typeorm/query-builder/JoinAttribute", "typeorm/query-builder/relation-id/RelationIdAttribute", "typeorm/query-builder/relation-count/RelationCountAttribute", "typeorm/query-builder/QueryExpressionMap", "typeorm/query-builder/relation-id/RelationIdLoader", "typeorm/query-builder/relation-id/RelationIdMetadataToAttributeTransformer", "typeorm/query-builder/relation-count/RelationCountLoader", "typeorm/query-builder/relation-count/RelationCountMetadataToAttributeTransformer"], function (exports_62, context_62) {
+System.register("typeorm/driver/oracle/OracleQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_60, context_60) {
     "use strict";
-    var __moduleName = context_62 && context_62.id;
-    var OracleDriver_1, RawSqlResultsToEntityTransformer_1, SqlServerDriver_1, QueryRunnerProvider_1, PessimisticLockTransactionRequiredError_1, NoVersionOrUpdateDateColumnError_1, OptimisticLockVersionMismatchError_1, OptimisticLockCanNotBeUsedError_1, PostgresDriver_1, MysqlDriver_1, LockNotSupportedOnGivenDriverError_1, JoinAttribute_2, RelationIdAttribute_3, RelationCountAttribute_3, QueryExpressionMap_1, RelationIdLoader_1, RelationIdMetadataToAttributeTransformer_1, RelationCountLoader_1, RelationCountMetadataToAttributeTransformer_1, QueryBuilder;
+    var __moduleName = context_60 && context_60.id;
+    var TransactionAlreadyStartedError_4, TransactionNotStartedError_4, DataTypeNotSupportedByDriverError_4, ColumnSchema_5, TableSchema_4, ForeignKeySchema_4, PrimaryKeySchema_4, IndexSchema_4, QueryRunnerAlreadyReleasedError_4, OracleQueryRunner;
     return {
         setters: [
-            function (OracleDriver_1_1) {
-                OracleDriver_1 = OracleDriver_1_1;
+            function (TransactionAlreadyStartedError_4_1) {
+                TransactionAlreadyStartedError_4 = TransactionAlreadyStartedError_4_1;
             },
+            function (TransactionNotStartedError_4_1) {
+                TransactionNotStartedError_4 = TransactionNotStartedError_4_1;
+            },
+            function (DataTypeNotSupportedByDriverError_4_1) {
+                DataTypeNotSupportedByDriverError_4 = DataTypeNotSupportedByDriverError_4_1;
+            },
+            function (ColumnSchema_5_1) {
+                ColumnSchema_5 = ColumnSchema_5_1;
+            },
+            function (TableSchema_4_1) {
+                TableSchema_4 = TableSchema_4_1;
+            },
+            function (ForeignKeySchema_4_1) {
+                ForeignKeySchema_4 = ForeignKeySchema_4_1;
+            },
+            function (PrimaryKeySchema_4_1) {
+                PrimaryKeySchema_4 = PrimaryKeySchema_4_1;
+            },
+            function (IndexSchema_4_1) {
+                IndexSchema_4 = IndexSchema_4_1;
+            },
+            function (QueryRunnerAlreadyReleasedError_4_1) {
+                QueryRunnerAlreadyReleasedError_4 = QueryRunnerAlreadyReleasedError_4_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Runs queries on a single mysql database connection.
+             *
+             * todo: this driver is not 100% finished yet, need to fix all issues that are left
+             */
+            OracleQueryRunner = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function OracleQueryRunner(databaseConnection, driver, logger) {
+                    this.databaseConnection = databaseConnection;
+                    this.driver = driver;
+                    this.logger = logger;
+                    // -------------------------------------------------------------------------
+                    // Protected Properties
+                    // -------------------------------------------------------------------------
+                    /**
+                     * Indicates if connection for this query runner is released.
+                     * Once its released, query runner cannot run queries anymore.
+                     */
+                    this.isReleased = false;
+                }
+                // -------------------------------------------------------------------------
+                // Public Methods
+                // -------------------------------------------------------------------------
+                /**
+                 * Releases database connection. This is needed when using connection pooling.
+                 * If connection is not from a pool, it should not be released.
+                 * You cannot use this class's methods after its released.
+                 */
+                OracleQueryRunner.prototype.release = function () {
+                    if (this.databaseConnection.releaseCallback) {
+                        this.isReleased = true;
+                        return this.databaseConnection.releaseCallback();
+                    }
+                    return Promise.resolve();
+                };
+                /**
+                 * Removes all tables from the currently connected database.
+                 */
+                OracleQueryRunner.prototype.clearDatabase = function () {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var disableForeignKeysCheckQuery, dropTablesQuery, enableForeignKeysCheckQuery, dropQueries, error_4;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    return [4 /*yield*/, this.beginTransaction()];
+                                case 1:
+                                    _a.sent();
+                                    _a.label = 2;
+                                case 2:
+                                    _a.trys.push([2, 8, 10, 12]);
+                                    disableForeignKeysCheckQuery = "SET FOREIGN_KEY_CHECKS = 0;";
+                                    dropTablesQuery = "SELECT concat('DROP TABLE IF EXISTS ', table_name, ';') AS query FROM information_schema.tables WHERE table_schema = '" + this.dbName + "'";
+                                    enableForeignKeysCheckQuery = "SET FOREIGN_KEY_CHECKS = 1;";
+                                    return [4 /*yield*/, this.query(disableForeignKeysCheckQuery)];
+                                case 3:
+                                    _a.sent();
+                                    return [4 /*yield*/, this.query(dropTablesQuery)];
+                                case 4:
+                                    dropQueries = _a.sent();
+                                    return [4 /*yield*/, Promise.all(dropQueries.map(function (query) { return _this.query(query["query"]); }))];
+                                case 5:
+                                    _a.sent();
+                                    return [4 /*yield*/, this.query(enableForeignKeysCheckQuery)];
+                                case 6:
+                                    _a.sent();
+                                    return [4 /*yield*/, this.commitTransaction()];
+                                case 7:
+                                    _a.sent();
+                                    return [3 /*break*/, 12];
+                                case 8:
+                                    error_4 = _a.sent();
+                                    return [4 /*yield*/, this.rollbackTransaction()];
+                                case 9:
+                                    _a.sent();
+                                    throw error_4;
+                                case 10: return [4 /*yield*/, this.release()];
+                                case 11:
+                                    _a.sent();
+                                    return [7 /*endfinally*/];
+                                case 12: return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Starts transaction.
+                 */
+                OracleQueryRunner.prototype.beginTransaction = function () {
+                    return __awaiter(this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                            if (this.databaseConnection.isTransactionActive)
+                                throw new TransactionAlreadyStartedError_4.TransactionAlreadyStartedError();
+                            // await this.query("START TRANSACTION");
+                            this.databaseConnection.isTransactionActive = true;
+                            return [2 /*return*/];
+                        });
+                    });
+                };
+                /**
+                 * Commits transaction.
+                 */
+                OracleQueryRunner.prototype.commitTransaction = function () {
+                    return __awaiter(this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    if (!this.databaseConnection.isTransactionActive)
+                                        throw new TransactionNotStartedError_4.TransactionNotStartedError();
+                                    return [4 /*yield*/, this.query("COMMIT")];
+                                case 1:
+                                    _a.sent();
+                                    this.databaseConnection.isTransactionActive = false;
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Rollbacks transaction.
+                 */
+                OracleQueryRunner.prototype.rollbackTransaction = function () {
+                    return __awaiter(this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    if (!this.databaseConnection.isTransactionActive)
+                                        throw new TransactionNotStartedError_4.TransactionNotStartedError();
+                                    return [4 /*yield*/, this.query("ROLLBACK")];
+                                case 1:
+                                    _a.sent();
+                                    this.databaseConnection.isTransactionActive = false;
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Checks if transaction is in progress.
+                 */
+                OracleQueryRunner.prototype.isTransactionActive = function () {
+                    return this.databaseConnection.isTransactionActive;
+                };
+                /**
+                 * Executes a given SQL query.
+                 */
+                OracleQueryRunner.prototype.query = function (query, parameters) {
+                    var _this = this;
+                    if (this.isReleased)
+                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                    return new Promise(function (ok, fail) {
+                        _this.logger.logQuery(query, parameters);
+                        var handler = function (err, result) {
+                            if (err) {
+                                _this.logger.logFailedQuery(query, parameters);
+                                _this.logger.logQueryError(err);
+                                return fail(err);
+                            }
+                            ok(result.rows || result.outBinds);
+                        };
+                        var executionOptions = {
+                            autoCommit: _this.databaseConnection.isTransactionActive ? false : true
+                        };
+                        _this.databaseConnection.connection.execute(query, parameters || {}, executionOptions, handler);
+                    });
+                };
+                /**
+                 * Insert a new row with given values into given table.
+                 */
+                OracleQueryRunner.prototype.insert = function (tableName, keyValues, generatedColumn) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var keys, columns, values, parameters, insertSql, sql2, saveResult;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    keys = Object.keys(keyValues);
+                                    columns = keys.map(function (key) { return _this.driver.escapeColumnName(key); }).join(", ");
+                                    values = keys.map(function (key) { return ":" + key; }).join(", ");
+                                    parameters = keys.map(function (key) { return keyValues[key]; });
+                                    insertSql = columns.length > 0
+                                        ? "INSERT INTO " + this.driver.escapeTableName(tableName) + "(" + columns + ") VALUES (" + values + ")"
+                                        : "INSERT INTO " + this.driver.escapeTableName(tableName) + " DEFAULT VALUES";
+                                    if (!generatedColumn) return [3 /*break*/, 2];
+                                    sql2 = "declare lastId number; begin " + insertSql + " returning \"id\" into lastId; dbms_output.enable; dbms_output.put_line(lastId); dbms_output.get_line(:ln, :st); end;";
+                                    return [4 /*yield*/, this.query(sql2, parameters.concat([
+                                            { dir: this.driver.oracle.BIND_OUT, type: this.driver.oracle.STRING, maxSize: 32767 },
+                                            { dir: this.driver.oracle.BIND_OUT, type: this.driver.oracle.NUMBER }
+                                        ]))];
+                                case 1:
+                                    saveResult = _a.sent();
+                                    return [2 /*return*/, parseInt(saveResult[0])];
+                                case 2: return [2 /*return*/, this.query(insertSql, parameters)];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Updates rows that match given conditions in the given table.
+                 */
+                OracleQueryRunner.prototype.update = function (tableName, valuesMap, conditions) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var updateValues, conditionString, sql, conditionParams, updateParams, allParameters;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    updateValues = this.parametrize(valuesMap).join(", ");
+                                    conditionString = this.parametrize(conditions).join(" AND ");
+                                    sql = "UPDATE " + this.driver.escapeTableName(tableName) + " SET " + updateValues + " " + (conditionString ? (" WHERE " + conditionString) : "");
+                                    conditionParams = Object.keys(conditions).map(function (key) { return conditions[key]; });
+                                    updateParams = Object.keys(valuesMap).map(function (key) { return valuesMap[key]; });
+                                    allParameters = updateParams.concat(conditionParams);
+                                    return [4 /*yield*/, this.query(sql, allParameters)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Deletes from the given table by a given conditions.
+                 */
+                OracleQueryRunner.prototype.delete = function (tableName, conditions, maybeParameters) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var conditionString, parameters, sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    conditionString = typeof conditions === "string" ? conditions : this.parametrize(conditions).join(" AND ");
+                                    parameters = conditions instanceof Object ? Object.keys(conditions).map(function (key) { return conditions[key]; }) : maybeParameters;
+                                    sql = "DELETE FROM " + this.driver.escapeTableName(tableName) + " WHERE " + conditionString;
+                                    return [4 /*yield*/, this.query(sql, parameters)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Inserts rows into the closure table.
+                 */
+                OracleQueryRunner.prototype.insertIntoClosureTable = function (tableName, newEntityId, parentId, hasLevel) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql, results;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    sql = "";
+                                    if (hasLevel) {
+                                        sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant, level) " +
+                                            ("SELECT ancestor, " + newEntityId + ", level + 1 FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId + " ") +
+                                            ("UNION ALL SELECT " + newEntityId + ", " + newEntityId + ", 1");
+                                    }
+                                    else {
+                                        sql = "INSERT INTO " + this.driver.escapeTableName(tableName) + "(ancestor, descendant) " +
+                                            ("SELECT ancestor, " + newEntityId + " FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId + " ") +
+                                            ("UNION ALL SELECT " + newEntityId + ", " + newEntityId);
+                                    }
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [4 /*yield*/, this.query("SELECT MAX(level) as level FROM " + this.driver.escapeTableName(tableName) + " WHERE descendant = " + parentId)];
+                                case 2:
+                                    results = _a.sent();
+                                    return [2 /*return*/, results && results[0] && results[0]["level"] ? parseInt(results[0]["level"]) + 1 : 1];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Loads given table's data from the database.
+                 */
+                OracleQueryRunner.prototype.loadTableSchema = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableSchemas;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, this.loadTableSchemas([tableName])];
+                                case 1:
+                                    tableSchemas = _a.sent();
+                                    return [2 /*return*/, tableSchemas.length > 0 ? tableSchemas[0] : undefined];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Loads all tables (with given names) from the database and creates a TableSchema from them.
+                 */
+                OracleQueryRunner.prototype.loadTableSchemas = function (tableNames) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableNamesString, tablesSql, columnsSql, indicesSql, foreignKeysSql, uniqueKeysSql, constraintsSql, _a, dbTables, dbColumns, dbIndices, constraints;
+                        return __generator(this, function (_b) {
+                            switch (_b.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    // if no tables given then no need to proceed
+                                    if (!tableNames || !tableNames.length)
+                                        return [2 /*return*/, []];
+                                    tableNamesString = tableNames.map(function (name) { return "'" + name + "'"; }).join(", ");
+                                    tablesSql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME IN (" + tableNamesString + ")";
+                                    columnsSql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, NULLABLE, IDENTITY_COLUMN FROM all_tab_cols WHERE TABLE_NAME IN (" + tableNamesString + ")";
+                                    indicesSql = "SELECT ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS, LISTAGG(cols.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY cols.COLUMN_NAME) AS COLUMN_NAMES\n                                FROM USER_INDEXES ind, USER_IND_COLUMNS cols \n                                WHERE ind.INDEX_NAME = cols.INDEX_NAME AND ind.TABLE_NAME IN (" + tableNamesString + ")\n                                GROUP BY ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS";
+                                    foreignKeysSql = "SELECT * FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = '" + this.dbName + "' AND REFERENCED_COLUMN_NAME IS NOT NULL";
+                                    uniqueKeysSql = "SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND CONSTRAINT_TYPE = 'UNIQUE'";
+                                    constraintsSql = "SELECT cols.table_name, cols.column_name, cols.position, cons.constraint_type, cons.constraint_name\nFROM all_constraints cons, all_cons_columns cols WHERE cols.table_name IN (" + tableNamesString + ") \nAND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner ORDER BY cols.table_name, cols.position";
+                                    return [4 /*yield*/, Promise.all([
+                                            this.query(tablesSql),
+                                            this.query(columnsSql),
+                                            this.query(indicesSql),
+                                            // this.query(foreignKeysSql),
+                                            // this.query(uniqueKeysSql),
+                                            this.query(constraintsSql),
+                                        ])];
+                                case 1:
+                                    _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], dbIndices = _a[2], constraints = _a[3];
+                                    // if tables were not found in the db, no need to proceed
+                                    if (!dbTables.length)
+                                        return [2 /*return*/, []];
+                                    // create table schemas for loaded tables
+                                    return [2 /*return*/, dbTables.map(function (dbTable) {
+                                            var tableSchema = new TableSchema_4.TableSchema(dbTable["TABLE_NAME"]);
+                                            // create column schemas from the loaded columns
+                                            tableSchema.columns = dbColumns
+                                                .filter(function (dbColumn) { return dbColumn["TABLE_NAME"] === tableSchema.name; })
+                                                .map(function (dbColumn) {
+                                                var isPrimary = !!constraints
+                                                    .find(function (constraint) {
+                                                    return constraint["TABLE_NAME"] === tableSchema.name &&
+                                                        constraint["CONSTRAINT_TYPE"] === "P" &&
+                                                        constraint["COLUMN_NAME"] === dbColumn["COLUMN_NAME"];
+                                                });
+                                                var columnType = dbColumn["DATA_TYPE"].toLowerCase();
+                                                if (dbColumn["DATA_TYPE"].toLowerCase() === "varchar2" && dbColumn["DATA_LENGTH"] !== null) {
+                                                    columnType += "(" + dbColumn["DATA_LENGTH"] + ")";
+                                                }
+                                                else if (dbColumn["DATA_PRECISION"] !== null && dbColumn["DATA_SCALE"] !== null) {
+                                                    columnType += "(" + dbColumn["DATA_PRECISION"] + "," + dbColumn["DATA_SCALE"] + ")";
+                                                }
+                                                else if (dbColumn["DATA_SCALE"] !== null) {
+                                                    columnType += "(0," + dbColumn["DATA_SCALE"] + ")";
+                                                }
+                                                else if (dbColumn["DATA_PRECISION"] !== null) {
+                                                    columnType += "(" + dbColumn["DATA_PRECISION"] + ")";
+                                                }
+                                                var columnSchema = new ColumnSchema_5.ColumnSchema();
+                                                columnSchema.name = dbColumn["COLUMN_NAME"];
+                                                columnSchema.type = columnType;
+                                                columnSchema.default = dbColumn["COLUMN_DEFAULT"] !== null && dbColumn["COLUMN_DEFAULT"] !== undefined ? dbColumn["COLUMN_DEFAULT"] : undefined;
+                                                columnSchema.isNullable = dbColumn["NULLABLE"] !== "N";
+                                                columnSchema.isPrimary = isPrimary;
+                                                columnSchema.isGenerated = dbColumn["IDENTITY_COLUMN"] === "YES"; // todo
+                                                columnSchema.comment = ""; // todo
+                                                return columnSchema;
+                                            });
+                                            // create primary key schema
+                                            tableSchema.primaryKeys = constraints
+                                                .filter(function (constraint) {
+                                                return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "P";
+                                            })
+                                                .map(function (constraint) {
+                                                return new PrimaryKeySchema_4.PrimaryKeySchema(constraint["CONSTRAINT_NAME"], constraint["COLUMN_NAME"]);
+                                            });
+                                            // create foreign key schemas from the loaded indices
+                                            tableSchema.foreignKeys = constraints
+                                                .filter(function (constraint) { return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "R"; })
+                                                .map(function (constraint) { return new ForeignKeySchema_4.ForeignKeySchema(constraint["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
+                                            // create index schemas from the loaded indices
+                                            tableSchema.indices = dbIndices
+                                                .filter(function (dbIndex) {
+                                                return dbIndex["TABLE_NAME"] === tableSchema.name &&
+                                                    (!tableSchema.foreignKeys.find(function (foreignKey) { return foreignKey.name === dbIndex["INDEX_NAME"]; })) &&
+                                                    (!tableSchema.primaryKeys.find(function (primaryKey) { return primaryKey.name === dbIndex["INDEX_NAME"]; }));
+                                            })
+                                                .map(function (dbIndex) {
+                                                return new IndexSchema_4.IndexSchema(dbTable["TABLE_NAME"], dbIndex["INDEX_NAME"], dbIndex["COLUMN_NAMES"], !!(dbIndex["COLUMN_NAMES"] === "UNIQUE"));
+                                            });
+                                            return tableSchema;
+                                        })];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Checks if table with the given name exist in the database.
+                 */
+                OracleQueryRunner.prototype.hasTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql, result;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME = '" + tableName + "'";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    result = _a.sent();
+                                    return [2 /*return*/, result.length ? true : false];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Creates a new table from the given table metadata and column metadatas.
+                 */
+                OracleQueryRunner.prototype.createTable = function (table) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var columnDefinitions, sql, primaryKeyColumns;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    columnDefinitions = table.columns.map(function (column) { return _this.buildCreateColumnSql(column); }).join(", ");
+                                    sql = "CREATE TABLE \"" + table.name + "\" (" + columnDefinitions;
+                                    primaryKeyColumns = table.columns.filter(function (column) { return column.isPrimary; });
+                                    if (primaryKeyColumns.length > 0)
+                                        sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
+                                    sql += ")";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops the table.
+                 */
+                OracleQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE \"" + tableName + "\"";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Checks if column with the given name exist in the given table.
+                 */
+                OracleQueryRunner.prototype.hasColumn = function (tableName, columnName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql, result;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "SELECT COLUMN_NAME FROM all_tab_cols WHERE TABLE_NAME = '" + tableName + "' AND COLUMN_NAME = '" + columnName + "'";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    result = _a.sent();
+                                    return [2 /*return*/, result.length ? true : false];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Creates a new column from the column schema in the table.
+                 */
+                OracleQueryRunner.prototype.addColumn = function (tableSchemaOrName, column) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableName, sql;
+                        return __generator(this, function (_a) {
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            sql = "ALTER TABLE \"" + tableName + "\" ADD " + this.buildCreateColumnSql(column);
+                            return [2 /*return*/, this.query(sql)];
+                        });
+                    });
+                };
+                /**
+                 * Creates a new columns from the column schema in the table.
+                 */
+                OracleQueryRunner.prototype.addColumns = function (tableSchemaOrName, columns) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var queries;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    queries = columns.map(function (column) { return _this.addColumn(tableSchemaOrName, column); });
+                                    return [4 /*yield*/, Promise.all(queries)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Renames column in the given table.
+                 */
+                OracleQueryRunner.prototype.renameColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumnSchemaOrName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableSchema, oldColumn, newColumn;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    tableSchema = undefined;
+                                    if (!(tableSchemaOrName instanceof TableSchema_4.TableSchema)) return [3 /*break*/, 1];
+                                    tableSchema = tableSchemaOrName;
+                                    return [3 /*break*/, 3];
+                                case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
+                                case 2:
+                                    tableSchema = _a.sent();
+                                    _a.label = 3;
+                                case 3:
+                                    if (!tableSchema)
+                                        throw new Error("Table " + tableSchemaOrName + " was not found.");
+                                    oldColumn = undefined;
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                        oldColumn = oldColumnSchemaOrName;
+                                    }
+                                    else {
+                                        oldColumn = tableSchema.columns.find(function (column) { return column.name === oldColumnSchemaOrName; });
+                                    }
+                                    if (!oldColumn)
+                                        throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
+                                    newColumn = undefined;
+                                    if (newColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                        newColumn = newColumnSchemaOrName;
+                                    }
+                                    else {
+                                        newColumn = oldColumn.clone();
+                                        newColumn.name = newColumnSchemaOrName;
+                                    }
+                                    return [2 /*return*/, this.changeColumn(tableSchema, oldColumn, newColumn)];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Changes a column in the table.
+                 */
+                OracleQueryRunner.prototype.changeColumn = function (tableSchemaOrName, oldColumnSchemaOrName, newColumn) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableSchema, oldColumn, dropPrimarySql, dropSql, createSql, sql, sql, sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    tableSchema = undefined;
+                                    if (!(tableSchemaOrName instanceof TableSchema_4.TableSchema)) return [3 /*break*/, 1];
+                                    tableSchema = tableSchemaOrName;
+                                    return [3 /*break*/, 3];
+                                case 1: return [4 /*yield*/, this.loadTableSchema(tableSchemaOrName)];
+                                case 2:
+                                    tableSchema = _a.sent();
+                                    _a.label = 3;
+                                case 3:
+                                    if (!tableSchema)
+                                        throw new Error("Table " + tableSchemaOrName + " was not found.");
+                                    oldColumn = undefined;
+                                    if (oldColumnSchemaOrName instanceof ColumnSchema_5.ColumnSchema) {
+                                        oldColumn = oldColumnSchemaOrName;
+                                    }
+                                    else {
+                                        oldColumn = tableSchema.columns.find(function (column) { return column.name === oldColumnSchemaOrName; });
+                                    }
+                                    if (!oldColumn)
+                                        throw new Error("Column \"" + oldColumnSchemaOrName + "\" was not found in the \"" + tableSchemaOrName + "\" table.");
+                                    if (!(newColumn.isGenerated !== oldColumn.isGenerated)) return [3 /*break*/, 10];
+                                    if (!newColumn.isGenerated) return [3 /*break*/, 8];
+                                    if (!(tableSchema.primaryKeys.length > 0 && oldColumn.isPrimary)) return [3 /*break*/, 5];
+                                    dropPrimarySql = "ALTER TABLE \"" + tableSchema.name + "\" DROP CONSTRAINT \"" + tableSchema.primaryKeys[0].name + "\"";
+                                    return [4 /*yield*/, this.query(dropPrimarySql)];
+                                case 4:
+                                    _a.sent();
+                                    _a.label = 5;
+                                case 5:
+                                    dropSql = "ALTER TABLE \"" + tableSchema.name + "\" DROP COLUMN \"" + newColumn.name + "\"";
+                                    return [4 /*yield*/, this.query(dropSql)];
+                                case 6:
+                                    _a.sent();
+                                    createSql = "ALTER TABLE \"" + tableSchema.name + "\" ADD " + this.buildCreateColumnSql(newColumn);
+                                    return [4 /*yield*/, this.query(createSql)];
+                                case 7:
+                                    _a.sent();
+                                    return [3 /*break*/, 10];
+                                case 8:
+                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" DROP IDENTITY";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 9:
+                                    _a.sent();
+                                    _a.label = 10;
+                                case 10:
+                                    if (!(newColumn.isNullable !== oldColumn.isNullable)) return [3 /*break*/, 12];
+                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" " + newColumn.type + " " + (newColumn.isNullable ? "NULL" : "NOT NULL");
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 11:
+                                    _a.sent();
+                                    return [3 /*break*/, 14];
+                                case 12:
+                                    if (!(newColumn.type !== oldColumn.type)) return [3 /*break*/, 14];
+                                    sql = "ALTER TABLE \"" + tableSchema.name + "\" MODIFY \"" + newColumn.name + "\" " + newColumn.type;
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 13:
+                                    _a.sent();
+                                    _a.label = 14;
+                                case 14: return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Changes a column in the table.
+                 */
+                OracleQueryRunner.prototype.changeColumns = function (tableSchema, changedColumns) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var updatePromises;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    updatePromises = changedColumns.map(function (changedColumn) { return __awaiter(_this, void 0, void 0, function () {
+                                        return __generator(this, function (_a) {
+                                            return [2 /*return*/, this.changeColumn(tableSchema, changedColumn.oldColumn, changedColumn.newColumn)];
+                                        });
+                                    }); });
+                                    return [4 /*yield*/, Promise.all(updatePromises)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops column in the table.
+                 */
+                OracleQueryRunner.prototype.dropColumn = function (tableSchemaOrName, columnSchemaOrName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableName, columnName;
+                        return __generator(this, function (_a) {
+                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            columnName = columnSchemaOrName instanceof ColumnSchema_5.ColumnSchema ? columnSchemaOrName.name : columnSchemaOrName;
+                            return [2 /*return*/, this.query("ALTER TABLE \"" + tableName + "\" DROP COLUMN \"" + columnName + "\"")];
+                        });
+                    });
+                };
+                /**
+                 * Drops the columns in the table.
+                 */
+                OracleQueryRunner.prototype.dropColumns = function (tableSchemaOrName, columnSchemasOrNames) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var dropPromises;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    dropPromises = columnSchemasOrNames.map(function (column) { return _this.dropColumn(tableSchemaOrName, column); });
+                                    return [4 /*yield*/, Promise.all(dropPromises)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Updates table's primary keys.
+                 */
+                OracleQueryRunner.prototype.updatePrimaryKeys = function (dbTable) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var primaryColumnNames;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    primaryColumnNames = dbTable.primaryKeys.map(function (primaryKey) { return "\"" + primaryKey.columnName + "\""; });
+                                    if (!(dbTable.primaryKeys.length > 0 && dbTable.primaryKeys[0].name)) return [3 /*break*/, 2];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" DROP CONSTRAINT \"" + dbTable.primaryKeys[0].name + "\"")];
+                                case 1:
+                                    _a.sent();
+                                    _a.label = 2;
+                                case 2:
+                                    if (!(primaryColumnNames.length > 0)) return [3 /*break*/, 4];
+                                    return [4 /*yield*/, this.query("ALTER TABLE \"" + dbTable.name + "\" ADD PRIMARY KEY (" + primaryColumnNames.join(", ") + ")")];
+                                case 3:
+                                    _a.sent();
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Creates a new foreign key.
+                 */
+                OracleQueryRunner.prototype.createForeignKey = function (tableSchemaOrName, foreignKey) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableName, columnNames, referencedColumnNames, sql;
+                        return __generator(this, function (_a) {
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            columnNames = foreignKey.columnNames.map(function (column) { return "\"" + column + "\""; }).join(", ");
+                            referencedColumnNames = foreignKey.referencedColumnNames.map(function (column) { return "\"" + column + "\""; }).join(",");
+                            sql = "ALTER TABLE \"" + tableName + "\" ADD CONSTRAINT \"" + foreignKey.name + "\" " +
+                                ("FOREIGN KEY (" + columnNames + ") ") +
+                                ("REFERENCES \"" + foreignKey.referencedTableName + "\"(" + referencedColumnNames + ")");
+                            if (foreignKey.onDelete)
+                                sql += " ON DELETE " + foreignKey.onDelete;
+                            return [2 /*return*/, this.query(sql)];
+                        });
+                    });
+                };
+                /**
+                 * Creates a new foreign keys.
+                 */
+                OracleQueryRunner.prototype.createForeignKeys = function (tableSchemaOrName, foreignKeys) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var promises;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    promises = foreignKeys.map(function (foreignKey) { return _this.createForeignKey(tableSchemaOrName, foreignKey); });
+                                    return [4 /*yield*/, Promise.all(promises)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops a foreign key from the table.
+                 */
+                OracleQueryRunner.prototype.dropForeignKey = function (tableSchemaOrName, foreignKey) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var tableName, sql;
+                        return __generator(this, function (_a) {
+                            if (this.isReleased)
+                                throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                            tableName = tableSchemaOrName instanceof TableSchema_4.TableSchema ? tableSchemaOrName.name : tableSchemaOrName;
+                            sql = "ALTER TABLE \"" + tableName + "\" DROP CONSTRAINT \"" + foreignKey.name + "\"";
+                            return [2 /*return*/, this.query(sql)];
+                        });
+                    });
+                };
+                /**
+                 * Drops a foreign keys from the table.
+                 */
+                OracleQueryRunner.prototype.dropForeignKeys = function (tableSchemaOrName, foreignKeys) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var _this = this;
+                        var promises;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    promises = foreignKeys.map(function (foreignKey) { return _this.dropForeignKey(tableSchemaOrName, foreignKey); });
+                                    return [4 /*yield*/, Promise.all(promises)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Creates a new index.
+                 */
+                OracleQueryRunner.prototype.createIndex = function (tableName, index) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var columns, sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    columns = index.columnNames.map(function (columnName) { return "\"" + columnName + "\""; }).join(", ");
+                                    sql = "CREATE " + (index.isUnique ? "UNIQUE" : "") + " INDEX \"" + index.name + "\" ON \"" + tableName + "\"(" + columns + ")";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops an index from the table.
+                 */
+                OracleQueryRunner.prototype.dropIndex = function (tableName, indexName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (this.isReleased)
+                                        throw new QueryRunnerAlreadyReleasedError_4.QueryRunnerAlreadyReleasedError();
+                                    sql = "ALTER TABLE \"" + tableName + "\" DROP INDEX \"" + indexName + "\"";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Creates a database type from a given column metadata.
+                 */
+                OracleQueryRunner.prototype.normalizeType = function (typeOptions) {
+                    switch (typeOptions.type) {
+                        case "string":
+                            if (typeOptions.fixedLength) {
+                                return "char(" + (typeOptions.length ? typeOptions.length : 255) + ")";
+                            }
+                            else {
+                                return "varchar2(" + (typeOptions.length ? typeOptions.length : 255) + ")";
+                            }
+                        case "text":
+                            return "clob";
+                        case "boolean":
+                            return "number(1)";
+                        case "integer":
+                        case "int":
+                            // if (column.isGenerated)
+                            //     return `number(22)`;
+                            if (typeOptions.precision && typeOptions.scale)
+                                return "number(" + typeOptions.precision + "," + typeOptions.scale + ")";
+                            if (typeOptions.precision)
+                                return "number(" + typeOptions.precision + ",0)";
+                            if (typeOptions.scale)
+                                return "number(0," + typeOptions.scale + ")";
+                            return "number(10,0)";
+                        case "smallint":
+                            return "number(5)";
+                        case "bigint":
+                            return "number(20)";
+                        case "float":
+                            if (typeOptions.precision && typeOptions.scale)
+                                return "float(" + typeOptions.precision + "," + typeOptions.scale + ")";
+                            if (typeOptions.precision)
+                                return "float(" + typeOptions.precision + ",0)";
+                            if (typeOptions.scale)
+                                return "float(0," + typeOptions.scale + ")";
+                            return "float(126)";
+                        case "double":
+                        case "number":
+                            return "float(126)";
+                        case "decimal":
+                            if (typeOptions.precision && typeOptions.scale) {
+                                return "decimal(" + typeOptions.precision + "," + typeOptions.scale + ")";
+                            }
+                            else if (typeOptions.scale) {
+                                return "decimal(0," + typeOptions.scale + ")";
+                            }
+                            else if (typeOptions.precision) {
+                                return "decimal(" + typeOptions.precision + ")";
+                            }
+                            else {
+                                return "decimal";
+                            }
+                        case "date":
+                            return "date";
+                        case "time":
+                            return "date";
+                        case "datetime":
+                            return "timestamp(0)";
+                        case "json":
+                            return "clob";
+                        case "simple_array":
+                            return typeOptions.length ? "varchar2(" + typeOptions.length + ")" : "text";
+                    }
+                    throw new DataTypeNotSupportedByDriverError_4.DataTypeNotSupportedByDriverError(typeOptions.type, "Oracle");
+                };
+                /**
+                 * Checks if "DEFAULT" values in the column metadata and in the database schema are equal.
+                 */
+                OracleQueryRunner.prototype.compareDefaultValues = function (columnMetadataValue, databaseValue) {
+                    if (typeof columnMetadataValue === "number")
+                        return columnMetadataValue === parseInt(databaseValue);
+                    if (typeof columnMetadataValue === "boolean")
+                        return columnMetadataValue === (!!databaseValue || databaseValue === "false");
+                    if (typeof columnMetadataValue === "function")
+                        return columnMetadataValue() === databaseValue;
+                    return columnMetadataValue === databaseValue;
+                };
+                /**
+                 * Truncates table.
+                 */
+                OracleQueryRunner.prototype.truncate = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, this.query("TRUNCATE TABLE " + this.driver.escapeTableName(tableName))];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                Object.defineProperty(OracleQueryRunner.prototype, "dbName", {
+                    // -------------------------------------------------------------------------
+                    // Protected Methods
+                    // -------------------------------------------------------------------------
+                    /**
+                     * Database name shortcut.
+                     */
+                    get: function () {
+                        return this.driver.options.schemaName;
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+                /**
+                 * Parametrizes given object of values. Used to create column=value queries.
+                 */
+                OracleQueryRunner.prototype.parametrize = function (objectLiteral) {
+                    var _this = this;
+                    return Object.keys(objectLiteral).map(function (key) { return _this.driver.escapeColumnName(key) + "=:" + key; });
+                };
+                /**
+                 * Builds a query for create column.
+                 */
+                OracleQueryRunner.prototype.buildCreateColumnSql = function (column) {
+                    var c = "\"" + column.name + "\" " + column.type;
+                    if (column.isNullable !== true && !column.isGenerated)
+                        c += " NOT NULL";
+                    // if (column.isPrimary === true && addPrimary)
+                    //     c += " PRIMARY KEY";
+                    if (column.isGenerated === true)
+                        c += " GENERATED BY DEFAULT ON NULL AS IDENTITY";
+                    // if (column.comment) // todo: less priority, fix it later
+                    //     c += " COMMENT '" + column.comment + "'";
+                    if (column.default !== undefined && column.default !== null) {
+                        if (typeof column.default === "number") {
+                            c += " DEFAULT " + column.default + "";
+                        }
+                        else if (typeof column.default === "boolean") {
+                            c += " DEFAULT " + (column.default === true ? "TRUE" : "FALSE") + "";
+                        }
+                        else if (typeof column.default === "function") {
+                            c += " DEFAULT " + column.default() + "";
+                        }
+                        else if (typeof column.default === "string") {
+                            c += " DEFAULT '" + column.default + "'";
+                        }
+                        else {
+                            c += " DEFAULT " + column.default + "";
+                        }
+                    }
+                    return c;
+                };
+                return OracleQueryRunner;
+            }());
+            exports_60("OracleQueryRunner", OracleQueryRunner);
+        }
+    };
+});
+System.register("typeorm/driver/oracle/OracleDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/DriverUtils", "typeorm/driver/oracle/OracleQueryRunner", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_61, context_61) {
+    "use strict";
+    var __moduleName = context_61 && context_61.id;
+    var ConnectionIsNotSetError_4, DriverPackageNotInstalledError_4, DriverUtils_4, OracleQueryRunner_1, ColumnTypes_4, DriverOptionNotSetError_4, DataTransformationUtils_4, PlatformTools_5, OracleDriver;
+    return {
+        setters: [
+            function (ConnectionIsNotSetError_4_1) {
+                ConnectionIsNotSetError_4 = ConnectionIsNotSetError_4_1;
+            },
+            function (DriverPackageNotInstalledError_4_1) {
+                DriverPackageNotInstalledError_4 = DriverPackageNotInstalledError_4_1;
+            },
+            function (DriverUtils_4_1) {
+                DriverUtils_4 = DriverUtils_4_1;
+            },
+            function (OracleQueryRunner_1_1) {
+                OracleQueryRunner_1 = OracleQueryRunner_1_1;
+            },
+            function (ColumnTypes_4_1) {
+                ColumnTypes_4 = ColumnTypes_4_1;
+            },
+            function (DriverOptionNotSetError_4_1) {
+                DriverOptionNotSetError_4 = DriverOptionNotSetError_4_1;
+            },
+            function (DataTransformationUtils_4_1) {
+                DataTransformationUtils_4 = DataTransformationUtils_4_1;
+            },
+            function (PlatformTools_5_1) {
+                PlatformTools_5 = PlatformTools_5_1;
+            }
+        ],
+        execute: function () {
+            /**
+             * Organizes communication with Oracle DBMS.
+             *
+             * todo: this driver is not 100% finished yet, need to fix all issues that are left
+             */
+            OracleDriver = (function () {
+                // -------------------------------------------------------------------------
+                // Constructor
+                // -------------------------------------------------------------------------
+                function OracleDriver(options, logger, oracle) {
+                    /**
+                     * Pool of database connections.
+                     */
+                    this.databaseConnectionPool = [];
+                    this.options = DriverUtils_4.DriverUtils.buildDriverOptions(options, { useSid: true });
+                    this.logger = logger;
+                    this.oracle = oracle;
+                    // validate options to make sure everything is set
+                    if (!this.options.host)
+                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("host");
+                    if (!this.options.username)
+                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("username");
+                    if (!this.options.sid)
+                        throw new DriverOptionNotSetError_4.DriverOptionNotSetError("sid");
+                    // if oracle package instance was not set explicitly then try to load it
+                    if (!oracle)
+                        this.loadDependencies();
+                    this.oracle.outFormat = this.oracle.OBJECT;
+                }
+                // -------------------------------------------------------------------------
+                // Public Methods
+                // -------------------------------------------------------------------------
+                /**
+                 * Performs connection to the database.
+                 * Based on pooling options, it can either create connection immediately,
+                 * either create a pool and create connection when needed.
+                 */
+                OracleDriver.prototype.connect = function () {
+                    var _this = this;
+                    // build connection options for the driver
+                    var options = Object.assign({}, {
+                        user: this.options.username,
+                        password: this.options.password,
+                        connectString: this.options.host + ":" + this.options.port + "/" + this.options.sid,
+                    }, this.options.extra || {});
+                    // pooling is enabled either when its set explicitly to true,
+                    // either when its not defined at all (e.g. enabled by default)
+                    if (this.options.usePool === undefined || this.options.usePool === true) {
+                        return new Promise(function (ok, fail) {
+                            _this.oracle.createPool(options, function (err, pool) {
+                                if (err)
+                                    return fail(err);
+                                _this.pool = pool;
+                                ok();
+                            });
+                        });
+                    }
+                    else {
+                        return new Promise(function (ok, fail) {
+                            _this.oracle.getConnection(options, function (err, connection) {
+                                if (err)
+                                    return fail(err);
+                                _this.databaseConnection = {
+                                    id: 1,
+                                    connection: connection,
+                                    isTransactionActive: false
+                                };
+                                _this.databaseConnection.connection.connect(function (err) { return err ? fail(err) : ok(); });
+                            });
+                        });
+                    }
+                };
+                /**
+                 * Closes connection with the database.
+                 */
+                OracleDriver.prototype.disconnect = function () {
+                    var _this = this;
+                    if (!this.databaseConnection && !this.pool)
+                        throw new ConnectionIsNotSetError_4.ConnectionIsNotSetError("oracle");
+                    return new Promise(function (ok, fail) {
+                        var handler = function (err) { return err ? fail(err) : ok(); };
+                        // if pooling is used, then disconnect from it
+                        if (_this.pool) {
+                            _this.pool.close(handler);
+                            _this.pool = undefined;
+                            _this.databaseConnectionPool = [];
+                        }
+                        // if single connection is opened, then close it
+                        if (_this.databaseConnection) {
+                            _this.databaseConnection.connection.close(handler);
+                            _this.databaseConnection = undefined;
+                        }
+                    });
+                };
+                /**
+                 * Creates a query runner used for common queries.
+                 */
+                OracleDriver.prototype.createQueryRunner = function () {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var databaseConnection;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (!this.databaseConnection && !this.pool)
+                                        return [2 /*return*/, Promise.reject(new ConnectionIsNotSetError_4.ConnectionIsNotSetError("oracle"))];
+                                    return [4 /*yield*/, this.retrieveDatabaseConnection()];
+                                case 1:
+                                    databaseConnection = _a.sent();
+                                    return [2 /*return*/, new OracleQueryRunner_1.OracleQueryRunner(databaseConnection, this, this.logger)];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Access to the native implementation of the database.
+                 */
+                OracleDriver.prototype.nativeInterface = function () {
+                    return {
+                        driver: this.oracle,
+                        connection: this.databaseConnection ? this.databaseConnection.connection : undefined,
+                        pool: this.pool
+                    };
+                };
+                /**
+                 * Replaces parameters in the given sql with special escaping character
+                 * and an array of parameter names to be passed to a query.
+                 */
+                OracleDriver.prototype.escapeQueryWithParameters = function (sql, parameters) {
+                    if (!parameters || !Object.keys(parameters).length)
+                        return [sql, []];
+                    var escapedParameters = [];
+                    var keys = Object.keys(parameters).map(function (parameter) { return "(:" + parameter + "\\b)"; }).join("|");
+                    sql = sql.replace(new RegExp(keys, "g"), function (key) {
+                        escapedParameters.push(parameters[key.substr(1)]);
+                        return key;
+                    }); // todo: make replace only in value statements, otherwise problems
+                    return [sql, escapedParameters];
+                };
+                /**
+                 * Escapes a column name.
+                 */
+                OracleDriver.prototype.escapeColumnName = function (columnName) {
+                    return "\"" + columnName + "\""; // "`" + columnName + "`";
+                };
+                /**
+                 * Escapes an alias.
+                 */
+                OracleDriver.prototype.escapeAliasName = function (aliasName) {
+                    return "\"" + aliasName + "\"";
+                };
+                /**
+                 * Escapes a table name.
+                 */
+                OracleDriver.prototype.escapeTableName = function (tableName) {
+                    return "\"" + tableName + "\"";
+                };
+                /**
+                 * Prepares given value to a value to be persisted, based on its column type and metadata.
+                 */
+                OracleDriver.prototype.preparePersistentValue = function (value, columnMetadata) {
+                    if (value === null || value === undefined)
+                        return null;
+                    switch (columnMetadata.type) {
+                        case ColumnTypes_4.ColumnTypes.BOOLEAN:
+                            return value === true ? 1 : 0;
+                        case ColumnTypes_4.ColumnTypes.DATE:
+                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_4.ColumnTypes.TIME:
+                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToTimeString(value);
+                        case ColumnTypes_4.ColumnTypes.DATETIME:
+                            if (columnMetadata.localTimezone) {
+                                return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDatetimeString(value);
+                            }
+                            else {
+                                return DataTransformationUtils_4.DataTransformationUtils.mixedDateToUtcDatetimeString(value);
+                            }
+                        case ColumnTypes_4.ColumnTypes.JSON:
+                            return JSON.stringify(value);
+                        case ColumnTypes_4.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_4.DataTransformationUtils.simpleArrayToString(value);
+                    }
+                    return value;
+                };
+                /**
+                 * Prepares given value to a value to be persisted, based on its column type or metadata.
+                 */
+                OracleDriver.prototype.prepareHydratedValue = function (value, columnMetadata) {
+                    switch (columnMetadata.type) {
+                        case ColumnTypes_4.ColumnTypes.BOOLEAN:
+                            return value ? true : false;
+                        case ColumnTypes_4.ColumnTypes.DATETIME:
+                            return DataTransformationUtils_4.DataTransformationUtils.normalizeHydratedDate(value, columnMetadata.localTimezone === true);
+                        case ColumnTypes_4.ColumnTypes.DATE:
+                            return DataTransformationUtils_4.DataTransformationUtils.mixedDateToDateString(value);
+                        case ColumnTypes_4.ColumnTypes.TIME:
+                            return DataTransformationUtils_4.DataTransformationUtils.mixedTimeToString(value);
+                        case ColumnTypes_4.ColumnTypes.JSON:
+                            return JSON.parse(value);
+                        case ColumnTypes_4.ColumnTypes.SIMPLE_ARRAY:
+                            return DataTransformationUtils_4.DataTransformationUtils.stringToSimpleArray(value);
+                    }
+                    return value;
+                };
+                // -------------------------------------------------------------------------
+                // Protected Methods
+                // -------------------------------------------------------------------------
+                /**
+                 * Retrieves a new database connection.
+                 * If pooling is enabled then connection from the pool will be retrieved.
+                 * Otherwise active connection will be returned.
+                 */
+                OracleDriver.prototype.retrieveDatabaseConnection = function () {
+                    var _this = this;
+                    if (this.pool) {
+                        return new Promise(function (ok, fail) {
+                            _this.pool.getConnection(function (err, connection) {
+                                if (err)
+                                    return fail(err);
+                                var dbConnection = _this.databaseConnectionPool.find(function (dbConnection) { return dbConnection.connection === connection; });
+                                if (!dbConnection) {
+                                    dbConnection = {
+                                        id: _this.databaseConnectionPool.length,
+                                        connection: connection,
+                                        isTransactionActive: false
+                                    };
+                                    dbConnection.releaseCallback = function () {
+                                        return new Promise(function (ok, fail) {
+                                            connection.close(function (err) {
+                                                if (err)
+                                                    return fail(err);
+                                                if (_this.pool && dbConnection) {
+                                                    _this.databaseConnectionPool.splice(_this.databaseConnectionPool.indexOf(dbConnection), 1);
+                                                }
+                                                ok();
+                                            });
+                                        });
+                                    };
+                                    _this.databaseConnectionPool.push(dbConnection);
+                                }
+                                ok(dbConnection);
+                            });
+                        });
+                    }
+                    if (this.databaseConnection)
+                        return Promise.resolve(this.databaseConnection);
+                    throw new ConnectionIsNotSetError_4.ConnectionIsNotSetError("oracle");
+                };
+                /**
+                 * If driver dependency is not given explicitly, then try to load it via "require".
+                 */
+                OracleDriver.prototype.loadDependencies = function () {
+                    try {
+                        this.oracle = PlatformTools_5.PlatformTools.load("oracledb");
+                    }
+                    catch (e) {
+                        throw new DriverPackageNotInstalledError_4.DriverPackageNotInstalledError("Oracle", "oracledb");
+                    }
+                };
+                return OracleDriver;
+            }());
+            exports_61("OracleDriver", OracleDriver);
+        }
+    };
+});
+System.register("typeorm/query-builder/QueryBuilder", ["typeorm/query-builder/transformer/RawSqlResultsToEntityTransformer", "typeorm/driver/sqlserver/SqlServerDriver", "typeorm/query-runner/QueryRunnerProvider", "typeorm/query-builder/error/PessimisticLockTransactionRequiredError", "typeorm/query-builder/error/NoVersionOrUpdateDateColumnError", "typeorm/query-builder/error/OptimisticLockVersionMismatchError", "typeorm/query-builder/error/OptimisticLockCanNotBeUsedError", "typeorm/driver/postgres/PostgresDriver", "typeorm/driver/mysql/MysqlDriver", "typeorm/query-builder/error/LockNotSupportedOnGivenDriverError", "typeorm/query-builder/JoinAttribute", "typeorm/query-builder/relation-id/RelationIdAttribute", "typeorm/query-builder/relation-count/RelationCountAttribute", "typeorm/query-builder/QueryExpressionMap", "typeorm/query-builder/relation-id/RelationIdLoader", "typeorm/query-builder/relation-id/RelationIdMetadataToAttributeTransformer", "typeorm/query-builder/relation-count/RelationCountLoader", "typeorm/query-builder/relation-count/RelationCountMetadataToAttributeTransformer", "typeorm/driver/oracle/OracleDriver"], function (exports_62, context_62) {
+    "use strict";
+    var __moduleName = context_62 && context_62.id;
+    var RawSqlResultsToEntityTransformer_1, SqlServerDriver_1, QueryRunnerProvider_1, PessimisticLockTransactionRequiredError_1, NoVersionOrUpdateDateColumnError_1, OptimisticLockVersionMismatchError_1, OptimisticLockCanNotBeUsedError_1, PostgresDriver_1, MysqlDriver_1, LockNotSupportedOnGivenDriverError_1, JoinAttribute_2, RelationIdAttribute_3, RelationCountAttribute_3, QueryExpressionMap_1, RelationIdLoader_1, RelationIdMetadataToAttributeTransformer_1, RelationCountLoader_1, RelationCountMetadataToAttributeTransformer_1, OracleDriver_1, QueryBuilder;
+    return {
+        setters: [
             function (RawSqlResultsToEntityTransformer_1_1) {
                 RawSqlResultsToEntityTransformer_1 = RawSqlResultsToEntityTransformer_1_1;
             },
@@ -8702,6 +8777,9 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
             },
             function (RelationCountMetadataToAttributeTransformer_1_1) {
                 RelationCountMetadataToAttributeTransformer_1 = RelationCountMetadataToAttributeTransformer_1_1;
+            },
+            function (OracleDriver_1_1) {
+                OracleDriver_1 = OracleDriver_1_1;
             }
         ],
         execute: function () {
@@ -9190,18 +9268,6 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                     sql = this.createSpecificExpression(sql);
                     sql = this.connection.driver.escapeQueryWithParameters(sql, this.expressionMap.parameters)[0];
                     return sql.trim();
-                };
-                QueryBuilder.prototype.createSpecificExpression = function (sql) {
-                    if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
-                        sql = 'SELECT * FROM (' + sql + ') WHERE ';
-                        if (this.expressionMap.offset) {
-                            sql += "\"RN\" > " + this.expressionMap.offset;
-                        }
-                        if (this.expressionMap.limit) {
-                            sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
-                        }
-                    }
-                    return sql;
                 };
                 /**
                  * Gets generated sql without parameters being replaced.
@@ -9951,9 +10017,9 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                         if (metadata.parentEntityMetadata && metadata.parentEntityMetadata.inheritanceType === "class-table" && metadata.parentIdColumns) {
                             var alias_2 = "parentIdColumn_" + metadata.parentEntityMetadata.tableName;
                             var condition = metadata.parentIdColumns.map(function (parentIdColumn) {
-                                return _this.expressionMap.mainAlias.name + "." + parentIdColumn.databaseName + "=" + ea(alias_2) + "." + parentIdColumn.propertyName;
+                                return _this.expressionMap.mainAlias.name + "." + parentIdColumn.propertyPath + " = " + alias_2 + "." + parentIdColumn.referencedColumn.propertyPath;
                             }).join(" AND ");
-                            var join = " JOIN " + et(metadata.parentEntityMetadata.tableName) + " " + ea(alias_2) + " ON " + condition;
+                            var join = " JOIN " + et(metadata.parentEntityMetadata.tableName) + " " + ea(alias_2) + " ON " + this.replacePropertyNames(condition);
                             joins.push(join);
                         }
                     }
@@ -10000,6 +10066,18 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                         })
                             .join(", ");
                     return "";
+                };
+                QueryBuilder.prototype.createSpecificExpression = function (sql) {
+                    if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
+                        sql = 'SELECT * FROM (' + sql + ') WHERE ';
+                        if (this.expressionMap.offset) {
+                            sql += "\"RN\" > " + this.expressionMap.offset;
+                        }
+                        if (this.expressionMap.limit) {
+                            sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+                        }
+                    }
+                    return sql;
                 };
                 QueryBuilder.prototype.createLimitExpression = function () {
                     if (!this.expressionMap.limit || this.connection.driver instanceof OracleDriver_1.OracleDriver)
@@ -10058,9 +10136,9 @@ System.register("typeorm/query-builder/QueryBuilder", ["typeorm/driver/oracle/Or
                             whereSubStrings.push(ea(alias) + "." + ec(primaryColumn.databaseName) + "=:id_" + index + "_" + secondIndex);
                             parameters["id_" + index + "_" + secondIndex] = primaryColumn.getEntityValue(id);
                         });
-                        metadata.parentIdColumns.forEach(function (primaryColumn, secondIndex) {
-                            whereSubStrings.push(ea(alias) + "." + ec(id[primaryColumn.databaseName]) + "=:parentId_" + index + "_" + secondIndex);
-                            parameters["parentId_" + index + "_" + secondIndex] = primaryColumn.getEntityValue(id);
+                        metadata.parentIdColumns.forEach(function (parentIdColumn, secondIndex) {
+                            whereSubStrings.push(ea(alias) + "." + ec(parentIdColumn.databaseName) + "=:parentId_" + index + "_" + secondIndex);
+                            parameters["parentId_" + index + "_" + secondIndex] = parentIdColumn.getEntityValue(id);
                         });
                         // } else {
                         //     if (metadata.primaryColumns.length > 0) {
@@ -11075,6 +11153,7 @@ System.register("typeorm/metadata/EntityMetadata", ["typeorm/util/OrmUtils"], fu
                 EntityMetadata.prototype.registerColumn = function (column) {
                     this.ownColumns.push(column);
                     this.columns = this.embeddeds.reduce(function (columns, embedded) { return columns.concat(embedded.columnsFromTree); }, this.ownColumns);
+                    this.parentIdColumns = this.columns.filter(function (column) { return column.isParentId; });
                     this.primaryColumns = this.columns.filter(function (column) { return column.isPrimary; });
                     this.hasMultiplePrimaryKeys = this.primaryColumns.length > 1;
                     this.propertiesMap = this.createPropertiesMap();
@@ -11536,7 +11615,7 @@ System.register("typeorm/driver/Driver", [], function (exports_83, context_83) {
         }
     };
 });
-System.register("typeorm/find-options/FindOneOptions", [], function (exports_84, context_84) {
+System.register("typeorm/find-options/JoinOptions", [], function (exports_84, context_84) {
     "use strict";
     var __moduleName = context_84 && context_84.id;
     return {
@@ -11545,7 +11624,7 @@ System.register("typeorm/find-options/FindOneOptions", [], function (exports_84,
         }
     };
 });
-System.register("typeorm/find-options/FindManyOptions", [], function (exports_85, context_85) {
+System.register("typeorm/find-options/FindOneOptions", [], function (exports_85, context_85) {
     "use strict";
     var __moduleName = context_85 && context_85.id;
     return {
@@ -11554,7 +11633,7 @@ System.register("typeorm/find-options/FindManyOptions", [], function (exports_85
         }
     };
 });
-System.register("typeorm/common/DeepPartial", [], function (exports_86, context_86) {
+System.register("typeorm/find-options/FindManyOptions", [], function (exports_86, context_86) {
     "use strict";
     var __moduleName = context_86 && context_86.id;
     return {
@@ -11563,7 +11642,7 @@ System.register("typeorm/common/DeepPartial", [], function (exports_86, context_
         }
     };
 });
-System.register("typeorm/repository/SaveOptions", [], function (exports_87, context_87) {
+System.register("typeorm/common/DeepPartial", [], function (exports_87, context_87) {
     "use strict";
     var __moduleName = context_87 && context_87.id;
     return {
@@ -11572,7 +11651,7 @@ System.register("typeorm/repository/SaveOptions", [], function (exports_87, cont
         }
     };
 });
-System.register("typeorm/repository/RemoveOptions", [], function (exports_88, context_88) {
+System.register("typeorm/repository/SaveOptions", [], function (exports_88, context_88) {
     "use strict";
     var __moduleName = context_88 && context_88.id;
     return {
@@ -11581,7 +11660,7 @@ System.register("typeorm/repository/RemoveOptions", [], function (exports_88, co
         }
     };
 });
-System.register("typeorm/common/ObjectType", [], function (exports_89, context_89) {
+System.register("typeorm/repository/RemoveOptions", [], function (exports_89, context_89) {
     "use strict";
     var __moduleName = context_89 && context_89.id;
     return {
@@ -11590,9 +11669,18 @@ System.register("typeorm/common/ObjectType", [], function (exports_89, context_8
         }
     };
 });
-System.register("typeorm/query-runner/error/QueryRunnerProviderAlreadyReleasedError", [], function (exports_90, context_90) {
+System.register("typeorm/common/ObjectType", [], function (exports_90, context_90) {
     "use strict";
     var __moduleName = context_90 && context_90.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/query-runner/error/QueryRunnerProviderAlreadyReleasedError", [], function (exports_91, context_91) {
+    "use strict";
+    var __moduleName = context_91 && context_91.id;
     var QueryRunnerProviderAlreadyReleasedError;
     return {
         setters: [],
@@ -11611,13 +11699,13 @@ System.register("typeorm/query-runner/error/QueryRunnerProviderAlreadyReleasedEr
                 }
                 return QueryRunnerProviderAlreadyReleasedError;
             }(Error));
-            exports_90("QueryRunnerProviderAlreadyReleasedError", QueryRunnerProviderAlreadyReleasedError);
+            exports_91("QueryRunnerProviderAlreadyReleasedError", QueryRunnerProviderAlreadyReleasedError);
         }
     };
 });
-System.register("typeorm/persistence/Subject", ["typeorm/metadata/types/ColumnTypes", "typeorm/util/DataTransformationUtils"], function (exports_91, context_91) {
+System.register("typeorm/persistence/Subject", ["typeorm/metadata/types/ColumnTypes", "typeorm/util/DataTransformationUtils"], function (exports_92, context_92) {
     "use strict";
-    var __moduleName = context_91 && context_91.id;
+    var __moduleName = context_92 && context_92.id;
     var ColumnTypes_5, DataTransformationUtils_5, Subject;
     return {
         setters: [
@@ -11939,13 +12027,13 @@ System.register("typeorm/persistence/Subject", ["typeorm/metadata/types/ColumnTy
                 };
                 return Subject;
             }());
-            exports_91("Subject", Subject);
+            exports_92("Subject", Subject);
         }
     };
 });
-System.register("typeorm/repository/SpecificRepository", ["typeorm/query-runner/QueryRunnerProvider", "typeorm/persistence/Subject", "typeorm/metadata/RelationMetadata", "typeorm/query-builder/QueryBuilder", "typeorm/util/OrmUtils"], function (exports_92, context_92) {
+System.register("typeorm/repository/SpecificRepository", ["typeorm/query-runner/QueryRunnerProvider", "typeorm/persistence/Subject", "typeorm/metadata/RelationMetadata", "typeorm/query-builder/QueryBuilder", "typeorm/util/OrmUtils"], function (exports_93, context_93) {
     "use strict";
-    var __moduleName = context_92 && context_92.id;
+    var __moduleName = context_93 && context_93.id;
     var QueryRunnerProvider_2, Subject_1, RelationMetadata_1, QueryBuilder_4, OrmUtils_3, SpecificRepository;
     return {
         setters: [
@@ -12496,13 +12584,13 @@ System.register("typeorm/repository/SpecificRepository", ["typeorm/query-runner/
                 };
                 return SpecificRepository;
             }());
-            exports_92("SpecificRepository", SpecificRepository);
+            exports_93("SpecificRepository", SpecificRepository);
         }
     };
 });
-System.register("typeorm/repository/TreeRepository", ["typeorm/repository/Repository"], function (exports_93, context_93) {
+System.register("typeorm/repository/TreeRepository", ["typeorm/repository/Repository"], function (exports_94, context_94) {
     "use strict";
-    var __moduleName = context_93 && context_93.id;
+    var __moduleName = context_94 && context_94.id;
     var Repository_1, TreeRepository;
     return {
         setters: [
@@ -12698,13 +12786,13 @@ System.register("typeorm/repository/TreeRepository", ["typeorm/repository/Reposi
                 };
                 return TreeRepository;
             }(Repository_1.Repository));
-            exports_93("TreeRepository", TreeRepository);
+            exports_94("TreeRepository", TreeRepository);
         }
     };
 });
-System.register("typeorm/driver/mongodb/typings", ["events", "stream"], function (exports_94, context_94) {
+System.register("typeorm/driver/mongodb/typings", ["events", "stream"], function (exports_95, context_95) {
     "use strict";
-    var __moduleName = context_94 && context_94.id;
+    var __moduleName = context_95 && context_95.id;
     var events_1, stream_1;
     return {
         setters: [
@@ -12719,9 +12807,9 @@ System.register("typeorm/driver/mongodb/typings", ["events", "stream"], function
         }
     };
 });
-System.register("typeorm/driver/mongodb/MongoQueryRunner", [], function (exports_95, context_95) {
+System.register("typeorm/driver/mongodb/MongoQueryRunner", [], function (exports_96, context_96) {
     "use strict";
-    var __moduleName = context_95 && context_95.id;
+    var __moduleName = context_96 && context_96.id;
     var MongoQueryRunner;
     return {
         setters: [],
@@ -13331,6 +13419,16 @@ System.register("typeorm/driver/mongodb/MongoQueryRunner", [], function (exports
                     });
                 };
                 /**
+                 * Drops the table.
+                 */
+                MongoQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            throw new Error("Schema update queries are not supported by MongoDB driver.");
+                        });
+                    });
+                };
+                /**
                  * Checks if column with the given name exist in the given table.
                  */
                 MongoQueryRunner.prototype.hasColumn = function (collectionName, columnName) {
@@ -13530,13 +13628,13 @@ System.register("typeorm/driver/mongodb/MongoQueryRunner", [], function (exports
                 };
                 return MongoQueryRunner;
             }());
-            exports_95("MongoQueryRunner", MongoQueryRunner);
+            exports_96("MongoQueryRunner", MongoQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/mongodb/MongoDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/mongodb/MongoQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/platform/PlatformTools"], function (exports_96, context_96) {
+System.register("typeorm/driver/mongodb/MongoDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/driver/mongodb/MongoQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/platform/PlatformTools"], function (exports_97, context_97) {
     "use strict";
-    var __moduleName = context_96 && context_96.id;
+    var __moduleName = context_97 && context_97.id;
     var ConnectionIsNotSetError_5, DriverPackageNotInstalledError_5, MongoQueryRunner_1, DriverOptionNotSetError_5, PlatformTools_6, MongoDriver;
     return {
         setters: [
@@ -13739,13 +13837,13 @@ System.register("typeorm/driver/mongodb/MongoDriver", ["typeorm/driver/error/Con
                 };
                 return MongoDriver;
             }());
-            exports_96("MongoDriver", MongoDriver);
+            exports_97("MongoDriver", MongoDriver);
         }
     };
 });
-System.register("typeorm/query-builder/transformer/DocumentToEntityTransformer", [], function (exports_97, context_97) {
+System.register("typeorm/query-builder/transformer/DocumentToEntityTransformer", [], function (exports_98, context_98) {
     "use strict";
-    var __moduleName = context_97 && context_97.id;
+    var __moduleName = context_98 && context_98.id;
     var DocumentToEntityTransformer;
     return {
         setters: [],
@@ -13918,13 +14016,13 @@ System.register("typeorm/query-builder/transformer/DocumentToEntityTransformer",
                 };
                 return DocumentToEntityTransformer;
             }());
-            exports_97("DocumentToEntityTransformer", DocumentToEntityTransformer);
+            exports_98("DocumentToEntityTransformer", DocumentToEntityTransformer);
         }
     };
 });
-System.register("typeorm/find-options/FindOptionsUtils", [], function (exports_98, context_98) {
+System.register("typeorm/find-options/FindOptionsUtils", [], function (exports_99, context_99) {
     "use strict";
-    var __moduleName = context_98 && context_98.id;
+    var __moduleName = context_99 && context_99.id;
     var FindOptionsUtils;
     return {
         setters: [],
@@ -14049,13 +14147,13 @@ System.register("typeorm/find-options/FindOptionsUtils", [], function (exports_9
                 };
                 return FindOptionsUtils;
             }());
-            exports_98("FindOptionsUtils", FindOptionsUtils);
+            exports_99("FindOptionsUtils", FindOptionsUtils);
         }
     };
 });
-System.register("typeorm/entity-manager/MongoEntityManager", ["typeorm/entity-manager/EntityManager", "typeorm/query-builder/transformer/DocumentToEntityTransformer", "typeorm/find-options/FindOptionsUtils"], function (exports_99, context_99) {
+System.register("typeorm/entity-manager/MongoEntityManager", ["typeorm/entity-manager/EntityManager", "typeorm/query-builder/transformer/DocumentToEntityTransformer", "typeorm/find-options/FindOptionsUtils"], function (exports_100, context_100) {
     "use strict";
-    var __moduleName = context_99 && context_99.id;
+    var __moduleName = context_100 && context_100.id;
     var EntityManager_1, DocumentToEntityTransformer_1, FindOptionsUtils_1, MongoEntityManager;
     return {
         setters: [
@@ -14573,13 +14671,13 @@ System.register("typeorm/entity-manager/MongoEntityManager", ["typeorm/entity-ma
                 };
                 return MongoEntityManager;
             }(EntityManager_1.EntityManager));
-            exports_99("MongoEntityManager", MongoEntityManager);
+            exports_100("MongoEntityManager", MongoEntityManager);
         }
     };
 });
-System.register("typeorm/repository/MongoRepository", ["typeorm/repository/Repository"], function (exports_100, context_100) {
+System.register("typeorm/repository/MongoRepository", ["typeorm/repository/Repository"], function (exports_101, context_101) {
     "use strict";
-    var __moduleName = context_100 && context_100.id;
+    var __moduleName = context_101 && context_101.id;
     var Repository_2, MongoRepository;
     return {
         setters: [
@@ -14863,13 +14961,13 @@ System.register("typeorm/repository/MongoRepository", ["typeorm/repository/Repos
                 };
                 return MongoRepository;
             }(Repository_2.Repository));
-            exports_100("MongoRepository", MongoRepository);
+            exports_101("MongoRepository", MongoRepository);
         }
     };
 });
-System.register("typeorm/repository/RepositoryFactory", ["typeorm/repository/TreeRepository", "typeorm/repository/Repository", "typeorm/repository/SpecificRepository", "typeorm/driver/mongodb/MongoDriver", "typeorm/repository/MongoRepository"], function (exports_101, context_101) {
+System.register("typeorm/repository/RepositoryFactory", ["typeorm/repository/TreeRepository", "typeorm/repository/Repository", "typeorm/repository/SpecificRepository", "typeorm/driver/mongodb/MongoDriver", "typeorm/repository/MongoRepository"], function (exports_102, context_102) {
     "use strict";
-    var __moduleName = context_101 && context_101.id;
+    var __moduleName = context_102 && context_102.id;
     var TreeRepository_1, Repository_3, SpecificRepository_1, MongoDriver_1, MongoRepository_1, RepositoryFactory;
     return {
         setters: [
@@ -14937,13 +15035,13 @@ System.register("typeorm/repository/RepositoryFactory", ["typeorm/repository/Tre
                 };
                 return RepositoryFactory;
             }());
-            exports_101("RepositoryFactory", RepositoryFactory);
+            exports_102("RepositoryFactory", RepositoryFactory);
         }
     };
 });
-System.register("typeorm/container", [], function (exports_102, context_102) {
+System.register("typeorm/container", [], function (exports_103, context_103) {
     "use strict";
-    var __moduleName = context_102 && context_102.id;
+    var __moduleName = context_103 && context_103.id;
     /**
      * Sets container to be used by this library.
      */
@@ -14951,7 +15049,7 @@ System.register("typeorm/container", [], function (exports_102, context_102) {
         userContainer = iocContainer;
         userContainerOptions = options;
     }
-    exports_102("useContainer", useContainer);
+    exports_103("useContainer", useContainer);
     /**
      * Gets the IOC container used by this library.
      */
@@ -14971,7 +15069,7 @@ System.register("typeorm/container", [], function (exports_102, context_102) {
         }
         return defaultContainer.get(someClass);
     }
-    exports_102("getFromContainer", getFromContainer);
+    exports_103("getFromContainer", getFromContainer);
     var defaultContainer, userContainer, userContainerOptions;
     return {
         setters: [],
@@ -14980,7 +15078,7 @@ System.register("typeorm/container", [], function (exports_102, context_102) {
              * Container to be used by this library for inversion control. If container was not implicitly set then by default
              * container simply creates a new instance of the given class.
              */
-            exports_102("defaultContainer", defaultContainer = new ((function () {
+            exports_103("defaultContainer", defaultContainer = new ((function () {
                 function class_1() {
                     this.instances = [];
                 }
@@ -14997,9 +15095,9 @@ System.register("typeorm/container", [], function (exports_102, context_102) {
         }
     };
 });
-System.register("typeorm/repository/RepositoryAggregator", ["typeorm/repository/RepositoryFactory", "typeorm/container"], function (exports_103, context_103) {
+System.register("typeorm/repository/RepositoryAggregator", ["typeorm/repository/RepositoryFactory", "typeorm/container"], function (exports_104, context_104) {
     "use strict";
-    var __moduleName = context_103 && context_103.id;
+    var __moduleName = context_104 && context_104.id;
     var RepositoryFactory_1, container_1, RepositoryAggregator;
     return {
         setters: [
@@ -15031,13 +15129,13 @@ System.register("typeorm/repository/RepositoryAggregator", ["typeorm/repository/
                 }
                 return RepositoryAggregator;
             }());
-            exports_103("RepositoryAggregator", RepositoryAggregator);
+            exports_104("RepositoryAggregator", RepositoryAggregator);
         }
     };
 });
-System.register("typeorm/entity-manager/error/NoNeedToReleaseEntityManagerError", [], function (exports_104, context_104) {
+System.register("typeorm/entity-manager/error/NoNeedToReleaseEntityManagerError", [], function (exports_105, context_105) {
     "use strict";
-    var __moduleName = context_104 && context_104.id;
+    var __moduleName = context_105 && context_105.id;
     var NoNeedToReleaseEntityManagerError;
     return {
         setters: [],
@@ -15058,13 +15156,13 @@ System.register("typeorm/entity-manager/error/NoNeedToReleaseEntityManagerError"
                 }
                 return NoNeedToReleaseEntityManagerError;
             }(Error));
-            exports_104("NoNeedToReleaseEntityManagerError", NoNeedToReleaseEntityManagerError);
+            exports_105("NoNeedToReleaseEntityManagerError", NoNeedToReleaseEntityManagerError);
         }
     };
 });
-System.register("typeorm/connection/error/RepositoryNotTreeError", [], function (exports_105, context_105) {
+System.register("typeorm/connection/error/RepositoryNotTreeError", [], function (exports_106, context_106) {
     "use strict";
-    var __moduleName = context_105 && context_105.id;
+    var __moduleName = context_106 && context_106.id;
     var RepositoryNotTreeError;
     return {
         setters: [],
@@ -15084,13 +15182,13 @@ System.register("typeorm/connection/error/RepositoryNotTreeError", [], function 
                 }
                 return RepositoryNotTreeError;
             }(Error));
-            exports_105("RepositoryNotTreeError", RepositoryNotTreeError);
+            exports_106("RepositoryNotTreeError", RepositoryNotTreeError);
         }
     };
 });
-System.register("typeorm/persistence/SubjectBuilder", ["typeorm/persistence/Subject", "typeorm/driver/mongodb/MongoDriver", "typeorm/util/OrmUtils"], function (exports_106, context_106) {
+System.register("typeorm/persistence/SubjectBuilder", ["typeorm/persistence/Subject", "typeorm/driver/mongodb/MongoDriver", "typeorm/util/OrmUtils"], function (exports_107, context_107) {
     "use strict";
-    var __moduleName = context_106 && context_106.id;
+    var __moduleName = context_107 && context_107.id;
     var Subject_2, MongoDriver_2, OrmUtils_4, SubjectBuilder;
     return {
         setters: [
@@ -15879,13 +15977,13 @@ System.register("typeorm/persistence/SubjectBuilder", ["typeorm/persistence/Subj
                 };
                 return SubjectBuilder;
             }());
-            exports_106("SubjectBuilder", SubjectBuilder);
+            exports_107("SubjectBuilder", SubjectBuilder);
         }
     };
 });
-System.register("typeorm/util/PromiseUtils", [], function (exports_107, context_107) {
+System.register("typeorm/util/PromiseUtils", [], function (exports_108, context_108) {
     "use strict";
-    var __moduleName = context_107 && context_107.id;
+    var __moduleName = context_108 && context_108.id;
     var PromiseUtils;
     return {
         setters: [],
@@ -15914,13 +16012,13 @@ System.register("typeorm/util/PromiseUtils", [], function (exports_107, context_
                 };
                 return PromiseUtils;
             }());
-            exports_107("PromiseUtils", PromiseUtils);
+            exports_108("PromiseUtils", PromiseUtils);
         }
     };
 });
-System.register("typeorm/persistence/SubjectOperationExecutor", ["typeorm/util/OrmUtils", "typeorm/util/PromiseUtils", "typeorm/driver/mongodb/MongoDriver"], function (exports_108, context_108) {
+System.register("typeorm/persistence/SubjectOperationExecutor", ["typeorm/util/OrmUtils", "typeorm/util/PromiseUtils", "typeorm/driver/mongodb/MongoDriver"], function (exports_109, context_109) {
     "use strict";
-    var __moduleName = context_108 && context_108.id;
+    var __moduleName = context_109 && context_109.id;
     var OrmUtils_5, PromiseUtils_1, MongoDriver_3, SubjectOperationExecutor;
     return {
         setters: [
@@ -16976,13 +17074,13 @@ System.register("typeorm/persistence/SubjectOperationExecutor", ["typeorm/util/O
                 };
                 return SubjectOperationExecutor;
             }());
-            exports_108("SubjectOperationExecutor", SubjectOperationExecutor);
+            exports_109("SubjectOperationExecutor", SubjectOperationExecutor);
         }
     };
 });
-System.register("typeorm/query-builder/transformer/PlainObjectToNewEntityTransformer", [], function (exports_109, context_109) {
+System.register("typeorm/query-builder/transformer/PlainObjectToNewEntityTransformer", [], function (exports_110, context_110) {
     "use strict";
-    var __moduleName = context_109 && context_109.id;
+    var __moduleName = context_110 && context_110.id;
     var PlainObjectToNewEntityTransformer;
     return {
         setters: [],
@@ -17057,13 +17155,13 @@ System.register("typeorm/query-builder/transformer/PlainObjectToNewEntityTransfo
                 };
                 return PlainObjectToNewEntityTransformer;
             }());
-            exports_109("PlainObjectToNewEntityTransformer", PlainObjectToNewEntityTransformer);
+            exports_110("PlainObjectToNewEntityTransformer", PlainObjectToNewEntityTransformer);
         }
     };
 });
-System.register("typeorm/query-builder/transformer/PlainObjectToDatabaseEntityTransformer", [], function (exports_110, context_110) {
+System.register("typeorm/query-builder/transformer/PlainObjectToDatabaseEntityTransformer", [], function (exports_111, context_111) {
     "use strict";
-    var __moduleName = context_110 && context_110.id;
+    var __moduleName = context_111 && context_111.id;
     var LoadMapItem, LoadMap, PlainObjectToDatabaseEntityTransformer;
     return {
         setters: [],
@@ -17202,13 +17300,13 @@ System.register("typeorm/query-builder/transformer/PlainObjectToDatabaseEntityTr
                 };
                 return PlainObjectToDatabaseEntityTransformer;
             }());
-            exports_110("PlainObjectToDatabaseEntityTransformer", PlainObjectToDatabaseEntityTransformer);
+            exports_111("PlainObjectToDatabaseEntityTransformer", PlainObjectToDatabaseEntityTransformer);
         }
     };
 });
-System.register("typeorm/repository/error/CustomRepositoryNotFoundError", [], function (exports_111, context_111) {
+System.register("typeorm/repository/error/CustomRepositoryNotFoundError", [], function (exports_112, context_112) {
     "use strict";
-    var __moduleName = context_111 && context_111.id;
+    var __moduleName = context_112 && context_112.id;
     var CustomRepositoryNotFoundError;
     return {
         setters: [],
@@ -17227,13 +17325,13 @@ System.register("typeorm/repository/error/CustomRepositoryNotFoundError", [], fu
                 }
                 return CustomRepositoryNotFoundError;
             }(Error));
-            exports_111("CustomRepositoryNotFoundError", CustomRepositoryNotFoundError);
+            exports_112("CustomRepositoryNotFoundError", CustomRepositoryNotFoundError);
         }
     };
 });
-System.register("typeorm/repository/error/CustomRepositoryDoesNotHaveEntityError", [], function (exports_112, context_112) {
+System.register("typeorm/repository/error/CustomRepositoryDoesNotHaveEntityError", [], function (exports_113, context_113) {
     "use strict";
-    var __moduleName = context_112 && context_112.id;
+    var __moduleName = context_113 && context_113.id;
     var CustomRepositoryDoesNotHaveEntityError;
     return {
         setters: [],
@@ -17251,13 +17349,13 @@ System.register("typeorm/repository/error/CustomRepositoryDoesNotHaveEntityError
                 }
                 return CustomRepositoryDoesNotHaveEntityError;
             }(Error));
-            exports_112("CustomRepositoryDoesNotHaveEntityError", CustomRepositoryDoesNotHaveEntityError);
+            exports_113("CustomRepositoryDoesNotHaveEntityError", CustomRepositoryDoesNotHaveEntityError);
         }
     };
 });
-System.register("typeorm/repository/AbstractRepository", ["typeorm/repository/error/CustomRepositoryDoesNotHaveEntityError", "typeorm/index", "typeorm/repository/error/CustomRepositoryNotFoundError"], function (exports_113, context_113) {
+System.register("typeorm/repository/AbstractRepository", ["typeorm/repository/error/CustomRepositoryDoesNotHaveEntityError", "typeorm/index", "typeorm/repository/error/CustomRepositoryNotFoundError"], function (exports_114, context_114) {
     "use strict";
-    var __moduleName = context_113 && context_113.id;
+    var __moduleName = context_114 && context_114.id;
     var CustomRepositoryDoesNotHaveEntityError_1, index_1, CustomRepositoryNotFoundError_1, AbstractRepository;
     return {
         setters: [
@@ -17361,13 +17459,13 @@ System.register("typeorm/repository/AbstractRepository", ["typeorm/repository/er
                 };
                 return AbstractRepository;
             }());
-            exports_113("AbstractRepository", AbstractRepository);
+            exports_114("AbstractRepository", AbstractRepository);
         }
     };
 });
-System.register("typeorm/repository/error/CustomRepositoryCannotInheritRepositoryError", [], function (exports_114, context_114) {
+System.register("typeorm/repository/error/CustomRepositoryCannotInheritRepositoryError", [], function (exports_115, context_115) {
     "use strict";
-    var __moduleName = context_114 && context_114.id;
+    var __moduleName = context_115 && context_115.id;
     var CustomRepositoryCannotInheritRepositoryError;
     return {
         setters: [],
@@ -17385,13 +17483,13 @@ System.register("typeorm/repository/error/CustomRepositoryCannotInheritRepositor
                 }
                 return CustomRepositoryCannotInheritRepositoryError;
             }(Error));
-            exports_114("CustomRepositoryCannotInheritRepositoryError", CustomRepositoryCannotInheritRepositoryError);
+            exports_115("CustomRepositoryCannotInheritRepositoryError", CustomRepositoryCannotInheritRepositoryError);
         }
     };
 });
-System.register("typeorm/entity-manager/EntityManager", ["typeorm/query-runner/error/QueryRunnerProviderAlreadyReleasedError", "typeorm/query-runner/QueryRunnerProvider", "typeorm/repository/RepositoryAggregator", "typeorm/entity-manager/error/NoNeedToReleaseEntityManagerError", "typeorm/repository/Repository", "typeorm/connection/error/RepositoryNotTreeError", "typeorm/query-builder/QueryBuilder", "typeorm/find-options/FindOptionsUtils", "typeorm/persistence/SubjectBuilder", "typeorm/persistence/SubjectOperationExecutor", "typeorm/query-builder/transformer/PlainObjectToNewEntityTransformer", "typeorm/query-builder/transformer/PlainObjectToDatabaseEntityTransformer", "typeorm/repository/error/CustomRepositoryNotFoundError", "typeorm/index", "typeorm/repository/AbstractRepository", "typeorm/repository/error/CustomRepositoryCannotInheritRepositoryError"], function (exports_115, context_115) {
+System.register("typeorm/entity-manager/EntityManager", ["typeorm/query-runner/error/QueryRunnerProviderAlreadyReleasedError", "typeorm/query-runner/QueryRunnerProvider", "typeorm/repository/RepositoryAggregator", "typeorm/entity-manager/error/NoNeedToReleaseEntityManagerError", "typeorm/repository/Repository", "typeorm/connection/error/RepositoryNotTreeError", "typeorm/query-builder/QueryBuilder", "typeorm/find-options/FindOptionsUtils", "typeorm/persistence/SubjectBuilder", "typeorm/persistence/SubjectOperationExecutor", "typeorm/query-builder/transformer/PlainObjectToNewEntityTransformer", "typeorm/query-builder/transformer/PlainObjectToDatabaseEntityTransformer", "typeorm/repository/error/CustomRepositoryNotFoundError", "typeorm/index", "typeorm/repository/AbstractRepository", "typeorm/repository/error/CustomRepositoryCannotInheritRepositoryError"], function (exports_116, context_116) {
     "use strict";
-    var __moduleName = context_115 && context_115.id;
+    var __moduleName = context_116 && context_116.id;
     var QueryRunnerProviderAlreadyReleasedError_1, QueryRunnerProvider_3, RepositoryAggregator_1, NoNeedToReleaseEntityManagerError_1, Repository_4, RepositoryNotTreeError_1, QueryBuilder_5, FindOptionsUtils_2, SubjectBuilder_1, SubjectOperationExecutor_1, PlainObjectToNewEntityTransformer_1, PlainObjectToDatabaseEntityTransformer_1, CustomRepositoryNotFoundError_2, index_2, AbstractRepository_1, CustomRepositoryCannotInheritRepositoryError_1, EntityManager;
     return {
         setters: [
@@ -18065,13 +18163,13 @@ System.register("typeorm/entity-manager/EntityManager", ["typeorm/query-runner/e
                 };
                 return EntityManager;
             }());
-            exports_115("EntityManager", EntityManager);
+            exports_116("EntityManager", EntityManager);
         }
     };
 });
-System.register("typeorm/repository/Repository", [], function (exports_116, context_116) {
+System.register("typeorm/repository/Repository", [], function (exports_117, context_117) {
     "use strict";
-    var __moduleName = context_116 && context_116.id;
+    var __moduleName = context_117 && context_117.id;
     var Repository;
     return {
         setters: [],
@@ -18285,20 +18383,11 @@ System.register("typeorm/repository/Repository", [], function (exports_116, cont
                 };
                 return Repository;
             }());
-            exports_116("Repository", Repository);
+            exports_117("Repository", Repository);
         }
     };
 });
-System.register("typeorm/subscriber/event/UpdateEvent", [], function (exports_117, context_117) {
-    "use strict";
-    var __moduleName = context_117 && context_117.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/subscriber/event/RemoveEvent", [], function (exports_118, context_118) {
+System.register("typeorm/subscriber/event/UpdateEvent", [], function (exports_118, context_118) {
     "use strict";
     var __moduleName = context_118 && context_118.id;
     return {
@@ -18307,7 +18396,7 @@ System.register("typeorm/subscriber/event/RemoveEvent", [], function (exports_11
         }
     };
 });
-System.register("typeorm/subscriber/event/InsertEvent", [], function (exports_119, context_119) {
+System.register("typeorm/subscriber/event/RemoveEvent", [], function (exports_119, context_119) {
     "use strict";
     var __moduleName = context_119 && context_119.id;
     return {
@@ -18316,7 +18405,7 @@ System.register("typeorm/subscriber/event/InsertEvent", [], function (exports_11
         }
     };
 });
-System.register("typeorm/subscriber/EntitySubscriberInterface", [], function (exports_120, context_120) {
+System.register("typeorm/subscriber/event/InsertEvent", [], function (exports_120, context_120) {
     "use strict";
     var __moduleName = context_120 && context_120.id;
     return {
@@ -18325,9 +18414,18 @@ System.register("typeorm/subscriber/EntitySubscriberInterface", [], function (ex
         }
     };
 });
-System.register("typeorm/connection/error/RepositoryNotFoundError", [], function (exports_121, context_121) {
+System.register("typeorm/subscriber/EntitySubscriberInterface", [], function (exports_121, context_121) {
     "use strict";
     var __moduleName = context_121 && context_121.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/connection/error/RepositoryNotFoundError", [], function (exports_122, context_122) {
+    "use strict";
+    var __moduleName = context_122 && context_122.id;
     var RepositoryNotFoundError;
     return {
         setters: [],
@@ -18348,13 +18446,13 @@ System.register("typeorm/connection/error/RepositoryNotFoundError", [], function
                 }
                 return RepositoryNotFoundError;
             }(Error));
-            exports_121("RepositoryNotFoundError", RepositoryNotFoundError);
+            exports_122("RepositoryNotFoundError", RepositoryNotFoundError);
         }
     };
 });
-System.register("typeorm/util/DirectoryExportedClassesLoader", ["typeorm/platform/PlatformTools"], function (exports_122, context_122) {
+System.register("typeorm/util/DirectoryExportedClassesLoader", ["typeorm/platform/PlatformTools"], function (exports_123, context_123) {
     "use strict";
-    var __moduleName = context_122 && context_122.id;
+    var __moduleName = context_123 && context_123.id;
     /**
      * Loads all exported classes from the given directory.
      */
@@ -18383,7 +18481,7 @@ System.register("typeorm/util/DirectoryExportedClassesLoader", ["typeorm/platfor
             .map(function (file) { return PlatformTools_7.PlatformTools.load(PlatformTools_7.PlatformTools.pathResolve(file)); });
         return loadFileClasses(dirs, []);
     }
-    exports_122("importClassesFromDirectories", importClassesFromDirectories);
+    exports_123("importClassesFromDirectories", importClassesFromDirectories);
     /**
      * Loads all json files from the given directory.
      */
@@ -18396,7 +18494,7 @@ System.register("typeorm/util/DirectoryExportedClassesLoader", ["typeorm/platfor
             .filter(function (file) { return PlatformTools_7.PlatformTools.pathExtname(file) === format; })
             .map(function (file) { return PlatformTools_7.PlatformTools.load(PlatformTools_7.PlatformTools.pathResolve(file)); });
     }
-    exports_122("importJsonsFromDirectories", importJsonsFromDirectories);
+    exports_123("importJsonsFromDirectories", importJsonsFromDirectories);
     var PlatformTools_7;
     return {
         setters: [
@@ -18408,16 +18506,7 @@ System.register("typeorm/util/DirectoryExportedClassesLoader", ["typeorm/platfor
         }
     };
 });
-System.register("typeorm/metadata-args/NamingStrategyMetadataArgs", [], function (exports_123, context_123) {
-    "use strict";
-    var __moduleName = context_123 && context_123.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/metadata-args/JoinColumnMetadataArgs", [], function (exports_124, context_124) {
+System.register("typeorm/metadata-args/NamingStrategyMetadataArgs", [], function (exports_124, context_124) {
     "use strict";
     var __moduleName = context_124 && context_124.id;
     return {
@@ -18426,7 +18515,7 @@ System.register("typeorm/metadata-args/JoinColumnMetadataArgs", [], function (ex
         }
     };
 });
-System.register("typeorm/metadata-args/JoinTableMetadataArgs", [], function (exports_125, context_125) {
+System.register("typeorm/metadata-args/JoinColumnMetadataArgs", [], function (exports_125, context_125) {
     "use strict";
     var __moduleName = context_125 && context_125.id;
     return {
@@ -18435,7 +18524,7 @@ System.register("typeorm/metadata-args/JoinTableMetadataArgs", [], function (exp
         }
     };
 });
-System.register("typeorm/metadata-args/EntitySubscriberMetadataArgs", [], function (exports_126, context_126) {
+System.register("typeorm/metadata-args/JoinTableMetadataArgs", [], function (exports_126, context_126) {
     "use strict";
     var __moduleName = context_126 && context_126.id;
     return {
@@ -18444,7 +18533,7 @@ System.register("typeorm/metadata-args/EntitySubscriberMetadataArgs", [], functi
         }
     };
 });
-System.register("typeorm/metadata-args/InheritanceMetadataArgs", [], function (exports_127, context_127) {
+System.register("typeorm/metadata-args/EntitySubscriberMetadataArgs", [], function (exports_127, context_127) {
     "use strict";
     var __moduleName = context_127 && context_127.id;
     return {
@@ -18453,7 +18542,7 @@ System.register("typeorm/metadata-args/InheritanceMetadataArgs", [], function (e
         }
     };
 });
-System.register("typeorm/metadata-args/DiscriminatorValueMetadataArgs", [], function (exports_128, context_128) {
+System.register("typeorm/metadata-args/InheritanceMetadataArgs", [], function (exports_128, context_128) {
     "use strict";
     var __moduleName = context_128 && context_128.id;
     return {
@@ -18462,7 +18551,7 @@ System.register("typeorm/metadata-args/DiscriminatorValueMetadataArgs", [], func
         }
     };
 });
-System.register("typeorm/metadata-args/EntityRepositoryMetadataArgs", [], function (exports_129, context_129) {
+System.register("typeorm/metadata-args/DiscriminatorValueMetadataArgs", [], function (exports_129, context_129) {
     "use strict";
     var __moduleName = context_129 && context_129.id;
     return {
@@ -18471,7 +18560,7 @@ System.register("typeorm/metadata-args/EntityRepositoryMetadataArgs", [], functi
         }
     };
 });
-System.register("typeorm/metadata-args/TransactionEntityMetadataArgs", [], function (exports_130, context_130) {
+System.register("typeorm/metadata-args/EntityRepositoryMetadataArgs", [], function (exports_130, context_130) {
     "use strict";
     var __moduleName = context_130 && context_130.id;
     return {
@@ -18480,9 +18569,18 @@ System.register("typeorm/metadata-args/TransactionEntityMetadataArgs", [], funct
         }
     };
 });
-System.register("typeorm/metadata-builder/MetadataUtils", [], function (exports_131, context_131) {
+System.register("typeorm/metadata-args/TransactionEntityMetadataArgs", [], function (exports_131, context_131) {
     "use strict";
     var __moduleName = context_131 && context_131.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/metadata-builder/MetadataUtils", [], function (exports_132, context_132) {
+    "use strict";
+    var __moduleName = context_132 && context_132.id;
     var MetadataUtils;
     return {
         setters: [],
@@ -18528,13 +18626,13 @@ System.register("typeorm/metadata-builder/MetadataUtils", [], function (exports_
                 };
                 return MetadataUtils;
             }());
-            exports_131("MetadataUtils", MetadataUtils);
+            exports_132("MetadataUtils", MetadataUtils);
         }
     };
 });
-System.register("typeorm/metadata-args/MetadataArgsStorage", ["typeorm/metadata-builder/MetadataUtils"], function (exports_132, context_132) {
+System.register("typeorm/metadata-args/MetadataArgsStorage", ["typeorm/metadata-builder/MetadataUtils"], function (exports_133, context_133) {
     "use strict";
-    var __moduleName = context_132 && context_132.id;
+    var __moduleName = context_133 && context_133.id;
     var MetadataUtils_1, MetadataArgsStorage;
     return {
         setters: [
@@ -18651,13 +18749,13 @@ System.register("typeorm/metadata-args/MetadataArgsStorage", ["typeorm/metadata-
                 };
                 return MetadataArgsStorage;
             }());
-            exports_132("MetadataArgsStorage", MetadataArgsStorage);
+            exports_133("MetadataArgsStorage", MetadataArgsStorage);
         }
     };
 });
-System.register("typeorm/metadata-builder/JunctionEntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata", "typeorm/metadata/IndexMetadata"], function (exports_133, context_133) {
+System.register("typeorm/metadata-builder/JunctionEntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata", "typeorm/metadata/IndexMetadata"], function (exports_134, context_134) {
     "use strict";
-    var __moduleName = context_133 && context_133.id;
+    var __moduleName = context_134 && context_134.id;
     var EntityMetadata_1, ColumnMetadata_1, ForeignKeyMetadata_1, IndexMetadata_1, JunctionEntityMetadataBuilder;
     return {
         setters: [
@@ -18833,13 +18931,13 @@ System.register("typeorm/metadata-builder/JunctionEntityMetadataBuilder", ["type
                 };
                 return JunctionEntityMetadataBuilder;
             }());
-            exports_133("JunctionEntityMetadataBuilder", JunctionEntityMetadataBuilder);
+            exports_134("JunctionEntityMetadataBuilder", JunctionEntityMetadataBuilder);
         }
     };
 });
-System.register("typeorm/metadata-builder/ClosureJunctionEntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata", "typeorm/metadata/types/ColumnTypes"], function (exports_134, context_134) {
+System.register("typeorm/metadata-builder/ClosureJunctionEntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata", "typeorm/metadata/types/ColumnTypes"], function (exports_135, context_135) {
     "use strict";
-    var __moduleName = context_134 && context_134.id;
+    var __moduleName = context_135 && context_135.id;
     var EntityMetadata_2, ColumnMetadata_2, ForeignKeyMetadata_2, ColumnTypes_6, ClosureJunctionEntityMetadataBuilder;
     return {
         setters: [
@@ -18945,13 +19043,13 @@ System.register("typeorm/metadata-builder/ClosureJunctionEntityMetadataBuilder",
                 };
                 return ClosureJunctionEntityMetadataBuilder;
             }());
-            exports_134("ClosureJunctionEntityMetadataBuilder", ClosureJunctionEntityMetadataBuilder);
+            exports_135("ClosureJunctionEntityMetadataBuilder", ClosureJunctionEntityMetadataBuilder);
         }
     };
 });
-System.register("typeorm/metadata-builder/RelationJoinColumnBuilder", ["typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata"], function (exports_135, context_135) {
+System.register("typeorm/metadata-builder/RelationJoinColumnBuilder", ["typeorm/metadata/ColumnMetadata", "typeorm/metadata/ForeignKeyMetadata"], function (exports_136, context_136) {
     "use strict";
-    var __moduleName = context_135 && context_135.id;
+    var __moduleName = context_136 && context_136.id;
     var ColumnMetadata_3, ForeignKeyMetadata_3, RelationJoinColumnBuilder;
     return {
         setters: [
@@ -19081,14 +19179,14 @@ System.register("typeorm/metadata-builder/RelationJoinColumnBuilder", ["typeorm/
                 };
                 return RelationJoinColumnBuilder;
             }());
-            exports_135("RelationJoinColumnBuilder", RelationJoinColumnBuilder);
+            exports_136("RelationJoinColumnBuilder", RelationJoinColumnBuilder);
         }
     };
 });
-System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/IndexMetadata", "typeorm/metadata/RelationMetadata", "typeorm/metadata/EmbeddedMetadata", "typeorm/metadata/RelationIdMetadata", "typeorm/metadata/RelationCountMetadata", "typeorm/metadata-builder/MetadataUtils", "typeorm/metadata-builder/JunctionEntityMetadataBuilder", "typeorm/metadata-builder/ClosureJunctionEntityMetadataBuilder", "typeorm/metadata-builder/RelationJoinColumnBuilder", "typeorm/metadata/EntityListenerMetadata"], function (exports_136, context_136) {
+System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/metadata/EntityMetadata", "typeorm/metadata/ColumnMetadata", "typeorm/metadata/IndexMetadata", "typeorm/metadata/RelationMetadata", "typeorm/metadata/EmbeddedMetadata", "typeorm/metadata/RelationIdMetadata", "typeorm/metadata/RelationCountMetadata", "typeorm/metadata-builder/MetadataUtils", "typeorm/metadata-builder/JunctionEntityMetadataBuilder", "typeorm/metadata-builder/ClosureJunctionEntityMetadataBuilder", "typeorm/metadata-builder/RelationJoinColumnBuilder", "typeorm/metadata/EntityListenerMetadata", "typeorm/metadata/ForeignKeyMetadata"], function (exports_137, context_137) {
     "use strict";
-    var __moduleName = context_136 && context_136.id;
-    var EntityMetadata_3, ColumnMetadata_4, IndexMetadata_2, RelationMetadata_2, EmbeddedMetadata_1, RelationIdMetadata_1, RelationCountMetadata_1, MetadataUtils_2, JunctionEntityMetadataBuilder_1, ClosureJunctionEntityMetadataBuilder_1, RelationJoinColumnBuilder_1, EntityListenerMetadata_1, EntityMetadataBuilder;
+    var __moduleName = context_137 && context_137.id;
+    var EntityMetadata_3, ColumnMetadata_4, IndexMetadata_2, RelationMetadata_2, EmbeddedMetadata_1, RelationIdMetadata_1, RelationCountMetadata_1, MetadataUtils_2, JunctionEntityMetadataBuilder_1, ClosureJunctionEntityMetadataBuilder_1, RelationJoinColumnBuilder_1, EntityListenerMetadata_1, ForeignKeyMetadata_4, EntityMetadataBuilder;
     return {
         setters: [
             function (EntityMetadata_3_1) {
@@ -19126,6 +19224,9 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
             },
             function (EntityListenerMetadata_1_1) {
                 EntityListenerMetadata_1 = EntityListenerMetadata_1_1;
+            },
+            function (ForeignKeyMetadata_4_1) {
+                ForeignKeyMetadata_4 = ForeignKeyMetadata_4_1;
             }
         ],
         execute: function () {
@@ -19204,17 +19305,18 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                     });
                     // after all metadatas created we set parent entity metadata for class-table inheritance
                     entityMetadatas
-                        .filter(function (metadata) { return metadata.tableType === "single-table-child"; })
+                        .filter(function (metadata) { return metadata.tableType === "single-table-child" || metadata.tableType === "class-table-child"; })
                         .forEach(function (entityMetadata) {
                         var inheritanceTree = entityMetadata.target instanceof Function
                             ? MetadataUtils_2.MetadataUtils.getInheritanceTree(entityMetadata.target)
                             : [entityMetadata.target];
                         var parentMetadata = entityMetadatas.find(function (metadata) {
-                            return inheritanceTree.find(function (inheritance) { return inheritance === metadata.target; }) && metadata.inheritanceType === "single-table";
+                            return inheritanceTree.find(function (inheritance) { return inheritance === metadata.target; }) && (metadata.inheritanceType === "single-table" || metadata.inheritanceType === "class-table");
                         });
                         if (parentMetadata) {
                             entityMetadata.parentEntityMetadata = parentMetadata;
-                            entityMetadata.tableName = parentMetadata.tableName;
+                            if (parentMetadata.inheritanceType === "single-table")
+                                entityMetadata.tableName = parentMetadata.tableName;
                         }
                     });
                     // after all metadatas created we set child entity metadatas for class-table inheritance
@@ -19232,6 +19334,43 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                     // build all indices (need to do it after relations and their join columns are built)
                     entityMetadatas.forEach(function (entityMetadata) {
                         entityMetadata.indices.forEach(function (index) { return index.build(_this.connection.driver.namingStrategy); });
+                    });
+                    entityMetadatas
+                        .filter(function (metadata) { return !!metadata.parentEntityMetadata && metadata.tableType === "class-table-child"; })
+                        .forEach(function (metadata) {
+                        var parentPrimaryColumns = metadata.parentEntityMetadata.primaryColumns;
+                        var parentRelationColumns = parentPrimaryColumns.map(function (parentPrimaryColumn) {
+                            var columnName = _this.connection.driver.namingStrategy.classTableInheritanceParentColumnName(metadata.parentEntityMetadata.tableName, parentPrimaryColumn.propertyPath);
+                            var column = new ColumnMetadata_4.ColumnMetadata({
+                                entityMetadata: metadata,
+                                referencedColumn: parentPrimaryColumn,
+                                args: {
+                                    target: metadata.target,
+                                    propertyName: columnName,
+                                    mode: "parentId",
+                                    options: {
+                                        name: columnName,
+                                        type: parentPrimaryColumn.type,
+                                        unique: true,
+                                        nullable: false,
+                                        primary: true
+                                    }
+                                }
+                            });
+                            metadata.registerColumn(column);
+                            column.build(_this.connection.driver.namingStrategy);
+                            return column;
+                        });
+                        metadata.foreignKeys = [
+                            new ForeignKeyMetadata_4.ForeignKeyMetadata({
+                                entityMetadata: metadata,
+                                referencedEntityMetadata: metadata.parentEntityMetadata,
+                                namingStrategy: _this.connection.driver.namingStrategy,
+                                columns: parentRelationColumns,
+                                referencedColumns: parentPrimaryColumns,
+                                onDelete: "CASCADE"
+                            })
+                        ];
                     });
                     // add lazy initializer for entity relations
                     entityMetadatas
@@ -19253,6 +19392,7 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                  * Creates column, relation, etc. metadatas for everything this entity metadata owns.
                  */
                 EntityMetadataBuilder.prototype.createEntityMetadata = function (tableArgs) {
+                    var _this = this;
                     // we take all "inheritance tree" from a target entity to collect all stored metadata args
                     // (by decorators or inside entity schemas). For example for target Post < ContentModel < Unit
                     // it will be an array of [Post, ContentModel, Unit] and we can then get all metadata args of those classes
@@ -19260,11 +19400,21 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                         ? MetadataUtils_2.MetadataUtils.getInheritanceTree(tableArgs.target)
                         : [tableArgs.target]; // todo: implement later here inheritance for string-targets
                     // if single table inheritance used, we need to copy all children columns in to parent table
-                    var singleTableChildrenTargets = this.metadataArgsStorage
-                        .filterSingleTableChildren(tableArgs.target)
-                        .map(function (args) { return args.target; })
-                        .filter(function (target) { return target instanceof Function; });
-                    inheritanceTree.push.apply(inheritanceTree, singleTableChildrenTargets);
+                    var singleTableChildrenTargets;
+                    if (tableArgs.type === "single-table-child") {
+                        singleTableChildrenTargets = this.metadataArgsStorage
+                            .filterSingleTableChildren(tableArgs.target)
+                            .map(function (args) { return args.target; })
+                            .filter(function (target) { return target instanceof Function; });
+                        inheritanceTree.push.apply(inheritanceTree, singleTableChildrenTargets);
+                    }
+                    else if (tableArgs.type === "class-table-child") {
+                        inheritanceTree.forEach(function (inheritanceTreeItem) {
+                            var isParent = !!_this.metadataArgsStorage.inheritances.find(function (i) { return i.target === inheritanceTreeItem; });
+                            if (isParent)
+                                inheritanceTree.splice(inheritanceTree.indexOf(inheritanceTreeItem), 1);
+                        });
+                    }
                     var entityMetadata = new EntityMetadata_3.EntityMetadata({ connection: this.connection, args: tableArgs });
                     var inheritanceType = this.metadataArgsStorage.findInheritanceType(tableArgs.target);
                     entityMetadata.inheritanceType = inheritanceType ? inheritanceType.type : undefined;
@@ -19273,8 +19423,9 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                     entityMetadata.embeddeds = this.createEmbeddedsRecursively(entityMetadata, this.metadataArgsStorage.filterEmbeddeds(inheritanceTree));
                     entityMetadata.ownColumns = this.metadataArgsStorage.filterColumns(inheritanceTree).map(function (args) {
                         var column = new ColumnMetadata_4.ColumnMetadata({ entityMetadata: entityMetadata, args: args });
+                        // console.log(column.propertyName);
                         // if single table inheritance used, we need to mark all inherit table columns as nullable
-                        if (singleTableChildrenTargets.indexOf(args.target) !== -1)
+                        if (singleTableChildrenTargets && singleTableChildrenTargets.indexOf(args.target) !== -1)
                             column.isNullable = true;
                         return column;
                     });
@@ -19392,7 +19543,7 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
                 };
                 return EntityMetadataBuilder;
             }());
-            exports_136("EntityMetadataBuilder", EntityMetadataBuilder);
+            exports_137("EntityMetadataBuilder", EntityMetadataBuilder);
             // generate virtual column with foreign key for class-table inheritance
             /*entityMetadatas.forEach(entityMetadata => {
              if (!entityMetadata.parentEntityMetadata)
@@ -19515,9 +19666,9 @@ System.register("typeorm/metadata-builder/EntityMetadataBuilder", ["typeorm/meta
         }
     };
 });
-System.register("typeorm/util/RandomGenerator", [], function (exports_137, context_137) {
+System.register("typeorm/util/RandomGenerator", [], function (exports_138, context_138) {
     "use strict";
-    var __moduleName = context_137 && context_137.id;
+    var __moduleName = context_138 && context_138.id;
     var RandomGenerator;
     return {
         setters: [],
@@ -19651,13 +19802,13 @@ System.register("typeorm/util/RandomGenerator", [], function (exports_137, conte
                 };
                 return RandomGenerator;
             }());
-            exports_137("RandomGenerator", RandomGenerator);
+            exports_138("RandomGenerator", RandomGenerator);
         }
     };
 });
-System.register("typeorm/util/StringUtils", [], function (exports_138, context_138) {
+System.register("typeorm/util/StringUtils", [], function (exports_139, context_139) {
     "use strict";
-    var __moduleName = context_138 && context_138.id;
+    var __moduleName = context_139 && context_139.id;
     /**
      * Converts string into camelCase.
      *
@@ -19670,7 +19821,7 @@ System.register("typeorm/util/StringUtils", [], function (exports_138, context_1
             return p1.toLowerCase();
         });
     }
-    exports_138("camelCase", camelCase);
+    exports_139("camelCase", camelCase);
     /**
      * Converts string into snake-case.
      *
@@ -19679,7 +19830,7 @@ System.register("typeorm/util/StringUtils", [], function (exports_138, context_1
     function snakeCase(str) {
         return str.replace(/(?:^|\.?)([A-Z])/g, function (x, y) { return "_" + y.toLowerCase(); }).replace(/^_/, "");
     }
-    exports_138("snakeCase", snakeCase);
+    exports_139("snakeCase", snakeCase);
     /**
      * Converts string into title-case.
      *
@@ -19688,16 +19839,16 @@ System.register("typeorm/util/StringUtils", [], function (exports_138, context_1
     function titleCase(str) {
         return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
     }
-    exports_138("titleCase", titleCase);
+    exports_139("titleCase", titleCase);
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/naming-strategy/DefaultNamingStrategy", ["typeorm/util/RandomGenerator", "typeorm/util/StringUtils"], function (exports_139, context_139) {
+System.register("typeorm/naming-strategy/DefaultNamingStrategy", ["typeorm/util/RandomGenerator", "typeorm/util/StringUtils"], function (exports_140, context_140) {
     "use strict";
-    var __moduleName = context_139 && context_139.id;
+    var __moduleName = context_140 && context_140.id;
     var RandomGenerator_1, StringUtils_1, DefaultNamingStrategy;
     return {
         setters: [
@@ -19744,7 +19895,7 @@ System.register("typeorm/naming-strategy/DefaultNamingStrategy", ["typeorm/util/
                     if (customName)
                         return customName;
                     var key = "ind_" + tableName + "_" + columns.join("_");
-                    return "ind_" + RandomGenerator_1.RandomGenerator.sha1(key).substr(0, 27);
+                    return "ind_" + RandomGenerator_1.RandomGenerator.sha1(key).substr(0, 26);
                 };
                 DefaultNamingStrategy.prototype.joinColumnName = function (relationName, referencedColumnName) {
                     return StringUtils_1.camelCase(relationName + "_" + referencedColumnName);
@@ -19776,13 +19927,13 @@ System.register("typeorm/naming-strategy/DefaultNamingStrategy", ["typeorm/util/
                 };
                 return DefaultNamingStrategy;
             }());
-            exports_139("DefaultNamingStrategy", DefaultNamingStrategy);
+            exports_140("DefaultNamingStrategy", DefaultNamingStrategy);
         }
     };
 });
-System.register("typeorm/connection/error/CannotImportAlreadyConnectedError", [], function (exports_140, context_140) {
+System.register("typeorm/connection/error/CannotImportAlreadyConnectedError", [], function (exports_141, context_141) {
     "use strict";
-    var __moduleName = context_140 && context_140.id;
+    var __moduleName = context_141 && context_141.id;
     var CannotImportAlreadyConnectedError;
     return {
         setters: [],
@@ -19802,13 +19953,13 @@ System.register("typeorm/connection/error/CannotImportAlreadyConnectedError", []
                 }
                 return CannotImportAlreadyConnectedError;
             }(Error));
-            exports_140("CannotImportAlreadyConnectedError", CannotImportAlreadyConnectedError);
+            exports_141("CannotImportAlreadyConnectedError", CannotImportAlreadyConnectedError);
         }
     };
 });
-System.register("typeorm/connection/error/CannotCloseNotConnectedError", [], function (exports_141, context_141) {
+System.register("typeorm/connection/error/CannotCloseNotConnectedError", [], function (exports_142, context_142) {
     "use strict";
-    var __moduleName = context_141 && context_141.id;
+    var __moduleName = context_142 && context_142.id;
     var CannotCloseNotConnectedError;
     return {
         setters: [],
@@ -19827,13 +19978,13 @@ System.register("typeorm/connection/error/CannotCloseNotConnectedError", [], fun
                 }
                 return CannotCloseNotConnectedError;
             }(Error));
-            exports_141("CannotCloseNotConnectedError", CannotCloseNotConnectedError);
+            exports_142("CannotCloseNotConnectedError", CannotCloseNotConnectedError);
         }
     };
 });
-System.register("typeorm/connection/error/CannotConnectAlreadyConnectedError", [], function (exports_142, context_142) {
+System.register("typeorm/connection/error/CannotConnectAlreadyConnectedError", [], function (exports_143, context_143) {
     "use strict";
-    var __moduleName = context_142 && context_142.id;
+    var __moduleName = context_143 && context_143.id;
     var CannotConnectAlreadyConnectedError;
     return {
         setters: [],
@@ -19852,13 +20003,13 @@ System.register("typeorm/connection/error/CannotConnectAlreadyConnectedError", [
                 }
                 return CannotConnectAlreadyConnectedError;
             }(Error));
-            exports_142("CannotConnectAlreadyConnectedError", CannotConnectAlreadyConnectedError);
+            exports_143("CannotConnectAlreadyConnectedError", CannotConnectAlreadyConnectedError);
         }
     };
 });
-System.register("typeorm/connection/error/NamingStrategyNotFoundError", [], function (exports_143, context_143) {
+System.register("typeorm/connection/error/NamingStrategyNotFoundError", [], function (exports_144, context_144) {
     "use strict";
-    var __moduleName = context_143 && context_143.id;
+    var __moduleName = context_144 && context_144.id;
     var NamingStrategyNotFoundError;
     return {
         setters: [],
@@ -19879,20 +20030,11 @@ System.register("typeorm/connection/error/NamingStrategyNotFoundError", [], func
                 }
                 return NamingStrategyNotFoundError;
             }(Error));
-            exports_143("NamingStrategyNotFoundError", NamingStrategyNotFoundError);
+            exports_144("NamingStrategyNotFoundError", NamingStrategyNotFoundError);
         }
     };
 });
-System.register("typeorm/decorator/options/JoinColumnOptions", [], function (exports_144, context_144) {
-    "use strict";
-    var __moduleName = context_144 && context_144.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/decorator/options/JoinTableMuplipleColumnsOptions", [], function (exports_145, context_145) {
+System.register("typeorm/decorator/options/JoinColumnOptions", [], function (exports_145, context_145) {
     "use strict";
     var __moduleName = context_145 && context_145.id;
     return {
@@ -19901,7 +20043,7 @@ System.register("typeorm/decorator/options/JoinTableMuplipleColumnsOptions", [],
         }
     };
 });
-System.register("typeorm/entity-schema/EntitySchema", [], function (exports_146, context_146) {
+System.register("typeorm/decorator/options/JoinTableMuplipleColumnsOptions", [], function (exports_146, context_146) {
     "use strict";
     var __moduleName = context_146 && context_146.id;
     return {
@@ -19910,9 +20052,18 @@ System.register("typeorm/entity-schema/EntitySchema", [], function (exports_146,
         }
     };
 });
-System.register("typeorm/connection/error/CannotSyncNotConnectedError", [], function (exports_147, context_147) {
+System.register("typeorm/entity-schema/EntitySchema", [], function (exports_147, context_147) {
     "use strict";
     var __moduleName = context_147 && context_147.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/connection/error/CannotSyncNotConnectedError", [], function (exports_148, context_148) {
+    "use strict";
+    var __moduleName = context_148 && context_148.id;
     var CannotSyncNotConnectedError;
     return {
         setters: [],
@@ -19931,13 +20082,13 @@ System.register("typeorm/connection/error/CannotSyncNotConnectedError", [], func
                 }
                 return CannotSyncNotConnectedError;
             }(Error));
-            exports_147("CannotSyncNotConnectedError", CannotSyncNotConnectedError);
+            exports_148("CannotSyncNotConnectedError", CannotSyncNotConnectedError);
         }
     };
 });
-System.register("typeorm/connection/error/CannotUseNamingStrategyNotConnectedError", [], function (exports_148, context_148) {
+System.register("typeorm/connection/error/CannotUseNamingStrategyNotConnectedError", [], function (exports_149, context_149) {
     "use strict";
-    var __moduleName = context_148 && context_148.id;
+    var __moduleName = context_149 && context_149.id;
     var CannotUseNamingStrategyNotConnectedError;
     return {
         setters: [],
@@ -19956,13 +20107,13 @@ System.register("typeorm/connection/error/CannotUseNamingStrategyNotConnectedErr
                 }
                 return CannotUseNamingStrategyNotConnectedError;
             }(Error));
-            exports_148("CannotUseNamingStrategyNotConnectedError", CannotUseNamingStrategyNotConnectedError);
+            exports_149("CannotUseNamingStrategyNotConnectedError", CannotUseNamingStrategyNotConnectedError);
         }
     };
 });
-System.register("typeorm/subscriber/Broadcaster", ["typeorm/metadata/types/EventListenerTypes"], function (exports_149, context_149) {
+System.register("typeorm/subscriber/Broadcaster", ["typeorm/metadata/types/EventListenerTypes"], function (exports_150, context_150) {
     "use strict";
-    var __moduleName = context_149 && context_149.id;
+    var __moduleName = context_150 && context_150.id;
     var EventListenerTypes_1, Broadcaster;
     return {
         setters: [
@@ -20294,14 +20445,14 @@ System.register("typeorm/subscriber/Broadcaster", ["typeorm/metadata/types/Event
                 };
                 return Broadcaster;
             }());
-            exports_149("Broadcaster", Broadcaster);
+            exports_150("Broadcaster", Broadcaster);
         }
     };
 });
-System.register("typeorm/schema-builder/SchemaBuilder", ["typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/util/PromiseUtils"], function (exports_150, context_150) {
+System.register("typeorm/schema-builder/SchemaBuilder", ["typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/util/PromiseUtils"], function (exports_151, context_151) {
     "use strict";
-    var __moduleName = context_150 && context_150.id;
-    var TableSchema_5, ColumnSchema_6, ForeignKeySchema_5, IndexSchema_4, PrimaryKeySchema_5, PromiseUtils_2, SchemaBuilder;
+    var __moduleName = context_151 && context_151.id;
+    var TableSchema_5, ColumnSchema_6, ForeignKeySchema_5, IndexSchema_5, PrimaryKeySchema_5, PromiseUtils_2, SchemaBuilder;
     return {
         setters: [
             function (TableSchema_5_1) {
@@ -20313,8 +20464,8 @@ System.register("typeorm/schema-builder/SchemaBuilder", ["typeorm/schema-builder
             function (ForeignKeySchema_5_1) {
                 ForeignKeySchema_5 = ForeignKeySchema_5_1;
             },
-            function (IndexSchema_4_1) {
-                IndexSchema_4 = IndexSchema_4_1;
+            function (IndexSchema_5_1) {
+                IndexSchema_5 = IndexSchema_5_1;
             },
             function (PrimaryKeySchema_5_1) {
                 PrimaryKeySchema_5 = PrimaryKeySchema_5_1;
@@ -20744,7 +20895,7 @@ System.register("typeorm/schema-builder/SchemaBuilder", ["typeorm/schema-builder
                                         return __generator(this, function (_a) {
                                             switch (_a.label) {
                                                 case 0:
-                                                    indexSchema = IndexSchema_4.IndexSchema.create(indexMetadata);
+                                                    indexSchema = IndexSchema_5.IndexSchema.create(indexMetadata);
                                                     tableSchema.indices.push(indexSchema);
                                                     this.logger.logSchemaBuild("adding new index: " + indexSchema.name);
                                                     return [4 /*yield*/, this.queryRunner.createIndex(indexSchema.tableName, indexSchema)];
@@ -20854,13 +21005,13 @@ System.register("typeorm/schema-builder/SchemaBuilder", ["typeorm/schema-builder
                 };
                 return SchemaBuilder;
             }());
-            exports_150("SchemaBuilder", SchemaBuilder);
+            exports_151("SchemaBuilder", SchemaBuilder);
         }
     };
 });
-System.register("typeorm/metadata-args/error/EntityMetadataNotFound", [], function (exports_151, context_151) {
+System.register("typeorm/metadata-args/error/EntityMetadataNotFound", [], function (exports_152, context_152) {
     "use strict";
-    var __moduleName = context_151 && context_151.id;
+    var __moduleName = context_152 && context_152.id;
     var EntityMetadataNotFound;
     return {
         setters: [],
@@ -20878,22 +21029,22 @@ System.register("typeorm/metadata-args/error/EntityMetadataNotFound", [], functi
                 }
                 return EntityMetadataNotFound;
             }(Error));
-            exports_151("EntityMetadataNotFound", EntityMetadataNotFound);
+            exports_152("EntityMetadataNotFound", EntityMetadataNotFound);
         }
     };
 });
-System.register("typeorm/migration/MigrationInterface", [], function (exports_152, context_152) {
+System.register("typeorm/migration/MigrationInterface", [], function (exports_153, context_153) {
     "use strict";
-    var __moduleName = context_152 && context_152.id;
+    var __moduleName = context_153 && context_153.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/migration/Migration", [], function (exports_153, context_153) {
+System.register("typeorm/migration/Migration", [], function (exports_154, context_154) {
     "use strict";
-    var __moduleName = context_153 && context_153.id;
+    var __moduleName = context_154 && context_154.id;
     var Migration;
     return {
         setters: [],
@@ -20912,13 +21063,13 @@ System.register("typeorm/migration/Migration", [], function (exports_153, contex
                 }
                 return Migration;
             }());
-            exports_153("Migration", Migration);
+            exports_154("Migration", Migration);
         }
     };
 });
-System.register("typeorm/migration/MigrationExecutor", ["typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/types/ColumnTypes", "typeorm/query-builder/QueryBuilder", "typeorm/query-runner/QueryRunnerProvider", "typeorm/migration/Migration", "typeorm/util/PromiseUtils"], function (exports_154, context_154) {
+System.register("typeorm/migration/MigrationExecutor", ["typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/types/ColumnTypes", "typeorm/query-builder/QueryBuilder", "typeorm/query-runner/QueryRunnerProvider", "typeorm/migration/Migration", "typeorm/util/PromiseUtils"], function (exports_155, context_155) {
     "use strict";
-    var __moduleName = context_154 && context_154.id;
+    var __moduleName = context_155 && context_155.id;
     var TableSchema_6, ColumnSchema_7, ColumnTypes_7, QueryBuilder_6, QueryRunnerProvider_4, Migration_1, PromiseUtils_3, MigrationExecutor;
     return {
         setters: [
@@ -21245,13 +21396,13 @@ System.register("typeorm/migration/MigrationExecutor", ["typeorm/schema-builder/
                 };
                 return MigrationExecutor;
             }());
-            exports_154("MigrationExecutor", MigrationExecutor);
+            exports_155("MigrationExecutor", MigrationExecutor);
         }
     };
 });
-System.register("typeorm/connection/error/CannotRunMigrationNotConnectedError", [], function (exports_155, context_155) {
+System.register("typeorm/connection/error/CannotRunMigrationNotConnectedError", [], function (exports_156, context_156) {
     "use strict";
-    var __moduleName = context_155 && context_155.id;
+    var __moduleName = context_156 && context_156.id;
     var CannotRunMigrationNotConnectedError;
     return {
         setters: [],
@@ -21270,13 +21421,13 @@ System.register("typeorm/connection/error/CannotRunMigrationNotConnectedError", 
                 }
                 return CannotRunMigrationNotConnectedError;
             }(Error));
-            exports_155("CannotRunMigrationNotConnectedError", CannotRunMigrationNotConnectedError);
+            exports_156("CannotRunMigrationNotConnectedError", CannotRunMigrationNotConnectedError);
         }
     };
 });
-System.register("typeorm/repository/error/CustomRepositoryReusedError", [], function (exports_156, context_156) {
+System.register("typeorm/repository/error/CustomRepositoryReusedError", [], function (exports_157, context_157) {
     "use strict";
-    var __moduleName = context_156 && context_156.id;
+    var __moduleName = context_157 && context_157.id;
     var CustomRepositoryReusedError;
     return {
         setters: [],
@@ -21295,22 +21446,22 @@ System.register("typeorm/repository/error/CustomRepositoryReusedError", [], func
                 }
                 return CustomRepositoryReusedError;
             }(Error));
-            exports_156("CustomRepositoryReusedError", CustomRepositoryReusedError);
+            exports_157("CustomRepositoryReusedError", CustomRepositoryReusedError);
         }
     };
 });
-System.register("typeorm/decorator/options/JoinTableOptions", [], function (exports_157, context_157) {
+System.register("typeorm/decorator/options/JoinTableOptions", [], function (exports_158, context_158) {
     "use strict";
-    var __moduleName = context_157 && context_157.id;
+    var __moduleName = context_158 && context_158.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/entity-schema/EntitySchemaTransformer", ["typeorm/metadata-args/MetadataArgsStorage"], function (exports_158, context_158) {
+System.register("typeorm/entity-schema/EntitySchemaTransformer", ["typeorm/metadata-args/MetadataArgsStorage"], function (exports_159, context_159) {
     "use strict";
-    var __moduleName = context_158 && context_158.id;
+    var __moduleName = context_159 && context_159.id;
     var MetadataArgsStorage_1, EntitySchemaTransformer;
     return {
         setters: [
@@ -21440,13 +21591,13 @@ System.register("typeorm/entity-schema/EntitySchemaTransformer", ["typeorm/metad
                 };
                 return EntitySchemaTransformer;
             }());
-            exports_158("EntitySchemaTransformer", EntitySchemaTransformer);
+            exports_159("EntitySchemaTransformer", EntitySchemaTransformer);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/MissingPrimaryColumnError", [], function (exports_159, context_159) {
+System.register("typeorm/metadata-builder/error/MissingPrimaryColumnError", [], function (exports_160, context_160) {
     "use strict";
-    var __moduleName = context_159 && context_159.id;
+    var __moduleName = context_160 && context_160.id;
     var MissingPrimaryColumnError;
     return {
         setters: [],
@@ -21464,13 +21615,13 @@ System.register("typeorm/metadata-builder/error/MissingPrimaryColumnError", [], 
                 }
                 return MissingPrimaryColumnError;
             }(Error));
-            exports_159("MissingPrimaryColumnError", MissingPrimaryColumnError);
+            exports_160("MissingPrimaryColumnError", MissingPrimaryColumnError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/CircularRelationsError", [], function (exports_160, context_160) {
+System.register("typeorm/metadata-builder/error/CircularRelationsError", [], function (exports_161, context_161) {
     "use strict";
-    var __moduleName = context_160 && context_160.id;
+    var __moduleName = context_161 && context_161.id;
     var CircularRelationsError;
     return {
         setters: [],
@@ -21487,7 +21638,7 @@ System.register("typeorm/metadata-builder/error/CircularRelationsError", [], fun
                 }
                 return CircularRelationsError;
             }(Error));
-            exports_160("CircularRelationsError", CircularRelationsError);
+            exports_161("CircularRelationsError", CircularRelationsError);
         }
     };
 });
@@ -21496,9 +21647,9 @@ System.register("typeorm/metadata-builder/error/CircularRelationsError", [], fun
  * Just added "any" types here, wrapper everything into exported class.
  * We cant use a package itself because we want to package "everything-in-it" for the frontend users of TypeORM.
  */
-System.register("typeorm/util/DepGraph", [], function (exports_161, context_161) {
+System.register("typeorm/util/DepGraph", [], function (exports_162, context_162) {
     "use strict";
-    var __moduleName = context_161 && context_161.id;
+    var __moduleName = context_162 && context_162.id;
     /**
      * A simple dependency graph
      */
@@ -21725,13 +21876,13 @@ System.register("typeorm/util/DepGraph", [], function (exports_161, context_161)
                 };
                 return DepGraph;
             }());
-            exports_161("DepGraph", DepGraph);
+            exports_162("DepGraph", DepGraph);
         }
     };
 });
-System.register("typeorm/metadata-builder/EntityMetadataValidator", ["typeorm/metadata-builder/error/MissingPrimaryColumnError", "typeorm/metadata-builder/error/CircularRelationsError", "typeorm/util/DepGraph"], function (exports_162, context_162) {
+System.register("typeorm/metadata-builder/EntityMetadataValidator", ["typeorm/metadata-builder/error/MissingPrimaryColumnError", "typeorm/metadata-builder/error/CircularRelationsError", "typeorm/util/DepGraph"], function (exports_163, context_163) {
     "use strict";
-    var __moduleName = context_162 && context_162.id;
+    var __moduleName = context_163 && context_163.id;
     var MissingPrimaryColumnError_1, CircularRelationsError_1, DepGraph_1, EntityMetadataValidator;
     return {
         setters: [
@@ -21884,13 +22035,13 @@ System.register("typeorm/metadata-builder/EntityMetadataValidator", ["typeorm/me
                 };
                 return EntityMetadataValidator;
             }());
-            exports_162("EntityMetadataValidator", EntityMetadataValidator);
+            exports_163("EntityMetadataValidator", EntityMetadataValidator);
         }
     };
 });
-System.register("typeorm/connection/Connection", ["typeorm/connection/error/RepositoryNotFoundError", "typeorm/entity-manager/EntityManager", "typeorm/util/DirectoryExportedClassesLoader", "typeorm/index", "typeorm/metadata-builder/EntityMetadataBuilder", "typeorm/naming-strategy/DefaultNamingStrategy", "typeorm/connection/error/CannotImportAlreadyConnectedError", "typeorm/connection/error/CannotCloseNotConnectedError", "typeorm/connection/error/CannotConnectAlreadyConnectedError", "typeorm/connection/error/NamingStrategyNotFoundError", "typeorm/connection/error/RepositoryNotTreeError", "typeorm/connection/error/CannotSyncNotConnectedError", "typeorm/connection/error/CannotUseNamingStrategyNotConnectedError", "typeorm/subscriber/Broadcaster", "typeorm/lazy-loading/LazyRelationsWrapper", "typeorm/repository/RepositoryAggregator", "typeorm/schema-builder/SchemaBuilder", "typeorm/query-runner/QueryRunnerProvider", "typeorm/metadata-args/error/EntityMetadataNotFound", "typeorm/migration/MigrationExecutor", "typeorm/connection/error/CannotRunMigrationNotConnectedError", "typeorm/platform/PlatformTools", "typeorm/driver/mongodb/MongoDriver", "typeorm/entity-manager/MongoEntityManager", "typeorm/entity-schema/EntitySchemaTransformer", "typeorm/metadata-builder/EntityMetadataValidator"], function (exports_163, context_163) {
+System.register("typeorm/connection/Connection", ["typeorm/connection/error/RepositoryNotFoundError", "typeorm/entity-manager/EntityManager", "typeorm/util/DirectoryExportedClassesLoader", "typeorm/index", "typeorm/metadata-builder/EntityMetadataBuilder", "typeorm/naming-strategy/DefaultNamingStrategy", "typeorm/connection/error/CannotImportAlreadyConnectedError", "typeorm/connection/error/CannotCloseNotConnectedError", "typeorm/connection/error/CannotConnectAlreadyConnectedError", "typeorm/connection/error/NamingStrategyNotFoundError", "typeorm/connection/error/RepositoryNotTreeError", "typeorm/connection/error/CannotSyncNotConnectedError", "typeorm/connection/error/CannotUseNamingStrategyNotConnectedError", "typeorm/subscriber/Broadcaster", "typeorm/lazy-loading/LazyRelationsWrapper", "typeorm/repository/RepositoryAggregator", "typeorm/schema-builder/SchemaBuilder", "typeorm/query-runner/QueryRunnerProvider", "typeorm/metadata-args/error/EntityMetadataNotFound", "typeorm/migration/MigrationExecutor", "typeorm/connection/error/CannotRunMigrationNotConnectedError", "typeorm/platform/PlatformTools", "typeorm/driver/mongodb/MongoDriver", "typeorm/entity-manager/MongoEntityManager", "typeorm/entity-schema/EntitySchemaTransformer", "typeorm/metadata-builder/EntityMetadataValidator"], function (exports_164, context_164) {
     "use strict";
-    var __moduleName = context_163 && context_163.id;
+    var __moduleName = context_164 && context_164.id;
     var RepositoryNotFoundError_1, EntityManager_2, DirectoryExportedClassesLoader_1, index_3, EntityMetadataBuilder_1, DefaultNamingStrategy_1, CannotImportAlreadyConnectedError_1, CannotCloseNotConnectedError_1, CannotConnectAlreadyConnectedError_1, NamingStrategyNotFoundError_1, RepositoryNotTreeError_2, CannotSyncNotConnectedError_1, CannotUseNamingStrategyNotConnectedError_1, Broadcaster_1, LazyRelationsWrapper_1, RepositoryAggregator_2, SchemaBuilder_1, QueryRunnerProvider_5, EntityMetadataNotFound_1, MigrationExecutor_1, CannotRunMigrationNotConnectedError_1, PlatformTools_8, MongoDriver_4, MongoEntityManager_1, EntitySchemaTransformer_1, EntityMetadataValidator_1, Connection;
     return {
         setters: [
@@ -22497,13 +22648,13 @@ System.register("typeorm/connection/Connection", ["typeorm/connection/error/Repo
                 };
                 return Connection;
             }());
-            exports_163("Connection", Connection);
+            exports_164("Connection", Connection);
         }
     };
 });
-System.register("typeorm/connection/error/ConnectionNotFoundError", [], function (exports_164, context_164) {
+System.register("typeorm/connection/error/ConnectionNotFoundError", [], function (exports_165, context_165) {
     "use strict";
-    var __moduleName = context_164 && context_164.id;
+    var __moduleName = context_165 && context_165.id;
     var ConnectionNotFoundError;
     return {
         setters: [],
@@ -22522,22 +22673,22 @@ System.register("typeorm/connection/error/ConnectionNotFoundError", [], function
                 }
                 return ConnectionNotFoundError;
             }(Error));
-            exports_164("ConnectionNotFoundError", ConnectionNotFoundError);
+            exports_165("ConnectionNotFoundError", ConnectionNotFoundError);
         }
     };
 });
-System.register("typeorm/connection/ConnectionOptions", [], function (exports_165, context_165) {
+System.register("typeorm/connection/ConnectionOptions", [], function (exports_166, context_166) {
     "use strict";
-    var __moduleName = context_165 && context_165.id;
+    var __moduleName = context_166 && context_166.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/connection/error/MissingDriverError", [], function (exports_166, context_166) {
+System.register("typeorm/connection/error/MissingDriverError", [], function (exports_167, context_167) {
     "use strict";
-    var __moduleName = context_166 && context_166.id;
+    var __moduleName = context_167 && context_167.id;
     var MissingDriverError;
     return {
         setters: [],
@@ -22556,13 +22707,13 @@ System.register("typeorm/connection/error/MissingDriverError", [], function (exp
                 }
                 return MissingDriverError;
             }(Error));
-            exports_166("MissingDriverError", MissingDriverError);
+            exports_167("MissingDriverError", MissingDriverError);
         }
     };
 });
-System.register("typeorm/connection/error/AlreadyHasActiveConnectionError", [], function (exports_167, context_167) {
+System.register("typeorm/connection/error/AlreadyHasActiveConnectionError", [], function (exports_168, context_168) {
     "use strict";
-    var __moduleName = context_167 && context_167.id;
+    var __moduleName = context_168 && context_168.id;
     var AlreadyHasActiveConnectionError;
     return {
         setters: [],
@@ -22582,14 +22733,14 @@ System.register("typeorm/connection/error/AlreadyHasActiveConnectionError", [], 
                 }
                 return AlreadyHasActiveConnectionError;
             }(Error));
-            exports_167("AlreadyHasActiveConnectionError", AlreadyHasActiveConnectionError);
+            exports_168("AlreadyHasActiveConnectionError", AlreadyHasActiveConnectionError);
         }
     };
 });
-System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/ColumnMetadata", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_168, context_168) {
+System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/ColumnMetadata", "typeorm/schema-builder/schema/TableSchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_169, context_169) {
     "use strict";
-    var __moduleName = context_168 && context_168.id;
-    var TransactionAlreadyStartedError_5, TransactionNotStartedError_5, DataTypeNotSupportedByDriverError_5, ColumnSchema_8, ColumnMetadata_5, TableSchema_7, IndexSchema_5, ForeignKeySchema_6, PrimaryKeySchema_6, QueryRunnerAlreadyReleasedError_5, SqliteQueryRunner;
+    var __moduleName = context_169 && context_169.id;
+    var TransactionAlreadyStartedError_5, TransactionNotStartedError_5, DataTypeNotSupportedByDriverError_5, ColumnSchema_8, ColumnMetadata_5, TableSchema_7, IndexSchema_6, ForeignKeySchema_6, PrimaryKeySchema_6, QueryRunnerAlreadyReleasedError_5, SqliteQueryRunner;
     return {
         setters: [
             function (TransactionAlreadyStartedError_5_1) {
@@ -22610,8 +22761,8 @@ System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/erro
             function (TableSchema_7_1) {
                 TableSchema_7 = TableSchema_7_1;
             },
-            function (IndexSchema_5_1) {
-                IndexSchema_5 = IndexSchema_5_1;
+            function (IndexSchema_6_1) {
+                IndexSchema_6 = IndexSchema_6_1;
             },
             function (ForeignKeySchema_6_1) {
                 ForeignKeySchema_6 = ForeignKeySchema_6_1;
@@ -23056,7 +23207,7 @@ System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/erro
                                                                             return [2 /*return*/, Promise.resolve(undefined)];
                                                                         }
                                                                         else {
-                                                                            return [2 /*return*/, new IndexSchema_5.IndexSchema(dbTable["name"], dbIndex["name"], indexColumns, dbIndex["unique"] === "1")];
+                                                                            return [2 /*return*/, new IndexSchema_6.IndexSchema(dbTable["name"], dbIndex["name"], indexColumns, dbIndex["unique"] === "1")];
                                                                         }
                                                                         return [2 /*return*/];
                                                                 }
@@ -23110,6 +23261,24 @@ System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/erro
                                     if (primaryKeyColumns.length > 0)
                                         sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "" + column.name; }).join(", ") + ")"; // for some reason column escaping here generates a wrong schema
                                     sql += ")";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops the table.
+                 */
+                SqliteQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE \"" + tableName + "\"";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     _a.sent();
@@ -23651,13 +23820,13 @@ System.register("typeorm/driver/sqlite/SqliteQueryRunner", ["typeorm/driver/erro
                 };
                 return SqliteQueryRunner;
             }());
-            exports_168("SqliteQueryRunner", SqliteQueryRunner);
+            exports_169("SqliteQueryRunner", SqliteQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/sqlite/SqliteDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/sqlite/SqliteQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_169, context_169) {
+System.register("typeorm/driver/sqlite/SqliteDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/error/DriverPackageNotInstalledError", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/sqlite/SqliteQueryRunner", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/platform/PlatformTools"], function (exports_170, context_170) {
     "use strict";
-    var __moduleName = context_169 && context_169.id;
+    var __moduleName = context_170 && context_170.id;
     var ConnectionIsNotSetError_6, DriverPackageNotInstalledError_6, ColumnTypes_8, SqliteQueryRunner_1, DriverOptionNotSetError_6, DataTransformationUtils_6, PlatformTools_9, SqliteDriver;
     return {
         setters: [
@@ -23882,13 +24051,13 @@ System.register("typeorm/driver/sqlite/SqliteDriver", ["typeorm/driver/error/Con
                 };
                 return SqliteDriver;
             }());
-            exports_169("SqliteDriver", SqliteDriver);
+            exports_170("SqliteDriver", SqliteDriver);
         }
     };
 });
-System.register("typeorm/connection/error/CannotDetermineConnectionOptionsError", [], function (exports_170, context_170) {
+System.register("typeorm/connection/error/CannotDetermineConnectionOptionsError", [], function (exports_171, context_171) {
     "use strict";
-    var __moduleName = context_170 && context_170.id;
+    var __moduleName = context_171 && context_171.id;
     var CannotDetermineConnectionOptionsError;
     return {
         setters: [],
@@ -23911,13 +24080,13 @@ System.register("typeorm/connection/error/CannotDetermineConnectionOptionsError"
                 }
                 return CannotDetermineConnectionOptionsError;
             }(Error));
-            exports_170("CannotDetermineConnectionOptionsError", CannotDetermineConnectionOptionsError);
+            exports_171("CannotDetermineConnectionOptionsError", CannotDetermineConnectionOptionsError);
         }
     };
 });
-System.register("typeorm/driver/websql/WebsqlQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/ColumnMetadata", "typeorm/schema-builder/schema/TableSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_171, context_171) {
+System.register("typeorm/driver/websql/WebsqlQueryRunner", ["typeorm/driver/error/TransactionAlreadyStartedError", "typeorm/driver/error/TransactionNotStartedError", "typeorm/driver/error/DataTypeNotSupportedByDriverError", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/metadata/ColumnMetadata", "typeorm/schema-builder/schema/TableSchema", "typeorm/query-runner/error/QueryRunnerAlreadyReleasedError"], function (exports_172, context_172) {
     "use strict";
-    var __moduleName = context_171 && context_171.id;
+    var __moduleName = context_172 && context_172.id;
     var TransactionAlreadyStartedError_6, TransactionNotStartedError_6, DataTypeNotSupportedByDriverError_6, ColumnSchema_9, ColumnMetadata_6, TableSchema_8, QueryRunnerAlreadyReleasedError_6, WebsqlQueryRunner;
     return {
         setters: [
@@ -24395,6 +24564,24 @@ System.register("typeorm/driver/websql/WebsqlQueryRunner", ["typeorm/driver/erro
                                     if (primaryKeyColumns.length > 0)
                                         sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "" + column.name; }).join(", ") + ")"; // for some reason column escaping here generates a wrong schema
                                     sql += ")";
+                                    return [4 /*yield*/, this.query(sql)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    });
+                };
+                /**
+                 * Drops the table.
+                 */
+                WebsqlQueryRunner.prototype.dropTable = function (tableName) {
+                    return __awaiter(this, void 0, void 0, function () {
+                        var sql;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    sql = "DROP TABLE \"" + tableName + "\"";
                                     return [4 /*yield*/, this.query(sql)];
                                 case 1:
                                     _a.sent();
@@ -24932,13 +25119,13 @@ System.register("typeorm/driver/websql/WebsqlQueryRunner", ["typeorm/driver/erro
                 };
                 return WebsqlQueryRunner;
             }());
-            exports_171("WebsqlQueryRunner", WebsqlQueryRunner);
+            exports_172("WebsqlQueryRunner", WebsqlQueryRunner);
         }
     };
 });
-System.register("typeorm/driver/websql/WebsqlDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/DriverUtils", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/driver/websql/WebsqlQueryRunner"], function (exports_172, context_172) {
+System.register("typeorm/driver/websql/WebsqlDriver", ["typeorm/driver/error/ConnectionIsNotSetError", "typeorm/driver/DriverUtils", "typeorm/metadata/types/ColumnTypes", "typeorm/driver/error/DriverOptionNotSetError", "typeorm/util/DataTransformationUtils", "typeorm/driver/websql/WebsqlQueryRunner"], function (exports_173, context_173) {
     "use strict";
-    var __moduleName = context_172 && context_172.id;
+    var __moduleName = context_173 && context_173.id;
     var ConnectionIsNotSetError_7, DriverUtils_5, ColumnTypes_9, DriverOptionNotSetError_7, DataTransformationUtils_7, WebsqlQueryRunner_1, WebsqlDriver;
     return {
         setters: [
@@ -25139,13 +25326,13 @@ System.register("typeorm/driver/websql/WebsqlDriver", ["typeorm/driver/error/Con
                 };
                 return WebsqlDriver;
             }());
-            exports_172("WebsqlDriver", WebsqlDriver);
+            exports_173("WebsqlDriver", WebsqlDriver);
         }
     };
 });
-System.register("typeorm/connection/ConnectionManager", ["typeorm/connection/Connection", "typeorm/connection/error/ConnectionNotFoundError", "typeorm/driver/mysql/MysqlDriver", "typeorm/connection/error/MissingDriverError", "typeorm/driver/postgres/PostgresDriver", "typeorm/connection/error/AlreadyHasActiveConnectionError", "typeorm/logger/Logger", "typeorm/driver/sqlite/SqliteDriver", "typeorm/driver/oracle/OracleDriver", "typeorm/driver/sqlserver/SqlServerDriver", "typeorm/util/OrmUtils", "typeorm/connection/error/CannotDetermineConnectionOptionsError", "typeorm/platform/PlatformTools", "typeorm/driver/websql/WebsqlDriver", "typeorm/driver/mongodb/MongoDriver"], function (exports_173, context_173) {
+System.register("typeorm/connection/ConnectionManager", ["typeorm/connection/Connection", "typeorm/connection/error/ConnectionNotFoundError", "typeorm/driver/mysql/MysqlDriver", "typeorm/connection/error/MissingDriverError", "typeorm/driver/postgres/PostgresDriver", "typeorm/connection/error/AlreadyHasActiveConnectionError", "typeorm/logger/Logger", "typeorm/driver/sqlite/SqliteDriver", "typeorm/driver/oracle/OracleDriver", "typeorm/driver/sqlserver/SqlServerDriver", "typeorm/util/OrmUtils", "typeorm/connection/error/CannotDetermineConnectionOptionsError", "typeorm/platform/PlatformTools", "typeorm/driver/websql/WebsqlDriver", "typeorm/driver/mongodb/MongoDriver"], function (exports_174, context_174) {
     "use strict";
-    var __moduleName = context_173 && context_173.id;
+    var __moduleName = context_174 && context_174.id;
     var Connection_1, ConnectionNotFoundError_1, MysqlDriver_2, MissingDriverError_1, PostgresDriver_2, AlreadyHasActiveConnectionError_1, Logger_1, SqliteDriver_1, OracleDriver_2, SqlServerDriver_2, OrmUtils_6, CannotDetermineConnectionOptionsError_1, PlatformTools_10, WebsqlDriver_1, MongoDriver_5, ConnectionManager;
     return {
         setters: [
@@ -25430,6 +25617,8 @@ System.register("typeorm/connection/ConnectionManager", ["typeorm/connection/Con
                         var optionsArray, promises;
                         return __generator(this, function (_a) {
                             optionsArray = PlatformTools_10.PlatformTools.load(path || (PlatformTools_10.PlatformTools.load("app-root-path").path + "/ormconfig.json"));
+                            if (!(optionsArray instanceof Array))
+                                optionsArray = [optionsArray]; // cast options to array if ormconfig contains a single connection options object
                             if (!optionsArray)
                                 throw new Error("Configuration " + (path || "ormconfig.json") + " was not found. Add connection configuration inside ormconfig.json file.");
                             promises = optionsArray
@@ -25450,6 +25639,8 @@ System.register("typeorm/connection/ConnectionManager", ["typeorm/connection/Con
                         var optionsArray, environmentLessOptions, options;
                         return __generator(this, function (_a) {
                             optionsArray = PlatformTools_10.PlatformTools.load(path || (PlatformTools_10.PlatformTools.load("app-root-path").path + "/ormconfig.json"));
+                            if (!(optionsArray instanceof Array))
+                                optionsArray = [optionsArray]; // cast options to array if ormconfig contains a single connection options object
                             if (!optionsArray)
                                 throw new Error("Configuration " + (path || "ormconfig.json") + " was not found. Add connection configuration inside ormconfig.json file.");
                             environmentLessOptions = optionsArray.filter(function (options) { return (options.name || "default") === connectionName; });
@@ -25548,13 +25739,13 @@ System.register("typeorm/connection/ConnectionManager", ["typeorm/connection/Con
                 };
                 return ConnectionManager;
             }());
-            exports_173("ConnectionManager", ConnectionManager);
+            exports_174("ConnectionManager", ConnectionManager);
         }
     };
 });
-System.register("typeorm/decorator/error/GeneratedOnlyForPrimaryError", [], function (exports_174, context_174) {
+System.register("typeorm/decorator/error/GeneratedOnlyForPrimaryError", [], function (exports_175, context_175) {
     "use strict";
-    var __moduleName = context_174 && context_174.id;
+    var __moduleName = context_175 && context_175.id;
     var GeneratedOnlyForPrimaryError;
     return {
         setters: [],
@@ -25570,13 +25761,13 @@ System.register("typeorm/decorator/error/GeneratedOnlyForPrimaryError", [], func
                 }
                 return GeneratedOnlyForPrimaryError;
             }(Error));
-            exports_174("GeneratedOnlyForPrimaryError", GeneratedOnlyForPrimaryError);
+            exports_175("GeneratedOnlyForPrimaryError", GeneratedOnlyForPrimaryError);
         }
     };
 });
-System.register("typeorm/decorator/columns/Column", ["typeorm/decorator/error/GeneratedOnlyForPrimaryError", "typeorm/index", "typeorm/metadata/types/ColumnTypes"], function (exports_175, context_175) {
+System.register("typeorm/decorator/columns/Column", ["typeorm/decorator/error/GeneratedOnlyForPrimaryError", "typeorm/index", "typeorm/metadata/types/ColumnTypes"], function (exports_176, context_176) {
     "use strict";
-    var __moduleName = context_175 && context_175.id;
+    var __moduleName = context_176 && context_176.id;
     /**
      * Column decorator is used to mark a specific class property as a table column.
      * Only properties decorated with this decorator will be persisted to the database when entity be saved.
@@ -25622,7 +25813,7 @@ System.register("typeorm/decorator/columns/Column", ["typeorm/decorator/error/Ge
             index_4.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_175("Column", Column);
+    exports_176("Column", Column);
     var GeneratedOnlyForPrimaryError_1, index_4, ColumnTypes_10;
     return {
         setters: [
@@ -25640,9 +25831,9 @@ System.register("typeorm/decorator/columns/Column", ["typeorm/decorator/error/Ge
         }
     };
 });
-System.register("typeorm/decorator/columns/CreateDateColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_176, context_176) {
+System.register("typeorm/decorator/columns/CreateDateColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_177, context_177) {
     "use strict";
-    var __moduleName = context_176 && context_176.id;
+    var __moduleName = context_177 && context_177.id;
     /**
      * This column will store a creation date of the inserted object.
      * Creation date is generated and inserted only once,
@@ -25667,7 +25858,7 @@ System.register("typeorm/decorator/columns/CreateDateColumn", ["typeorm/metadata
             index_5.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_176("CreateDateColumn", CreateDateColumn);
+    exports_177("CreateDateColumn", CreateDateColumn);
     var ColumnTypes_11, index_5;
     return {
         setters: [
@@ -25682,9 +25873,9 @@ System.register("typeorm/decorator/columns/CreateDateColumn", ["typeorm/metadata
         }
     };
 });
-System.register("typeorm/decorator/columns/DiscriminatorColumn", ["typeorm/index"], function (exports_177, context_177) {
+System.register("typeorm/decorator/columns/DiscriminatorColumn", ["typeorm/index"], function (exports_178, context_178) {
     "use strict";
-    var __moduleName = context_177 && context_177.id;
+    var __moduleName = context_178 && context_178.id;
     /**
      * DiscriminatorColumn is a special type column used on entity class (not entity property)
      * and creates a special column which will contain an entity type.
@@ -25707,7 +25898,7 @@ System.register("typeorm/decorator/columns/DiscriminatorColumn", ["typeorm/index
             index_6.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_177("DiscriminatorColumn", DiscriminatorColumn);
+    exports_178("DiscriminatorColumn", DiscriminatorColumn);
     var index_6;
     return {
         setters: [
@@ -25719,9 +25910,9 @@ System.register("typeorm/decorator/columns/DiscriminatorColumn", ["typeorm/index
         }
     };
 });
-System.register("typeorm/decorator/error/PrimaryColumnCannotBeNullableError", [], function (exports_178, context_178) {
+System.register("typeorm/decorator/error/PrimaryColumnCannotBeNullableError", [], function (exports_179, context_179) {
     "use strict";
-    var __moduleName = context_178 && context_178.id;
+    var __moduleName = context_179 && context_179.id;
     var PrimaryColumnCannotBeNullableError;
     return {
         setters: [],
@@ -25737,13 +25928,13 @@ System.register("typeorm/decorator/error/PrimaryColumnCannotBeNullableError", []
                 }
                 return PrimaryColumnCannotBeNullableError;
             }(Error));
-            exports_178("PrimaryColumnCannotBeNullableError", PrimaryColumnCannotBeNullableError);
+            exports_179("PrimaryColumnCannotBeNullableError", PrimaryColumnCannotBeNullableError);
         }
     };
 });
-System.register("typeorm/decorator/columns/PrimaryGeneratedColumn", ["typeorm/index", "typeorm/decorator/error/PrimaryColumnCannotBeNullableError"], function (exports_179, context_179) {
+System.register("typeorm/decorator/columns/PrimaryGeneratedColumn", ["typeorm/index", "typeorm/decorator/error/PrimaryColumnCannotBeNullableError"], function (exports_180, context_180) {
     "use strict";
-    var __moduleName = context_179 && context_179.id;
+    var __moduleName = context_180 && context_180.id;
     // todo: add overloads for PrimaryGeneratedColumn(generationType: "sequence"|"uuid" = "sequence", options?: ColumnOptions)
     /**
      * Column decorator is used to mark a specific class property as a table column.
@@ -25775,7 +25966,7 @@ System.register("typeorm/decorator/columns/PrimaryGeneratedColumn", ["typeorm/in
             index_7.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_179("PrimaryGeneratedColumn", PrimaryGeneratedColumn);
+    exports_180("PrimaryGeneratedColumn", PrimaryGeneratedColumn);
     var index_7, PrimaryColumnCannotBeNullableError_1;
     return {
         setters: [
@@ -25790,9 +25981,9 @@ System.register("typeorm/decorator/columns/PrimaryGeneratedColumn", ["typeorm/in
         }
     };
 });
-System.register("typeorm/decorator/error/ColumnTypeUndefinedError", [], function (exports_180, context_180) {
+System.register("typeorm/decorator/error/ColumnTypeUndefinedError", [], function (exports_181, context_181) {
     "use strict";
-    var __moduleName = context_180 && context_180.id;
+    var __moduleName = context_181 && context_181.id;
     var ColumnTypeUndefinedError;
     return {
         setters: [],
@@ -25808,13 +25999,13 @@ System.register("typeorm/decorator/error/ColumnTypeUndefinedError", [], function
                 }
                 return ColumnTypeUndefinedError;
             }(Error));
-            exports_180("ColumnTypeUndefinedError", ColumnTypeUndefinedError);
+            exports_181("ColumnTypeUndefinedError", ColumnTypeUndefinedError);
         }
     };
 });
-System.register("typeorm/decorator/columns/PrimaryColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/decorator/error/ColumnTypeUndefinedError", "typeorm/index", "typeorm/decorator/error/PrimaryColumnCannotBeNullableError"], function (exports_181, context_181) {
+System.register("typeorm/decorator/columns/PrimaryColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/decorator/error/ColumnTypeUndefinedError", "typeorm/index", "typeorm/decorator/error/PrimaryColumnCannotBeNullableError"], function (exports_182, context_182) {
     "use strict";
-    var __moduleName = context_181 && context_181.id;
+    var __moduleName = context_182 && context_182.id;
     /**
      * Column decorator is used to mark a specific class property as a table column.
      * Only properties decorated with this decorator will be persisted to the database when entity be saved.
@@ -25861,7 +26052,7 @@ System.register("typeorm/decorator/columns/PrimaryColumn", ["typeorm/metadata/ty
             index_8.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_181("PrimaryColumn", PrimaryColumn);
+    exports_182("PrimaryColumn", PrimaryColumn);
     var ColumnTypes_12, ColumnTypeUndefinedError_1, index_8, PrimaryColumnCannotBeNullableError_2;
     return {
         setters: [
@@ -25882,9 +26073,9 @@ System.register("typeorm/decorator/columns/PrimaryColumn", ["typeorm/metadata/ty
         }
     };
 });
-System.register("typeorm/decorator/columns/UpdateDateColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_182, context_182) {
+System.register("typeorm/decorator/columns/UpdateDateColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_183, context_183) {
     "use strict";
-    var __moduleName = context_182 && context_182.id;
+    var __moduleName = context_183 && context_183.id;
     /**
      * This column will store an update date of the updated object.
      * This date is being updated each time you persist the object.
@@ -25908,7 +26099,7 @@ System.register("typeorm/decorator/columns/UpdateDateColumn", ["typeorm/metadata
             index_9.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_182("UpdateDateColumn", UpdateDateColumn);
+    exports_183("UpdateDateColumn", UpdateDateColumn);
     var ColumnTypes_13, index_9;
     return {
         setters: [
@@ -25923,9 +26114,9 @@ System.register("typeorm/decorator/columns/UpdateDateColumn", ["typeorm/metadata
         }
     };
 });
-System.register("typeorm/decorator/columns/VersionColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_183, context_183) {
+System.register("typeorm/decorator/columns/VersionColumn", ["typeorm/metadata/types/ColumnTypes", "typeorm/index"], function (exports_184, context_184) {
     "use strict";
-    var __moduleName = context_183 && context_183.id;
+    var __moduleName = context_184 && context_184.id;
     /**
      * This column will store a number - version of the entity.
      * Every time your entity will be persisted, this number will be increased by one -
@@ -25951,7 +26142,7 @@ System.register("typeorm/decorator/columns/VersionColumn", ["typeorm/metadata/ty
             index_10.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_183("VersionColumn", VersionColumn);
+    exports_184("VersionColumn", VersionColumn);
     var ColumnTypes_14, index_10;
     return {
         setters: [
@@ -25966,9 +26157,9 @@ System.register("typeorm/decorator/columns/VersionColumn", ["typeorm/metadata/ty
         }
     };
 });
-System.register("typeorm/decorator/columns/ObjectIdColumn", ["typeorm/index"], function (exports_184, context_184) {
+System.register("typeorm/decorator/columns/ObjectIdColumn", ["typeorm/index"], function (exports_185, context_185) {
     "use strict";
-    var __moduleName = context_184 && context_184.id;
+    var __moduleName = context_185 && context_185.id;
     /**
      * Special type of column that is available only for MongoDB database.
      * Marks your entity's column to be an object id.
@@ -25992,7 +26183,7 @@ System.register("typeorm/decorator/columns/ObjectIdColumn", ["typeorm/index"], f
             index_11.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_184("ObjectIdColumn", ObjectIdColumn);
+    exports_185("ObjectIdColumn", ObjectIdColumn);
     var index_11;
     return {
         setters: [
@@ -26004,9 +26195,9 @@ System.register("typeorm/decorator/columns/ObjectIdColumn", ["typeorm/index"], f
         }
     };
 });
-System.register("typeorm/decorator/listeners/AfterInsert", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_185, context_185) {
+System.register("typeorm/decorator/listeners/AfterInsert", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_186, context_186) {
     "use strict";
-    var __moduleName = context_185 && context_185.id;
+    var __moduleName = context_186 && context_186.id;
     /**
      * Calls a method on which this decorator is applied after this entity insertion.
      */
@@ -26020,7 +26211,7 @@ System.register("typeorm/decorator/listeners/AfterInsert", ["typeorm/index", "ty
             index_12.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_185("AfterInsert", AfterInsert);
+    exports_186("AfterInsert", AfterInsert);
     var index_12, EventListenerTypes_2;
     return {
         setters: [
@@ -26035,9 +26226,9 @@ System.register("typeorm/decorator/listeners/AfterInsert", ["typeorm/index", "ty
         }
     };
 });
-System.register("typeorm/decorator/listeners/AfterLoad", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_186, context_186) {
+System.register("typeorm/decorator/listeners/AfterLoad", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_187, context_187) {
     "use strict";
-    var __moduleName = context_186 && context_186.id;
+    var __moduleName = context_187 && context_187.id;
     /**
      * Calls a method on which this decorator is applied after entity is loaded.
      */
@@ -26051,7 +26242,7 @@ System.register("typeorm/decorator/listeners/AfterLoad", ["typeorm/index", "type
             index_13.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_186("AfterLoad", AfterLoad);
+    exports_187("AfterLoad", AfterLoad);
     var index_13, EventListenerTypes_3;
     return {
         setters: [
@@ -26066,9 +26257,9 @@ System.register("typeorm/decorator/listeners/AfterLoad", ["typeorm/index", "type
         }
     };
 });
-System.register("typeorm/decorator/listeners/AfterRemove", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_187, context_187) {
+System.register("typeorm/decorator/listeners/AfterRemove", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_188, context_188) {
     "use strict";
-    var __moduleName = context_187 && context_187.id;
+    var __moduleName = context_188 && context_188.id;
     /**
      * Calls a method on which this decorator is applied after this entity removal.
      */
@@ -26082,7 +26273,7 @@ System.register("typeorm/decorator/listeners/AfterRemove", ["typeorm/index", "ty
             index_14.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_187("AfterRemove", AfterRemove);
+    exports_188("AfterRemove", AfterRemove);
     var index_14, EventListenerTypes_4;
     return {
         setters: [
@@ -26097,9 +26288,9 @@ System.register("typeorm/decorator/listeners/AfterRemove", ["typeorm/index", "ty
         }
     };
 });
-System.register("typeorm/decorator/listeners/AfterUpdate", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_188, context_188) {
+System.register("typeorm/decorator/listeners/AfterUpdate", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_189, context_189) {
     "use strict";
-    var __moduleName = context_188 && context_188.id;
+    var __moduleName = context_189 && context_189.id;
     /**
      * Calls a method on which this decorator is applied after this entity update.
      */
@@ -26113,7 +26304,7 @@ System.register("typeorm/decorator/listeners/AfterUpdate", ["typeorm/index", "ty
             index_15.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_188("AfterUpdate", AfterUpdate);
+    exports_189("AfterUpdate", AfterUpdate);
     var index_15, EventListenerTypes_5;
     return {
         setters: [
@@ -26128,9 +26319,9 @@ System.register("typeorm/decorator/listeners/AfterUpdate", ["typeorm/index", "ty
         }
     };
 });
-System.register("typeorm/decorator/listeners/BeforeInsert", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_189, context_189) {
+System.register("typeorm/decorator/listeners/BeforeInsert", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_190, context_190) {
     "use strict";
-    var __moduleName = context_189 && context_189.id;
+    var __moduleName = context_190 && context_190.id;
     /**
      * Calls a method on which this decorator is applied before this entity insertion.
      */
@@ -26144,7 +26335,7 @@ System.register("typeorm/decorator/listeners/BeforeInsert", ["typeorm/index", "t
             index_16.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_189("BeforeInsert", BeforeInsert);
+    exports_190("BeforeInsert", BeforeInsert);
     var index_16, EventListenerTypes_6;
     return {
         setters: [
@@ -26159,9 +26350,9 @@ System.register("typeorm/decorator/listeners/BeforeInsert", ["typeorm/index", "t
         }
     };
 });
-System.register("typeorm/decorator/listeners/BeforeRemove", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_190, context_190) {
+System.register("typeorm/decorator/listeners/BeforeRemove", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_191, context_191) {
     "use strict";
-    var __moduleName = context_190 && context_190.id;
+    var __moduleName = context_191 && context_191.id;
     /**
      * Calls a method on which this decorator is applied before this entity removal.
      */
@@ -26175,7 +26366,7 @@ System.register("typeorm/decorator/listeners/BeforeRemove", ["typeorm/index", "t
             index_17.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_190("BeforeRemove", BeforeRemove);
+    exports_191("BeforeRemove", BeforeRemove);
     var index_17, EventListenerTypes_7;
     return {
         setters: [
@@ -26190,9 +26381,9 @@ System.register("typeorm/decorator/listeners/BeforeRemove", ["typeorm/index", "t
         }
     };
 });
-System.register("typeorm/decorator/listeners/BeforeUpdate", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_191, context_191) {
+System.register("typeorm/decorator/listeners/BeforeUpdate", ["typeorm/index", "typeorm/metadata/types/EventListenerTypes"], function (exports_192, context_192) {
     "use strict";
-    var __moduleName = context_191 && context_191.id;
+    var __moduleName = context_192 && context_192.id;
     /**
      * Calls a method on which this decorator is applied before this entity update.
      */
@@ -26206,7 +26397,7 @@ System.register("typeorm/decorator/listeners/BeforeUpdate", ["typeorm/index", "t
             index_18.getMetadataArgsStorage().entityListeners.push(args);
         };
     }
-    exports_191("BeforeUpdate", BeforeUpdate);
+    exports_192("BeforeUpdate", BeforeUpdate);
     var index_18, EventListenerTypes_8;
     return {
         setters: [
@@ -26221,9 +26412,9 @@ System.register("typeorm/decorator/listeners/BeforeUpdate", ["typeorm/index", "t
         }
     };
 });
-System.register("typeorm/decorator/listeners/EventSubscriber", ["typeorm/index"], function (exports_192, context_192) {
+System.register("typeorm/decorator/listeners/EventSubscriber", ["typeorm/index"], function (exports_193, context_193) {
     "use strict";
-    var __moduleName = context_192 && context_192.id;
+    var __moduleName = context_193 && context_193.id;
     /**
      * Classes decorated with this decorator will listen to ORM events and their methods will be triggered when event
      * occurs. Those classes must implement EventSubscriberInterface interface.
@@ -26236,7 +26427,7 @@ System.register("typeorm/decorator/listeners/EventSubscriber", ["typeorm/index"]
             index_19.getMetadataArgsStorage().entitySubscribers.push(args);
         };
     }
-    exports_192("EventSubscriber", EventSubscriber);
+    exports_193("EventSubscriber", EventSubscriber);
     var index_19;
     return {
         setters: [
@@ -26248,16 +26439,7 @@ System.register("typeorm/decorator/listeners/EventSubscriber", ["typeorm/index"]
         }
     };
 });
-System.register("typeorm/decorator/options/IndexOptions", [], function (exports_193, context_193) {
-    "use strict";
-    var __moduleName = context_193 && context_193.id;
-    return {
-        setters: [],
-        execute: function () {
-        }
-    };
-});
-System.register("typeorm/decorator/options/EntityOptions", [], function (exports_194, context_194) {
+System.register("typeorm/decorator/options/IndexOptions", [], function (exports_194, context_194) {
     "use strict";
     var __moduleName = context_194 && context_194.id;
     return {
@@ -26266,9 +26448,18 @@ System.register("typeorm/decorator/options/EntityOptions", [], function (exports
         }
     };
 });
-System.register("typeorm/decorator/relations/RelationCount", ["typeorm/index"], function (exports_195, context_195) {
+System.register("typeorm/decorator/options/EntityOptions", [], function (exports_195, context_195) {
     "use strict";
     var __moduleName = context_195 && context_195.id;
+    return {
+        setters: [],
+        execute: function () {
+        }
+    };
+});
+System.register("typeorm/decorator/relations/RelationCount", ["typeorm/index"], function (exports_196, context_196) {
+    "use strict";
+    var __moduleName = context_196 && context_196.id;
     /**
      * Holds a number of children in the closure table of the column.
      */
@@ -26284,7 +26475,7 @@ System.register("typeorm/decorator/relations/RelationCount", ["typeorm/index"], 
             index_20.getMetadataArgsStorage().relationCounts.push(args);
         };
     }
-    exports_195("RelationCount", RelationCount);
+    exports_196("RelationCount", RelationCount);
     var index_20;
     return {
         setters: [
@@ -26296,9 +26487,9 @@ System.register("typeorm/decorator/relations/RelationCount", ["typeorm/index"], 
         }
     };
 });
-System.register("typeorm/decorator/relations/JoinColumn", ["typeorm/index"], function (exports_196, context_196) {
+System.register("typeorm/decorator/relations/JoinColumn", ["typeorm/index"], function (exports_197, context_197) {
     "use strict";
-    var __moduleName = context_196 && context_196.id;
+    var __moduleName = context_197 && context_197.id;
     /**
      * JoinColumn decorator used on one-to-one relations to specify owner side of relationship.
      * It also can be used on both one-to-one and many-to-one relations to specify custom column name
@@ -26318,7 +26509,7 @@ System.register("typeorm/decorator/relations/JoinColumn", ["typeorm/index"], fun
             });
         };
     }
-    exports_196("JoinColumn", JoinColumn);
+    exports_197("JoinColumn", JoinColumn);
     var index_21;
     return {
         setters: [
@@ -26330,9 +26521,9 @@ System.register("typeorm/decorator/relations/JoinColumn", ["typeorm/index"], fun
         }
     };
 });
-System.register("typeorm/decorator/relations/JoinTable", ["typeorm/index"], function (exports_197, context_197) {
+System.register("typeorm/decorator/relations/JoinTable", ["typeorm/index"], function (exports_198, context_198) {
     "use strict";
-    var __moduleName = context_197 && context_197.id;
+    var __moduleName = context_198 && context_198.id;
     /**
      * JoinTable decorator is used in many-to-many relationship to specify owner side of relationship.
      * Its also used to set a custom junction table's name, column names and referenced columns.
@@ -26350,7 +26541,7 @@ System.register("typeorm/decorator/relations/JoinTable", ["typeorm/index"], func
             index_22.getMetadataArgsStorage().joinTables.push(args);
         };
     }
-    exports_197("JoinTable", JoinTable);
+    exports_198("JoinTable", JoinTable);
     var index_22;
     return {
         setters: [
@@ -26362,9 +26553,9 @@ System.register("typeorm/decorator/relations/JoinTable", ["typeorm/index"], func
         }
     };
 });
-System.register("typeorm/decorator/relations/ManyToMany", ["typeorm/index"], function (exports_198, context_198) {
+System.register("typeorm/decorator/relations/ManyToMany", ["typeorm/index"], function (exports_199, context_199) {
     "use strict";
-    var __moduleName = context_198 && context_198.id;
+    var __moduleName = context_199 && context_199.id;
     /**
      * Many-to-many is a type of relationship when Entity1 can have multiple instances of Entity2, and Entity2 can have
      * multiple instances of Entity1. To achieve it, this type of relation creates a junction table, where it storage
@@ -26401,7 +26592,7 @@ System.register("typeorm/decorator/relations/ManyToMany", ["typeorm/index"], fun
             index_23.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_198("ManyToMany", ManyToMany);
+    exports_199("ManyToMany", ManyToMany);
     var index_23;
     return {
         setters: [
@@ -26413,9 +26604,9 @@ System.register("typeorm/decorator/relations/ManyToMany", ["typeorm/index"], fun
         }
     };
 });
-System.register("typeorm/decorator/relations/ManyToOne", ["typeorm/index"], function (exports_199, context_199) {
+System.register("typeorm/decorator/relations/ManyToOne", ["typeorm/index"], function (exports_200, context_200) {
     "use strict";
-    var __moduleName = context_199 && context_199.id;
+    var __moduleName = context_200 && context_200.id;
     /**
      * Many-to-one relation allows to create type of relation when Entity1 can have single instance of Entity2, but
      * Entity2 can have a multiple instances of Entity1. Entity1 is an owner of the relationship, and storages Entity2 id
@@ -26452,7 +26643,7 @@ System.register("typeorm/decorator/relations/ManyToOne", ["typeorm/index"], func
             index_24.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_199("ManyToOne", ManyToOne);
+    exports_200("ManyToOne", ManyToOne);
     var index_24;
     return {
         setters: [
@@ -26464,9 +26655,9 @@ System.register("typeorm/decorator/relations/ManyToOne", ["typeorm/index"], func
         }
     };
 });
-System.register("typeorm/decorator/relations/OneToMany", ["typeorm/index"], function (exports_200, context_200) {
+System.register("typeorm/decorator/relations/OneToMany", ["typeorm/index"], function (exports_201, context_201) {
     "use strict";
-    var __moduleName = context_200 && context_200.id;
+    var __moduleName = context_201 && context_201.id;
     // todo: make decorators which use inverse side string separate
     /**
      * One-to-many relation allows to create type of relation when Entity2 can have multiple instances of Entity1.
@@ -26496,7 +26687,7 @@ System.register("typeorm/decorator/relations/OneToMany", ["typeorm/index"], func
             index_25.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_200("OneToMany", OneToMany);
+    exports_201("OneToMany", OneToMany);
     var index_25;
     return {
         setters: [
@@ -26508,9 +26699,9 @@ System.register("typeorm/decorator/relations/OneToMany", ["typeorm/index"], func
         }
     };
 });
-System.register("typeorm/decorator/relations/OneToOne", ["typeorm/index"], function (exports_201, context_201) {
+System.register("typeorm/decorator/relations/OneToOne", ["typeorm/index"], function (exports_202, context_202) {
     "use strict";
-    var __moduleName = context_201 && context_201.id;
+    var __moduleName = context_202 && context_202.id;
     /**
      * One-to-one relation allows to create direct relation between two entities. Entity1 have only one Entity2.
      * Entity1 is an owner of the relationship, and storages Entity1 id on its own side.
@@ -26546,7 +26737,7 @@ System.register("typeorm/decorator/relations/OneToOne", ["typeorm/index"], funct
             index_26.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_201("OneToOne", OneToOne);
+    exports_202("OneToOne", OneToOne);
     var index_26;
     return {
         setters: [
@@ -26558,9 +26749,9 @@ System.register("typeorm/decorator/relations/OneToOne", ["typeorm/index"], funct
         }
     };
 });
-System.register("typeorm/decorator/relations/RelationId", ["typeorm/index"], function (exports_202, context_202) {
+System.register("typeorm/decorator/relations/RelationId", ["typeorm/index"], function (exports_203, context_203) {
     "use strict";
-    var __moduleName = context_202 && context_202.id;
+    var __moduleName = context_203 && context_203.id;
     /**
      * Special decorator used to extract relation id into separate entity property.
      */
@@ -26576,7 +26767,7 @@ System.register("typeorm/decorator/relations/RelationId", ["typeorm/index"], fun
             index_27.getMetadataArgsStorage().relationIds.push(args);
         };
     }
-    exports_202("RelationId", RelationId);
+    exports_203("RelationId", RelationId);
     var index_27;
     return {
         setters: [
@@ -26588,9 +26779,9 @@ System.register("typeorm/decorator/relations/RelationId", ["typeorm/index"], fun
         }
     };
 });
-System.register("typeorm/decorator/entity/Entity", ["typeorm/index"], function (exports_203, context_203) {
+System.register("typeorm/decorator/entity/Entity", ["typeorm/index"], function (exports_204, context_204) {
     "use strict";
-    var __moduleName = context_203 && context_203.id;
+    var __moduleName = context_204 && context_204.id;
     /**
      * This decorator is used to mark classes that will be an entity (table or document depend on database type).
      * Database schema will be created for all classes decorated with it, and Repository can be retrieved and used for it.
@@ -26608,7 +26799,7 @@ System.register("typeorm/decorator/entity/Entity", ["typeorm/index"], function (
             index_28.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_203("Entity", Entity);
+    exports_204("Entity", Entity);
     var index_28;
     return {
         setters: [
@@ -26620,9 +26811,9 @@ System.register("typeorm/decorator/entity/Entity", ["typeorm/index"], function (
         }
     };
 });
-System.register("typeorm/decorator/entity/AbstractEntity", ["typeorm/index"], function (exports_204, context_204) {
+System.register("typeorm/decorator/entity/AbstractEntity", ["typeorm/index"], function (exports_205, context_205) {
     "use strict";
-    var __moduleName = context_204 && context_204.id;
+    var __moduleName = context_205 && context_205.id;
     /**
      * Abstract entity is a class that contains columns and relations for all entities that will inherit this entity.
      * Database table for the abstract entity is not created.
@@ -26639,7 +26830,7 @@ System.register("typeorm/decorator/entity/AbstractEntity", ["typeorm/index"], fu
             index_29.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_204("AbstractEntity", AbstractEntity);
+    exports_205("AbstractEntity", AbstractEntity);
     var index_29;
     return {
         setters: [
@@ -26651,9 +26842,9 @@ System.register("typeorm/decorator/entity/AbstractEntity", ["typeorm/index"], fu
         }
     };
 });
-System.register("typeorm/decorator/entity/ClassEntityChild", ["typeorm/index"], function (exports_205, context_205) {
+System.register("typeorm/decorator/entity/ClassEntityChild", ["typeorm/index"], function (exports_206, context_206) {
     "use strict";
-    var __moduleName = context_205 && context_205.id;
+    var __moduleName = context_206 && context_206.id;
     /**
      * Special type of the entity used in the class-table inherited tables.
      */
@@ -26669,7 +26860,7 @@ System.register("typeorm/decorator/entity/ClassEntityChild", ["typeorm/index"], 
             index_30.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_205("ClassEntityChild", ClassEntityChild);
+    exports_206("ClassEntityChild", ClassEntityChild);
     var index_30;
     return {
         setters: [
@@ -26681,9 +26872,9 @@ System.register("typeorm/decorator/entity/ClassEntityChild", ["typeorm/index"], 
         }
     };
 });
-System.register("typeorm/decorator/entity/ClosureEntity", ["typeorm/index"], function (exports_206, context_206) {
+System.register("typeorm/decorator/entity/ClosureEntity", ["typeorm/index"], function (exports_207, context_207) {
     "use strict";
-    var __moduleName = context_206 && context_206.id;
+    var __moduleName = context_207 && context_207.id;
     /**
      * Used on a entities that stores its children in a tree using closure design pattern.
      */
@@ -26699,7 +26890,7 @@ System.register("typeorm/decorator/entity/ClosureEntity", ["typeorm/index"], fun
             index_31.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_206("ClosureEntity", ClosureEntity);
+    exports_207("ClosureEntity", ClosureEntity);
     var index_31;
     return {
         setters: [
@@ -26711,9 +26902,9 @@ System.register("typeorm/decorator/entity/ClosureEntity", ["typeorm/index"], fun
         }
     };
 });
-System.register("typeorm/decorator/entity/EmbeddableEntity", ["typeorm/index"], function (exports_207, context_207) {
+System.register("typeorm/decorator/entity/EmbeddableEntity", ["typeorm/index"], function (exports_208, context_208) {
     "use strict";
-    var __moduleName = context_207 && context_207.id;
+    var __moduleName = context_208 && context_208.id;
     /**
      * This decorator is used on the entities that must be embedded into another entities.
      *
@@ -26729,7 +26920,7 @@ System.register("typeorm/decorator/entity/EmbeddableEntity", ["typeorm/index"], 
             index_32.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_207("EmbeddableEntity", EmbeddableEntity);
+    exports_208("EmbeddableEntity", EmbeddableEntity);
     var index_32;
     return {
         setters: [
@@ -26741,9 +26932,9 @@ System.register("typeorm/decorator/entity/EmbeddableEntity", ["typeorm/index"], 
         }
     };
 });
-System.register("typeorm/decorator/entity/SingleEntityChild", ["typeorm/index"], function (exports_208, context_208) {
+System.register("typeorm/decorator/entity/SingleEntityChild", ["typeorm/index"], function (exports_209, context_209) {
     "use strict";
-    var __moduleName = context_208 && context_208.id;
+    var __moduleName = context_209 && context_209.id;
     /**
      * Special type of the table used in the single-table inherited tables.
      */
@@ -26758,7 +26949,7 @@ System.register("typeorm/decorator/entity/SingleEntityChild", ["typeorm/index"],
             index_33.getMetadataArgsStorage().tables.push(args);
         };
     }
-    exports_208("SingleEntityChild", SingleEntityChild);
+    exports_209("SingleEntityChild", SingleEntityChild);
     var index_33;
     return {
         setters: [
@@ -26770,9 +26961,9 @@ System.register("typeorm/decorator/entity/SingleEntityChild", ["typeorm/index"],
         }
     };
 });
-System.register("typeorm/decorator/entity/TableInheritance", ["typeorm/index"], function (exports_209, context_209) {
+System.register("typeorm/decorator/entity/TableInheritance", ["typeorm/index"], function (exports_210, context_210) {
     "use strict";
-    var __moduleName = context_209 && context_209.id;
+    var __moduleName = context_210 && context_210.id;
     /**
      * Sets what kind of table-inheritance table will use.
      */
@@ -26785,7 +26976,7 @@ System.register("typeorm/decorator/entity/TableInheritance", ["typeorm/index"], 
             index_34.getMetadataArgsStorage().inheritances.push(args);
         };
     }
-    exports_209("TableInheritance", TableInheritance);
+    exports_210("TableInheritance", TableInheritance);
     var index_34;
     return {
         setters: [
@@ -26797,9 +26988,9 @@ System.register("typeorm/decorator/entity/TableInheritance", ["typeorm/index"], 
         }
     };
 });
-System.register("typeorm/decorator/transaction/Transaction", ["typeorm/index"], function (exports_210, context_210) {
+System.register("typeorm/decorator/transaction/Transaction", ["typeorm/index"], function (exports_211, context_211) {
     "use strict";
-    var __moduleName = context_210 && context_210.id;
+    var __moduleName = context_211 && context_211.id;
     /**
      * Wraps some method into the transaction.
      * Note, method result will return a promise if this decorator applied.
@@ -26841,7 +27032,7 @@ System.register("typeorm/decorator/transaction/Transaction", ["typeorm/index"], 
             };
         };
     }
-    exports_210("Transaction", Transaction);
+    exports_211("Transaction", Transaction);
     var index_35;
     return {
         setters: [
@@ -26853,9 +27044,9 @@ System.register("typeorm/decorator/transaction/Transaction", ["typeorm/index"], 
         }
     };
 });
-System.register("typeorm/decorator/transaction/TransactionEntityManager", ["typeorm/index"], function (exports_211, context_211) {
+System.register("typeorm/decorator/transaction/TransactionEntityManager", ["typeorm/index"], function (exports_212, context_212) {
     "use strict";
-    var __moduleName = context_211 && context_211.id;
+    var __moduleName = context_212 && context_212.id;
     /**
      * Injects transaction's entity manager into the method wrapped with @Transaction decorator.
      */
@@ -26869,7 +27060,7 @@ System.register("typeorm/decorator/transaction/TransactionEntityManager", ["type
             index_36.getMetadataArgsStorage().transactionEntityManagers.push(args);
         };
     }
-    exports_211("TransactionEntityManager", TransactionEntityManager);
+    exports_212("TransactionEntityManager", TransactionEntityManager);
     var index_36;
     return {
         setters: [
@@ -26881,9 +27072,9 @@ System.register("typeorm/decorator/transaction/TransactionEntityManager", ["type
         }
     };
 });
-System.register("typeorm/decorator/tree/TreeLevelColumn", ["typeorm/index", "typeorm/metadata/types/ColumnTypes"], function (exports_212, context_212) {
+System.register("typeorm/decorator/tree/TreeLevelColumn", ["typeorm/index", "typeorm/metadata/types/ColumnTypes"], function (exports_213, context_213) {
     "use strict";
-    var __moduleName = context_212 && context_212.id;
+    var __moduleName = context_213 && context_213.id;
     /**
      * Creates a "level"/"length" column to the table that holds a closure table.
      */
@@ -26903,7 +27094,7 @@ System.register("typeorm/decorator/tree/TreeLevelColumn", ["typeorm/index", "typ
             index_37.getMetadataArgsStorage().columns.push(args);
         };
     }
-    exports_212("TreeLevelColumn", TreeLevelColumn);
+    exports_213("TreeLevelColumn", TreeLevelColumn);
     var index_37, ColumnTypes_15;
     return {
         setters: [
@@ -26918,9 +27109,9 @@ System.register("typeorm/decorator/tree/TreeLevelColumn", ["typeorm/index", "typ
         }
     };
 });
-System.register("typeorm/decorator/tree/TreeParent", ["typeorm/index"], function (exports_213, context_213) {
+System.register("typeorm/decorator/tree/TreeParent", ["typeorm/index"], function (exports_214, context_214) {
     "use strict";
-    var __moduleName = context_213 && context_213.id;
+    var __moduleName = context_214 && context_214.id;
     /**
      * Marks a specific property of the class as a parent of the tree.
      */
@@ -26948,7 +27139,7 @@ System.register("typeorm/decorator/tree/TreeParent", ["typeorm/index"], function
             index_38.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_213("TreeParent", TreeParent);
+    exports_214("TreeParent", TreeParent);
     var index_38;
     return {
         setters: [
@@ -26960,9 +27151,9 @@ System.register("typeorm/decorator/tree/TreeParent", ["typeorm/index"], function
         }
     };
 });
-System.register("typeorm/decorator/tree/TreeChildren", ["typeorm/index"], function (exports_214, context_214) {
+System.register("typeorm/decorator/tree/TreeChildren", ["typeorm/index"], function (exports_215, context_215) {
     "use strict";
-    var __moduleName = context_214 && context_214.id;
+    var __moduleName = context_215 && context_215.id;
     /**
      * Marks a specific property of the class as a children of the tree.
      */
@@ -26991,7 +27182,7 @@ System.register("typeorm/decorator/tree/TreeChildren", ["typeorm/index"], functi
             index_39.getMetadataArgsStorage().relations.push(args);
         };
     }
-    exports_214("TreeChildren", TreeChildren);
+    exports_215("TreeChildren", TreeChildren);
     var index_39;
     return {
         setters: [
@@ -27003,9 +27194,9 @@ System.register("typeorm/decorator/tree/TreeChildren", ["typeorm/index"], functi
         }
     };
 });
-System.register("typeorm/decorator/Index", ["typeorm/index"], function (exports_215, context_215) {
+System.register("typeorm/decorator/Index", ["typeorm/index"], function (exports_216, context_216) {
     "use strict";
-    var __moduleName = context_215 && context_215.id;
+    var __moduleName = context_216 && context_216.id;
     /**
      * Composite index must be set on entity classes and must specify entity's fields to be indexed.
      */
@@ -27025,7 +27216,7 @@ System.register("typeorm/decorator/Index", ["typeorm/index"], function (exports_
             index_40.getMetadataArgsStorage().indices.push(args);
         };
     }
-    exports_215("Index", Index);
+    exports_216("Index", Index);
     var index_40;
     return {
         setters: [
@@ -27037,9 +27228,9 @@ System.register("typeorm/decorator/Index", ["typeorm/index"], function (exports_
         }
     };
 });
-System.register("typeorm/decorator/NamingStrategy", ["typeorm/index"], function (exports_216, context_216) {
+System.register("typeorm/decorator/NamingStrategy", ["typeorm/index"], function (exports_217, context_217) {
     "use strict";
-    var __moduleName = context_216 && context_216.id;
+    var __moduleName = context_217 && context_217.id;
     /**
      * Decorator registers a new naming strategy to be used in naming things.
      *
@@ -27056,7 +27247,7 @@ System.register("typeorm/decorator/NamingStrategy", ["typeorm/index"], function 
             index_41.getMetadataArgsStorage().namingStrategies.push(args);
         };
     }
-    exports_216("NamingStrategy", NamingStrategy);
+    exports_217("NamingStrategy", NamingStrategy);
     var index_41;
     return {
         setters: [
@@ -27068,9 +27259,9 @@ System.register("typeorm/decorator/NamingStrategy", ["typeorm/index"], function 
         }
     };
 });
-System.register("typeorm/decorator/Embedded", ["typeorm/index"], function (exports_217, context_217) {
+System.register("typeorm/decorator/Embedded", ["typeorm/index"], function (exports_218, context_218) {
     "use strict";
-    var __moduleName = context_217 && context_217.id;
+    var __moduleName = context_218 && context_218.id;
     /**
      * Property in entity can be marked as Embedded, and on persist all columns from the embedded are mapped to the
      * single table of the entity where Embedded is used. And on hydration all columns which supposed to be in the
@@ -27092,7 +27283,7 @@ System.register("typeorm/decorator/Embedded", ["typeorm/index"], function (expor
             index_42.getMetadataArgsStorage().embeddeds.push(args);
         };
     }
-    exports_217("Embedded", Embedded);
+    exports_218("Embedded", Embedded);
     var index_42;
     return {
         setters: [
@@ -27104,9 +27295,9 @@ System.register("typeorm/decorator/Embedded", ["typeorm/index"], function (expor
         }
     };
 });
-System.register("typeorm/decorator/DiscriminatorValue", ["typeorm/index"], function (exports_218, context_218) {
+System.register("typeorm/decorator/DiscriminatorValue", ["typeorm/index"], function (exports_219, context_219) {
     "use strict";
-    var __moduleName = context_218 && context_218.id;
+    var __moduleName = context_219 && context_219.id;
     /**
      * If entity is a child table of some table, it should have a discriminator value.
      * This decorator sets custom discriminator value for the entity.
@@ -27120,7 +27311,7 @@ System.register("typeorm/decorator/DiscriminatorValue", ["typeorm/index"], funct
             index_43.getMetadataArgsStorage().discriminatorValues.push(args);
         };
     }
-    exports_218("DiscriminatorValue", DiscriminatorValue);
+    exports_219("DiscriminatorValue", DiscriminatorValue);
     var index_43;
     return {
         setters: [
@@ -27132,9 +27323,9 @@ System.register("typeorm/decorator/DiscriminatorValue", ["typeorm/index"], funct
         }
     };
 });
-System.register("typeorm/decorator/EntityRepository", ["typeorm/index"], function (exports_219, context_219) {
+System.register("typeorm/decorator/EntityRepository", ["typeorm/index"], function (exports_220, context_220) {
     "use strict";
-    var __moduleName = context_219 && context_219.id;
+    var __moduleName = context_220 && context_220.id;
     /**
      * Used to declare a class as a custom repository.
      * Custom repository can either manage some specific entity, either just be generic.
@@ -27149,7 +27340,7 @@ System.register("typeorm/decorator/EntityRepository", ["typeorm/index"], functio
             index_44.getMetadataArgsStorage().entityRepositories.push(args);
         };
     }
-    exports_219("EntityRepository", EntityRepository);
+    exports_220("EntityRepository", EntityRepository);
     var index_44;
     return {
         setters: [
@@ -27161,9 +27352,9 @@ System.register("typeorm/decorator/EntityRepository", ["typeorm/index"], functio
         }
     };
 });
-System.register("typeorm/repository/EntityModel", ["typeorm/index"], function (exports_220, context_220) {
+System.register("typeorm/repository/EntityModel", ["typeorm/index"], function (exports_221, context_221) {
     "use strict";
-    var __moduleName = context_220 && context_220.id;
+    var __moduleName = context_221 && context_221.id;
     var index_45, EntityModel;
     return {
         setters: [
@@ -27362,13 +27553,13 @@ System.register("typeorm/repository/EntityModel", ["typeorm/index"], function (e
                 };
                 return EntityModel;
             }());
-            exports_220("EntityModel", EntityModel);
+            exports_221("EntityModel", EntityModel);
         }
     };
 });
-System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeorm/metadata-args/MetadataArgsStorage", "typeorm/container", "typeorm/platform/PlatformTools", "typeorm/decorator/columns/Column", "typeorm/decorator/columns/CreateDateColumn", "typeorm/decorator/columns/DiscriminatorColumn", "typeorm/decorator/columns/PrimaryGeneratedColumn", "typeorm/decorator/columns/PrimaryColumn", "typeorm/decorator/columns/UpdateDateColumn", "typeorm/decorator/columns/VersionColumn", "typeorm/decorator/columns/ObjectIdColumn", "typeorm/decorator/listeners/AfterInsert", "typeorm/decorator/listeners/AfterLoad", "typeorm/decorator/listeners/AfterRemove", "typeorm/decorator/listeners/AfterUpdate", "typeorm/decorator/listeners/BeforeInsert", "typeorm/decorator/listeners/BeforeRemove", "typeorm/decorator/listeners/BeforeUpdate", "typeorm/decorator/listeners/EventSubscriber", "typeorm/decorator/relations/RelationCount", "typeorm/decorator/relations/JoinColumn", "typeorm/decorator/relations/JoinTable", "typeorm/decorator/relations/ManyToMany", "typeorm/decorator/relations/ManyToOne", "typeorm/decorator/relations/OneToMany", "typeorm/decorator/relations/OneToOne", "typeorm/decorator/relations/RelationId", "typeorm/decorator/entity/Entity", "typeorm/decorator/entity/AbstractEntity", "typeorm/decorator/entity/ClassEntityChild", "typeorm/decorator/entity/ClosureEntity", "typeorm/decorator/entity/EmbeddableEntity", "typeorm/decorator/entity/SingleEntityChild", "typeorm/decorator/entity/TableInheritance", "typeorm/decorator/transaction/Transaction", "typeorm/decorator/transaction/TransactionEntityManager", "typeorm/decorator/tree/TreeLevelColumn", "typeorm/decorator/tree/TreeParent", "typeorm/decorator/tree/TreeChildren", "typeorm/decorator/Index", "typeorm/decorator/NamingStrategy", "typeorm/decorator/Embedded", "typeorm/decorator/DiscriminatorValue", "typeorm/decorator/EntityRepository", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/driver/mongodb/typings", "typeorm/connection/Connection", "typeorm/query-builder/QueryBuilder", "typeorm/entity-manager/EntityManager", "typeorm/entity-manager/MongoEntityManager", "typeorm/naming-strategy/DefaultNamingStrategy", "typeorm/repository/Repository", "typeorm/repository/TreeRepository", "typeorm/repository/SpecificRepository", "typeorm/repository/MongoRepository", "typeorm/repository/EntityModel"], function (exports_221, context_221) {
+System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeorm/metadata-args/MetadataArgsStorage", "typeorm/container", "typeorm/platform/PlatformTools", "typeorm/decorator/columns/Column", "typeorm/decorator/columns/CreateDateColumn", "typeorm/decorator/columns/DiscriminatorColumn", "typeorm/decorator/columns/PrimaryGeneratedColumn", "typeorm/decorator/columns/PrimaryColumn", "typeorm/decorator/columns/UpdateDateColumn", "typeorm/decorator/columns/VersionColumn", "typeorm/decorator/columns/ObjectIdColumn", "typeorm/decorator/listeners/AfterInsert", "typeorm/decorator/listeners/AfterLoad", "typeorm/decorator/listeners/AfterRemove", "typeorm/decorator/listeners/AfterUpdate", "typeorm/decorator/listeners/BeforeInsert", "typeorm/decorator/listeners/BeforeRemove", "typeorm/decorator/listeners/BeforeUpdate", "typeorm/decorator/listeners/EventSubscriber", "typeorm/decorator/relations/RelationCount", "typeorm/decorator/relations/JoinColumn", "typeorm/decorator/relations/JoinTable", "typeorm/decorator/relations/ManyToMany", "typeorm/decorator/relations/ManyToOne", "typeorm/decorator/relations/OneToMany", "typeorm/decorator/relations/OneToOne", "typeorm/decorator/relations/RelationId", "typeorm/decorator/entity/Entity", "typeorm/decorator/entity/AbstractEntity", "typeorm/decorator/entity/ClassEntityChild", "typeorm/decorator/entity/ClosureEntity", "typeorm/decorator/entity/EmbeddableEntity", "typeorm/decorator/entity/SingleEntityChild", "typeorm/decorator/entity/TableInheritance", "typeorm/decorator/transaction/Transaction", "typeorm/decorator/transaction/TransactionEntityManager", "typeorm/decorator/tree/TreeLevelColumn", "typeorm/decorator/tree/TreeParent", "typeorm/decorator/tree/TreeChildren", "typeorm/decorator/Index", "typeorm/decorator/NamingStrategy", "typeorm/decorator/Embedded", "typeorm/decorator/DiscriminatorValue", "typeorm/decorator/EntityRepository", "typeorm/schema-builder/schema/ColumnSchema", "typeorm/schema-builder/schema/ForeignKeySchema", "typeorm/schema-builder/schema/IndexSchema", "typeorm/schema-builder/schema/PrimaryKeySchema", "typeorm/schema-builder/schema/TableSchema", "typeorm/driver/mongodb/typings", "typeorm/connection/Connection", "typeorm/query-builder/QueryBuilder", "typeorm/entity-manager/EntityManager", "typeorm/entity-manager/MongoEntityManager", "typeorm/naming-strategy/DefaultNamingStrategy", "typeorm/repository/Repository", "typeorm/repository/TreeRepository", "typeorm/repository/SpecificRepository", "typeorm/repository/MongoRepository", "typeorm/repository/EntityModel"], function (exports_222, context_222) {
     "use strict";
-    var __moduleName = context_221 && context_221.id;
+    var __moduleName = context_222 && context_222.id;
     // -------------------------------------------------------------------------
     // Deprecated
     // -------------------------------------------------------------------------
@@ -27392,28 +27583,28 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
             globalScope.typeormMetadataArgsStorage = new MetadataArgsStorage_2.MetadataArgsStorage();
         return globalScope.typeormMetadataArgsStorage;
     }
-    exports_221("getMetadataArgsStorage", getMetadataArgsStorage);
+    exports_222("getMetadataArgsStorage", getMetadataArgsStorage);
     /**
      * Gets a ConnectionManager which creates connections.
      */
     function getConnectionManager() {
         return container_2.getFromContainer(ConnectionManager_1.ConnectionManager);
     }
-    exports_221("getConnectionManager", getConnectionManager);
+    exports_222("getConnectionManager", getConnectionManager);
     /**
      * Creates connection and and registers it in the manager.
      */
     function createConnection(optionsOrConnectionNameFromConfig, ormConfigPath) {
         return getConnectionManager().createAndConnect(optionsOrConnectionNameFromConfig, ormConfigPath);
     }
-    exports_221("createConnection", createConnection);
+    exports_222("createConnection", createConnection);
     /**
      * Creates connections and and registers them in the manager.
      */
     function createConnections(optionsOrOrmConfigFilePath) {
         return getConnectionManager().createAndConnectToAll(optionsOrOrmConfigFilePath);
     }
-    exports_221("createConnections", createConnections);
+    exports_222("createConnections", createConnections);
     /**
      * Gets connection from the connection manager.
      * If connection name wasn't specified, then "default" connection will be retrieved.
@@ -27422,7 +27613,7 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         if (connectionName === void 0) { connectionName = "default"; }
         return getConnectionManager().get(connectionName);
     }
-    exports_221("getConnection", getConnection);
+    exports_222("getConnection", getConnection);
     /**
      * Gets entity manager from the connection.
      * If connection name wasn't specified, then "default" connection will be retrieved.
@@ -27431,7 +27622,7 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         if (connectionName === void 0) { connectionName = "default"; }
         return getConnectionManager().get(connectionName).manager;
     }
-    exports_221("getEntityManager", getEntityManager);
+    exports_222("getEntityManager", getEntityManager);
     /**
      * Gets repository for the given entity class or name.
      */
@@ -27439,7 +27630,7 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         if (connectionName === void 0) { connectionName = "default"; }
         return getConnectionManager().get(connectionName).getRepository(entityClassOrName);
     }
-    exports_221("getRepository", getRepository);
+    exports_222("getRepository", getRepository);
     /**
      * Gets tree repository for the given entity class or name.
      */
@@ -27447,7 +27638,7 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         if (connectionName === void 0) { connectionName = "default"; }
         return getConnectionManager().get(connectionName).getTreeRepository(entityClassOrName);
     }
-    exports_221("getTreeRepository", getTreeRepository);
+    exports_222("getTreeRepository", getTreeRepository);
     /**
      * Gets mongodb repository for the given entity class or name.
      */
@@ -27455,7 +27646,7 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         if (connectionName === void 0) { connectionName = "default"; }
         return getConnectionManager().get(connectionName).getMongoRepository(entityClassOrName);
     }
-    exports_221("getMongoRepository", getMongoRepository);
+    exports_222("getMongoRepository", getMongoRepository);
     var ConnectionManager_1, MetadataArgsStorage_2, container_2, PlatformTools_11;
     var exportedNames_1 = {
         "getMetadataArgsStorage": true,
@@ -27484,13 +27675,13 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         for (var n in m) {
             if (n !== "default" && !exportedNames_1.hasOwnProperty(n)) exports[n] = m[n];
         }
-        exports_221(exports);
+        exports_222(exports);
     }
     return {
         setters: [
             function (ConnectionManager_1_1) {
                 ConnectionManager_1 = ConnectionManager_1_1;
-                exports_221({
+                exports_222({
                     "ConnectionManager": ConnectionManager_1_1["ConnectionManager"]
                 });
             },
@@ -27635,8 +27826,8 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
             function (ForeignKeySchema_7_1) {
                 exportStar_1(ForeignKeySchema_7_1);
             },
-            function (IndexSchema_6_1) {
-                exportStar_1(IndexSchema_6_1);
+            function (IndexSchema_7_1) {
+                exportStar_1(IndexSchema_7_1);
             },
             function (PrimaryKeySchema_7_1) {
                 exportStar_1(PrimaryKeySchema_7_1);
@@ -27648,52 +27839,52 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
                 exportStar_1(typings_1_1);
             },
             function (Connection_2_1) {
-                exports_221({
+                exports_222({
                     "Connection": Connection_2_1["Connection"]
                 });
             },
             function (QueryBuilder_7_1) {
-                exports_221({
+                exports_222({
                     "QueryBuilder": QueryBuilder_7_1["QueryBuilder"]
                 });
             },
             function (EntityManager_3_1) {
-                exports_221({
+                exports_222({
                     "EntityManager": EntityManager_3_1["EntityManager"]
                 });
             },
             function (MongoEntityManager_2_1) {
-                exports_221({
+                exports_222({
                     "MongoEntityManager": MongoEntityManager_2_1["MongoEntityManager"]
                 });
             },
             function (DefaultNamingStrategy_2_1) {
-                exports_221({
+                exports_222({
                     "DefaultNamingStrategy": DefaultNamingStrategy_2_1["DefaultNamingStrategy"]
                 });
             },
             function (Repository_5_1) {
-                exports_221({
+                exports_222({
                     "Repository": Repository_5_1["Repository"]
                 });
             },
             function (TreeRepository_2_1) {
-                exports_221({
+                exports_222({
                     "TreeRepository": TreeRepository_2_1["TreeRepository"]
                 });
             },
             function (SpecificRepository_2_1) {
-                exports_221({
+                exports_222({
                     "SpecificRepository": SpecificRepository_2_1["SpecificRepository"]
                 });
             },
             function (MongoRepository_2_1) {
-                exports_221({
+                exports_222({
                     "MongoRepository": MongoRepository_2_1["MongoRepository"]
                 });
             },
             function (EntityModel_1_1) {
-                exports_221({
+                exports_222({
                     "EntityModel": EntityModel_1_1["EntityModel"]
                 });
             }
@@ -27702,15 +27893,15 @@ System.register("typeorm/index", ["typeorm/connection/ConnectionManager", "typeo
         }
     };
 });
-System.register("typeorm", ["typeorm/index"], function (exports_222, context_222) {
+System.register("typeorm", ["typeorm/index"], function (exports_223, context_223) {
     "use strict";
-    var __moduleName = context_222 && context_222.id;
+    var __moduleName = context_223 && context_223.id;
     function exportStar_2(m) {
         var exports = {};
         for (var n in m) {
             if (n !== "default") exports[n] = m[n];
         }
-        exports_222(exports);
+        exports_223(exports);
     }
     return {
         setters: [
@@ -27722,18 +27913,18 @@ System.register("typeorm", ["typeorm/index"], function (exports_222, context_222
         }
     };
 });
-System.register("typeorm/metadata-args/EntityMetadataArgs", [], function (exports_223, context_223) {
+System.register("typeorm/metadata-args/EntityMetadataArgs", [], function (exports_224, context_224) {
     "use strict";
-    var __moduleName = context_223 && context_223.id;
+    var __moduleName = context_224 && context_224.id;
     return {
         setters: [],
         execute: function () {
         }
     };
 });
-System.register("typeorm/connection/error/CannotGetEntityManagerNotConnectedError", [], function (exports_224, context_224) {
+System.register("typeorm/connection/error/CannotGetEntityManagerNotConnectedError", [], function (exports_225, context_225) {
     "use strict";
-    var __moduleName = context_224 && context_224.id;
+    var __moduleName = context_225 && context_225.id;
     var CannotGetEntityManagerNotConnectedError;
     return {
         setters: [],
@@ -27752,13 +27943,13 @@ System.register("typeorm/connection/error/CannotGetEntityManagerNotConnectedErro
                 }
                 return CannotGetEntityManagerNotConnectedError;
             }(Error));
-            exports_224("CannotGetEntityManagerNotConnectedError", CannotGetEntityManagerNotConnectedError);
+            exports_225("CannotGetEntityManagerNotConnectedError", CannotGetEntityManagerNotConnectedError);
         }
     };
 });
-System.register("typeorm/connection/error/NoConnectionForRepositoryError", [], function (exports_225, context_225) {
+System.register("typeorm/connection/error/NoConnectionForRepositoryError", [], function (exports_226, context_226) {
     "use strict";
-    var __moduleName = context_225 && context_225.id;
+    var __moduleName = context_226 && context_226.id;
     var NoConnectionForRepositoryError;
     return {
         setters: [],
@@ -27778,13 +27969,13 @@ System.register("typeorm/connection/error/NoConnectionForRepositoryError", [], f
                 }
                 return NoConnectionForRepositoryError;
             }(Error));
-            exports_225("NoConnectionForRepositoryError", NoConnectionForRepositoryError);
+            exports_226("NoConnectionForRepositoryError", NoConnectionForRepositoryError);
         }
     };
 });
-System.register("typeorm/driver/error/DriverPackageLoadError", [], function (exports_226, context_226) {
+System.register("typeorm/driver/error/DriverPackageLoadError", [], function (exports_227, context_227) {
     "use strict";
-    var __moduleName = context_226 && context_226.id;
+    var __moduleName = context_227 && context_227.id;
     var DriverPackageLoadError;
     return {
         setters: [],
@@ -27802,13 +27993,13 @@ System.register("typeorm/driver/error/DriverPackageLoadError", [], function (exp
                 }
                 return DriverPackageLoadError;
             }(Error));
-            exports_226("DriverPackageLoadError", DriverPackageLoadError);
+            exports_227("DriverPackageLoadError", DriverPackageLoadError);
         }
     };
 });
-System.register("typeorm/driver/error/DriverPoolingNotSupportedError", [], function (exports_227, context_227) {
+System.register("typeorm/driver/error/DriverPoolingNotSupportedError", [], function (exports_228, context_228) {
     "use strict";
-    var __moduleName = context_227 && context_227.id;
+    var __moduleName = context_228 && context_228.id;
     var DriverPoolingNotSupportedError;
     return {
         setters: [],
@@ -27826,13 +28017,13 @@ System.register("typeorm/driver/error/DriverPoolingNotSupportedError", [], funct
                 }
                 return DriverPoolingNotSupportedError;
             }(Error));
-            exports_227("DriverPoolingNotSupportedError", DriverPoolingNotSupportedError);
+            exports_228("DriverPoolingNotSupportedError", DriverPoolingNotSupportedError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/MetadataAlreadyExistsError", [], function (exports_228, context_228) {
+System.register("typeorm/metadata-builder/error/MetadataAlreadyExistsError", [], function (exports_229, context_229) {
     "use strict";
-    var __moduleName = context_228 && context_228.id;
+    var __moduleName = context_229 && context_229.id;
     var MetadataAlreadyExistsError;
     return {
         setters: [],
@@ -27851,13 +28042,13 @@ System.register("typeorm/metadata-builder/error/MetadataAlreadyExistsError", [],
                 }
                 return MetadataAlreadyExistsError;
             }(Error));
-            exports_228("MetadataAlreadyExistsError", MetadataAlreadyExistsError);
+            exports_229("MetadataAlreadyExistsError", MetadataAlreadyExistsError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/MetadataWithSuchNameAlreadyExistsError", [], function (exports_229, context_229) {
+System.register("typeorm/metadata-builder/error/MetadataWithSuchNameAlreadyExistsError", [], function (exports_230, context_230) {
     "use strict";
-    var __moduleName = context_229 && context_229.id;
+    var __moduleName = context_230 && context_230.id;
     var MetadataWithSuchNameAlreadyExistsError;
     return {
         setters: [],
@@ -27875,13 +28066,13 @@ System.register("typeorm/metadata-builder/error/MetadataWithSuchNameAlreadyExist
                 }
                 return MetadataWithSuchNameAlreadyExistsError;
             }(Error));
-            exports_229("MetadataWithSuchNameAlreadyExistsError", MetadataWithSuchNameAlreadyExistsError);
+            exports_230("MetadataWithSuchNameAlreadyExistsError", MetadataWithSuchNameAlreadyExistsError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/MissingJoinColumnError", [], function (exports_230, context_230) {
+System.register("typeorm/metadata-builder/error/MissingJoinColumnError", [], function (exports_231, context_231) {
     "use strict";
-    var __moduleName = context_230 && context_230.id;
+    var __moduleName = context_231 && context_231.id;
     var MissingJoinColumnError;
     return {
         setters: [],
@@ -27906,13 +28097,13 @@ System.register("typeorm/metadata-builder/error/MissingJoinColumnError", [], fun
                 }
                 return MissingJoinColumnError;
             }(Error));
-            exports_230("MissingJoinColumnError", MissingJoinColumnError);
+            exports_231("MissingJoinColumnError", MissingJoinColumnError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/MissingJoinTableError", [], function (exports_231, context_231) {
+System.register("typeorm/metadata-builder/error/MissingJoinTableError", [], function (exports_232, context_232) {
     "use strict";
-    var __moduleName = context_231 && context_231.id;
+    var __moduleName = context_232 && context_232.id;
     var MissingJoinTableError;
     return {
         setters: [],
@@ -27937,13 +28128,13 @@ System.register("typeorm/metadata-builder/error/MissingJoinTableError", [], func
                 }
                 return MissingJoinTableError;
             }(Error));
-            exports_231("MissingJoinTableError", MissingJoinTableError);
+            exports_232("MissingJoinTableError", MissingJoinTableError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/UsingJoinColumnIsNotAllowedError", [], function (exports_232, context_232) {
+System.register("typeorm/metadata-builder/error/UsingJoinColumnIsNotAllowedError", [], function (exports_233, context_233) {
     "use strict";
-    var __moduleName = context_232 && context_232.id;
+    var __moduleName = context_233 && context_233.id;
     var UsingJoinColumnIsNotAllowedError;
     return {
         setters: [],
@@ -27961,13 +28152,13 @@ System.register("typeorm/metadata-builder/error/UsingJoinColumnIsNotAllowedError
                 }
                 return UsingJoinColumnIsNotAllowedError;
             }(Error));
-            exports_232("UsingJoinColumnIsNotAllowedError", UsingJoinColumnIsNotAllowedError);
+            exports_233("UsingJoinColumnIsNotAllowedError", UsingJoinColumnIsNotAllowedError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/UsingJoinColumnOnlyOnOneSideAllowedError", [], function (exports_233, context_233) {
+System.register("typeorm/metadata-builder/error/UsingJoinColumnOnlyOnOneSideAllowedError", [], function (exports_234, context_234) {
     "use strict";
-    var __moduleName = context_233 && context_233.id;
+    var __moduleName = context_234 && context_234.id;
     var UsingJoinColumnOnlyOnOneSideAllowedError;
     return {
         setters: [],
@@ -27986,13 +28177,13 @@ System.register("typeorm/metadata-builder/error/UsingJoinColumnOnlyOnOneSideAllo
                 }
                 return UsingJoinColumnOnlyOnOneSideAllowedError;
             }(Error));
-            exports_233("UsingJoinColumnOnlyOnOneSideAllowedError", UsingJoinColumnOnlyOnOneSideAllowedError);
+            exports_234("UsingJoinColumnOnlyOnOneSideAllowedError", UsingJoinColumnOnlyOnOneSideAllowedError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/UsingJoinTableIsNotAllowedError", [], function (exports_234, context_234) {
+System.register("typeorm/metadata-builder/error/UsingJoinTableIsNotAllowedError", [], function (exports_235, context_235) {
     "use strict";
-    var __moduleName = context_234 && context_234.id;
+    var __moduleName = context_235 && context_235.id;
     var UsingJoinTableIsNotAllowedError;
     return {
         setters: [],
@@ -28011,13 +28202,13 @@ System.register("typeorm/metadata-builder/error/UsingJoinTableIsNotAllowedError"
                 }
                 return UsingJoinTableIsNotAllowedError;
             }(Error));
-            exports_234("UsingJoinTableIsNotAllowedError", UsingJoinTableIsNotAllowedError);
+            exports_235("UsingJoinTableIsNotAllowedError", UsingJoinTableIsNotAllowedError);
         }
     };
 });
-System.register("typeorm/metadata-builder/error/UsingJoinTableOnlyOnOneSideAllowedError", [], function (exports_235, context_235) {
+System.register("typeorm/metadata-builder/error/UsingJoinTableOnlyOnOneSideAllowedError", [], function (exports_236, context_236) {
     "use strict";
-    var __moduleName = context_235 && context_235.id;
+    var __moduleName = context_236 && context_236.id;
     var UsingJoinTableOnlyOnOneSideAllowedError;
     return {
         setters: [],
@@ -28036,13 +28227,13 @@ System.register("typeorm/metadata-builder/error/UsingJoinTableOnlyOnOneSideAllow
                 }
                 return UsingJoinTableOnlyOnOneSideAllowedError;
             }(Error));
-            exports_235("UsingJoinTableOnlyOnOneSideAllowedError", UsingJoinTableOnlyOnOneSideAllowedError);
+            exports_236("UsingJoinTableOnlyOnOneSideAllowedError", UsingJoinTableOnlyOnOneSideAllowedError);
         }
     };
 });
-System.register("typeorm/persistence/error/CascadesNotAllowedError", [], function (exports_236, context_236) {
+System.register("typeorm/persistence/error/CascadesNotAllowedError", [], function (exports_237, context_237) {
     "use strict";
-    var __moduleName = context_236 && context_236.id;
+    var __moduleName = context_237 && context_237.id;
     var CascadesNotAllowedError;
     return {
         setters: [],
@@ -28060,13 +28251,13 @@ System.register("typeorm/persistence/error/CascadesNotAllowedError", [], functio
                 }
                 return CascadesNotAllowedError;
             }(Error));
-            exports_236("CascadesNotAllowedError", CascadesNotAllowedError);
+            exports_237("CascadesNotAllowedError", CascadesNotAllowedError);
         }
     };
 });
-System.register("typeorm/persistence/error/PersistedEntityNotFoundError", [], function (exports_237, context_237) {
+System.register("typeorm/persistence/error/PersistedEntityNotFoundError", [], function (exports_238, context_238) {
     "use strict";
-    var __moduleName = context_237 && context_237.id;
+    var __moduleName = context_238 && context_238.id;
     var PersistedEntityNotFoundError;
     return {
         setters: [],
@@ -28084,7 +28275,7 @@ System.register("typeorm/persistence/error/PersistedEntityNotFoundError", [], fu
                 }
                 return PersistedEntityNotFoundError;
             }(Error));
-            exports_237("PersistedEntityNotFoundError", PersistedEntityNotFoundError);
+            exports_238("PersistedEntityNotFoundError", PersistedEntityNotFoundError);
         }
     };
 });

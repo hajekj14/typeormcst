@@ -42,6 +42,7 @@ var ColumnSchema_1 = require("../../schema-builder/schema/ColumnSchema");
 var TableSchema_1 = require("../../schema-builder/schema/TableSchema");
 var ForeignKeySchema_1 = require("../../schema-builder/schema/ForeignKeySchema");
 var PrimaryKeySchema_1 = require("../../schema-builder/schema/PrimaryKeySchema");
+var IndexSchema_1 = require("../../schema-builder/schema/IndexSchema");
 var QueryRunnerAlreadyReleasedError_1 = require("../../query-runner/error/QueryRunnerAlreadyReleasedError");
 /**
  * Runs queries on a single mysql database connection.
@@ -353,7 +354,7 @@ var OracleQueryRunner = (function () {
      */
     OracleQueryRunner.prototype.loadTableSchemas = function (tableNames) {
         return __awaiter(this, void 0, void 0, function () {
-            var tableNamesString, tablesSql, columnsSql, indicesSql, foreignKeysSql, uniqueKeysSql, constraintsSql, _a, dbTables, dbColumns, constraints;
+            var tableNamesString, tablesSql, columnsSql, indicesSql, foreignKeysSql, uniqueKeysSql, constraintsSql, _a, dbTables, dbColumns, dbIndices, constraints;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -365,20 +366,20 @@ var OracleQueryRunner = (function () {
                         tableNamesString = tableNames.map(function (name) { return "'" + name + "'"; }).join(", ");
                         tablesSql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME IN (" + tableNamesString + ")";
                         columnsSql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, NULLABLE, IDENTITY_COLUMN FROM all_tab_cols WHERE TABLE_NAME IN (" + tableNamesString + ")";
-                        indicesSql = "SELECT * FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND INDEX_NAME != 'PRIMARY'";
+                        indicesSql = "SELECT ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS, LISTAGG(cols.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY cols.COLUMN_NAME) AS COLUMN_NAMES\n                                FROM USER_INDEXES ind, USER_IND_COLUMNS cols \n                                WHERE ind.INDEX_NAME = cols.INDEX_NAME AND ind.TABLE_NAME IN (" + tableNamesString + ")\n                                GROUP BY ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS";
                         foreignKeysSql = "SELECT * FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = '" + this.dbName + "' AND REFERENCED_COLUMN_NAME IS NOT NULL";
                         uniqueKeysSql = "SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND CONSTRAINT_TYPE = 'UNIQUE'";
                         constraintsSql = "SELECT cols.table_name, cols.column_name, cols.position, cons.constraint_type, cons.constraint_name\nFROM all_constraints cons, all_cons_columns cols WHERE cols.table_name IN (" + tableNamesString + ") \nAND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner ORDER BY cols.table_name, cols.position";
                         return [4 /*yield*/, Promise.all([
                                 this.query(tablesSql),
                                 this.query(columnsSql),
-                                // this.query(indicesSql),
+                                this.query(indicesSql),
                                 // this.query(foreignKeysSql),
                                 // this.query(uniqueKeysSql),
                                 this.query(constraintsSql),
                             ])];
                     case 1:
-                        _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], constraints = _a[2];
+                        _a = _b.sent(), dbTables = _a[0], dbColumns = _a[1], dbIndices = _a[2], constraints = _a[3];
                         // if tables were not found in the db, no need to proceed
                         if (!dbTables.length)
                             return [2 /*return*/, []];
@@ -420,29 +421,26 @@ var OracleQueryRunner = (function () {
                                 });
                                 // create primary key schema
                                 tableSchema.primaryKeys = constraints
-                                    .filter(function (constraint) { return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "P"; })
-                                    .map(function (constraint) { return new PrimaryKeySchema_1.PrimaryKeySchema(constraint["CONSTRAINT_NAME"], constraint["COLUMN_NAME"]); });
+                                    .filter(function (constraint) {
+                                    return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "P";
+                                })
+                                    .map(function (constraint) {
+                                    return new PrimaryKeySchema_1.PrimaryKeySchema(constraint["CONSTRAINT_NAME"], constraint["COLUMN_NAME"]);
+                                });
                                 // create foreign key schemas from the loaded indices
                                 tableSchema.foreignKeys = constraints
                                     .filter(function (constraint) { return constraint["TABLE_NAME"] === tableSchema.name && constraint["CONSTRAINT_TYPE"] === "R"; })
                                     .map(function (constraint) { return new ForeignKeySchema_1.ForeignKeySchema(constraint["CONSTRAINT_NAME"], [], [], "", ""); }); // todo: fix missing params
-                                // console.log(tableSchema);
                                 // create index schemas from the loaded indices
-                                // tableSchema.indices = dbIndices
-                                //     .filter(dbIndex => {
-                                //         return  dbIndex["table_name"] === tableSchema.name &&
-                                //             (!tableSchema.foreignKeys.find(foreignKey => foreignKey.name === dbIndex["INDEX_NAME"])) &&
-                                //             (!tableSchema.primaryKeys.find(primaryKey => primaryKey.name === dbIndex["INDEX_NAME"]));
-                                //     })
-                                //     .map(dbIndex => dbIndex["INDEX_NAME"])
-                                //     .filter((value, index, self) => self.indexOf(value) === index) // unqiue
-                                //     .map(dbIndexName => {
-                                //         const columnNames = dbIndices
-                                //             .filter(dbIndex => dbIndex["TABLE_NAME"] === tableSchema.name && dbIndex["INDEX_NAME"] === dbIndexName)
-                                //             .map(dbIndex => dbIndex["COLUMN_NAME"]);
-                                //
-                                //         return new IndexSchema(dbTable["TABLE_NAME"], dbIndexName, columnNames, false /* todo: uniqueness */);
-                                //     });
+                                tableSchema.indices = dbIndices
+                                    .filter(function (dbIndex) {
+                                    return dbIndex["TABLE_NAME"] === tableSchema.name &&
+                                        (!tableSchema.foreignKeys.find(function (foreignKey) { return foreignKey.name === dbIndex["INDEX_NAME"]; })) &&
+                                        (!tableSchema.primaryKeys.find(function (primaryKey) { return primaryKey.name === dbIndex["INDEX_NAME"]; }));
+                                })
+                                    .map(function (dbIndex) {
+                                    return new IndexSchema_1.IndexSchema(dbTable["TABLE_NAME"], dbIndex["INDEX_NAME"], dbIndex["COLUMN_NAMES"], !!(dbIndex["COLUMN_NAMES"] === "UNIQUE"));
+                                });
                                 return tableSchema;
                             })];
                 }
@@ -485,6 +483,24 @@ var OracleQueryRunner = (function () {
                         if (primaryKeyColumns.length > 0)
                             sql += ", PRIMARY KEY(" + primaryKeyColumns.map(function (column) { return "\"" + column.name + "\""; }).join(", ") + ")";
                         sql += ")";
+                        return [4 /*yield*/, this.query(sql)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Drops the table.
+     */
+    OracleQueryRunner.prototype.dropTable = function (tableName) {
+        return __awaiter(this, void 0, void 0, function () {
+            var sql;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        sql = "DROP TABLE \"" + tableName + "\"";
                         return [4 /*yield*/, this.query(sql)];
                     case 1:
                         _a.sent();
@@ -972,7 +988,7 @@ var OracleQueryRunner = (function () {
          * Database name shortcut.
          */
         get: function () {
-            return this.driver.options.database;
+            return this.driver.options.schemaName;
         },
         enumerable: true,
         configurable: true

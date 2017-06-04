@@ -302,6 +302,7 @@ var EntityMetadata = (function () {
     EntityMetadata.prototype.registerColumn = function (column) {
         this.ownColumns.push(column);
         this.columns = this.embeddeds.reduce(function (columns, embedded) { return columns.concat(embedded.columnsFromTree); }, this.ownColumns);
+        this.parentIdColumns = this.columns.filter(function (column) { return column.isParentId; });
         this.primaryColumns = this.columns.filter(function (column) { return column.isPrimary; });
         this.hasMultiplePrimaryKeys = this.primaryColumns.length > 1;
         this.propertiesMap = this.createPropertiesMap();

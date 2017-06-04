@@ -37,7 +37,7 @@ var DefaultNamingStrategy = (function () {
         if (customName)
             return customName;
         var key = "ind_" + tableName + "_" + columns.join("_");
-        return "ind_" + RandomGenerator_1.RandomGenerator.sha1(key).substr(0, 27);
+        return "ind_" + RandomGenerator_1.RandomGenerator.sha1(key).substr(0, 26);
     };
     DefaultNamingStrategy.prototype.joinColumnName = function (relationName, referencedColumnName) {
         return StringUtils_1.camelCase(relationName + "_" + referencedColumnName);

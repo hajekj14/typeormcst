@@ -284,6 +284,8 @@ var ConnectionManager = (function () {
             var optionsArray, promises;
             return __generator(this, function (_a) {
                 optionsArray = PlatformTools_1.PlatformTools.load(path || (PlatformTools_1.PlatformTools.load("app-root-path").path + "/ormconfig.json"));
+                if (!(optionsArray instanceof Array))
+                    optionsArray = [optionsArray]; // cast options to array if ormconfig contains a single connection options object
                 if (!optionsArray)
                     throw new Error("Configuration " + (path || "ormconfig.json") + " was not found. Add connection configuration inside ormconfig.json file.");
                 promises = optionsArray
@@ -304,6 +306,8 @@ var ConnectionManager = (function () {
             var optionsArray, environmentLessOptions, options;
             return __generator(this, function (_a) {
                 optionsArray = PlatformTools_1.PlatformTools.load(path || (PlatformTools_1.PlatformTools.load("app-root-path").path + "/ormconfig.json"));
+                if (!(optionsArray instanceof Array))
+                    optionsArray = [optionsArray]; // cast options to array if ormconfig contains a single connection options object
                 if (!optionsArray)
                     throw new Error("Configuration " + (path || "ormconfig.json") + " was not found. Add connection configuration inside ormconfig.json file.");
                 environmentLessOptions = optionsArray.filter(function (options) { return (options.name || "default") === connectionName; });

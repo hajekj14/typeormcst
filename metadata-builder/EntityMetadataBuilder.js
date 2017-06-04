@@ -12,6 +12,7 @@ var JunctionEntityMetadataBuilder_1 = require("./JunctionEntityMetadataBuilder")
 var ClosureJunctionEntityMetadataBuilder_1 = require("./ClosureJunctionEntityMetadataBuilder");
 var RelationJoinColumnBuilder_1 = require("./RelationJoinColumnBuilder");
 var EntityListenerMetadata_1 = require("../metadata/EntityListenerMetadata");
+var ForeignKeyMetadata_1 = require("../metadata/ForeignKeyMetadata");
 /**
  * Builds EntityMetadata objects and all its sub-metadatas.
  */
@@ -87,17 +88,18 @@ var EntityMetadataBuilder = (function () {
         });
         // after all metadatas created we set parent entity metadata for class-table inheritance
         entityMetadatas
-            .filter(function (metadata) { return metadata.tableType === "single-table-child"; })
+            .filter(function (metadata) { return metadata.tableType === "single-table-child" || metadata.tableType === "class-table-child"; })
             .forEach(function (entityMetadata) {
             var inheritanceTree = entityMetadata.target instanceof Function
                 ? MetadataUtils_1.MetadataUtils.getInheritanceTree(entityMetadata.target)
                 : [entityMetadata.target];
             var parentMetadata = entityMetadatas.find(function (metadata) {
-                return inheritanceTree.find(function (inheritance) { return inheritance === metadata.target; }) && metadata.inheritanceType === "single-table";
+                return inheritanceTree.find(function (inheritance) { return inheritance === metadata.target; }) && (metadata.inheritanceType === "single-table" || metadata.inheritanceType === "class-table");
             });
             if (parentMetadata) {
                 entityMetadata.parentEntityMetadata = parentMetadata;
-                entityMetadata.tableName = parentMetadata.tableName;
+                if (parentMetadata.inheritanceType === "single-table")
+                    entityMetadata.tableName = parentMetadata.tableName;
             }
         });
         // after all metadatas created we set child entity metadatas for class-table inheritance
@@ -115,6 +117,43 @@ var EntityMetadataBuilder = (function () {
         // build all indices (need to do it after relations and their join columns are built)
         entityMetadatas.forEach(function (entityMetadata) {
             entityMetadata.indices.forEach(function (index) { return index.build(_this.connection.driver.namingStrategy); });
+        });
+        entityMetadatas
+            .filter(function (metadata) { return !!metadata.parentEntityMetadata && metadata.tableType === "class-table-child"; })
+            .forEach(function (metadata) {
+            var parentPrimaryColumns = metadata.parentEntityMetadata.primaryColumns;
+            var parentRelationColumns = parentPrimaryColumns.map(function (parentPrimaryColumn) {
+                var columnName = _this.connection.driver.namingStrategy.classTableInheritanceParentColumnName(metadata.parentEntityMetadata.tableName, parentPrimaryColumn.propertyPath);
+                var column = new ColumnMetadata_1.ColumnMetadata({
+                    entityMetadata: metadata,
+                    referencedColumn: parentPrimaryColumn,
+                    args: {
+                        target: metadata.target,
+                        propertyName: columnName,
+                        mode: "parentId",
+                        options: {
+                            name: columnName,
+                            type: parentPrimaryColumn.type,
+                            unique: true,
+                            nullable: false,
+                            primary: true
+                        }
+                    }
+                });
+                metadata.registerColumn(column);
+                column.build(_this.connection.driver.namingStrategy);
+                return column;
+            });
+            metadata.foreignKeys = [
+                new ForeignKeyMetadata_1.ForeignKeyMetadata({
+                    entityMetadata: metadata,
+                    referencedEntityMetadata: metadata.parentEntityMetadata,
+                    namingStrategy: _this.connection.driver.namingStrategy,
+                    columns: parentRelationColumns,
+                    referencedColumns: parentPrimaryColumns,
+                    onDelete: "CASCADE"
+                })
+            ];
         });
         // add lazy initializer for entity relations
         entityMetadatas
@@ -136,6 +175,7 @@ var EntityMetadataBuilder = (function () {
      * Creates column, relation, etc. metadatas for everything this entity metadata owns.
      */
     EntityMetadataBuilder.prototype.createEntityMetadata = function (tableArgs) {
+        var _this = this;
         // we take all "inheritance tree" from a target entity to collect all stored metadata args
         // (by decorators or inside entity schemas). For example for target Post < ContentModel < Unit
         // it will be an array of [Post, ContentModel, Unit] and we can then get all metadata args of those classes
@@ -143,11 +183,21 @@ var EntityMetadataBuilder = (function () {
             ? MetadataUtils_1.MetadataUtils.getInheritanceTree(tableArgs.target)
             : [tableArgs.target]; // todo: implement later here inheritance for string-targets
         // if single table inheritance used, we need to copy all children columns in to parent table
-        var singleTableChildrenTargets = this.metadataArgsStorage
-            .filterSingleTableChildren(tableArgs.target)
-            .map(function (args) { return args.target; })
-            .filter(function (target) { return target instanceof Function; });
-        inheritanceTree.push.apply(inheritanceTree, singleTableChildrenTargets);
+        var singleTableChildrenTargets;
+        if (tableArgs.type === "single-table-child") {
+            singleTableChildrenTargets = this.metadataArgsStorage
+                .filterSingleTableChildren(tableArgs.target)
+                .map(function (args) { return args.target; })
+                .filter(function (target) { return target instanceof Function; });
+            inheritanceTree.push.apply(inheritanceTree, singleTableChildrenTargets);
+        }
+        else if (tableArgs.type === "class-table-child") {
+            inheritanceTree.forEach(function (inheritanceTreeItem) {
+                var isParent = !!_this.metadataArgsStorage.inheritances.find(function (i) { return i.target === inheritanceTreeItem; });
+                if (isParent)
+                    inheritanceTree.splice(inheritanceTree.indexOf(inheritanceTreeItem), 1);
+            });
+        }
         var entityMetadata = new EntityMetadata_1.EntityMetadata({ connection: this.connection, args: tableArgs });
         var inheritanceType = this.metadataArgsStorage.findInheritanceType(tableArgs.target);
         entityMetadata.inheritanceType = inheritanceType ? inheritanceType.type : undefined;
@@ -156,8 +206,9 @@ var EntityMetadataBuilder = (function () {
         entityMetadata.embeddeds = this.createEmbeddedsRecursively(entityMetadata, this.metadataArgsStorage.filterEmbeddeds(inheritanceTree));
         entityMetadata.ownColumns = this.metadataArgsStorage.filterColumns(inheritanceTree).map(function (args) {
             var column = new ColumnMetadata_1.ColumnMetadata({ entityMetadata: entityMetadata, args: args });
+            // console.log(column.propertyName);
             // if single table inheritance used, we need to mark all inherit table columns as nullable
-            if (singleTableChildrenTargets.indexOf(args.target) !== -1)
+            if (singleTableChildrenTargets && singleTableChildrenTargets.indexOf(args.target) !== -1)
                 column.isNullable = true;
             return column;
         });

@@ -89,6 +89,10 @@ export declare class PostgresQueryRunner implements QueryRunner {
      */
     createTable(table: TableSchema): Promise<void>;
     /**
+     * Drops the table.
+     */
+    dropTable(tableName: string): Promise<void>;
+    /**
      * Checks if column with the given name exist in the given table.
      */
     hasColumn(tableName: string, columnName: string): Promise<boolean>;

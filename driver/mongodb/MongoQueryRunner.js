@@ -640,6 +640,16 @@ var MongoQueryRunner = (function () {
         });
     };
     /**
+     * Drops the table.
+     */
+    MongoQueryRunner.prototype.dropTable = function (tableName) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                throw new Error("Schema update queries are not supported by MongoDB driver.");
+            });
+        });
+    };
+    /**
      * Checks if column with the given name exist in the given table.
      */
     MongoQueryRunner.prototype.hasColumn = function (collectionName, columnName) {
