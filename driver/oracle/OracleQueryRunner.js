@@ -212,12 +212,69 @@ var OracleQueryRunner = (function () {
                     _this.logger.logQueryError(err);
                     return fail(err);
                 }
-                ok(result.rows || result.outBinds);
+                var callBackBuffer = _this.databaseConnection.releaseCallback;
+                _this.databaseConnection.releaseCallback = function () {
+                    return new Promise(function (ok, fail) {
+                        ok();
+                    });
+                };
+                _this.fetchRowsFromRS(result.resultSet, callBackBuffer, new Array()).then(function (res) {
+                    ok(res || result.outBinds);
+                }).catch(function (err) {
+                    _this.logger.logQueryError(err);
+                });
             };
             var executionOptions = {
-                autoCommit: _this.databaseConnection.isTransactionActive ? false : true
+                autoCommit: _this.databaseConnection.isTransactionActive ? false : true,
+                resultSet: true
             };
             _this.databaseConnection.connection.execute(query, parameters || {}, executionOptions, handler);
+        });
+    };
+    OracleQueryRunner.prototype.fetchRowsFromRS = function (resultSet, callBackBuffer, results) {
+        return __awaiter(this, void 0, void 0, function () {
+            var newResults, next, ex_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 5, 6, 7]);
+                        return [4 /*yield*/, resultSet.getRows(100)];
+                    case 1:
+                        newResults = (_a.sent());
+                        results = results.concat(newResults);
+                        next = newResults.length > 0;
+                        _a.label = 2;
+                    case 2:
+                        if (!next) return [3 /*break*/, 4];
+                        return [4 /*yield*/, resultSet.getRows(100)];
+                    case 3:
+                        newResults = _a.sent();
+                        if (newResults.length === 0) {
+                            return [3 /*break*/, 4];
+                        }
+                        results = results.concat(newResults);
+                        return [3 /*break*/, 2];
+                    case 4: return [3 /*break*/, 7];
+                    case 5:
+                        ex_1 = _a.sent();
+                        return [2 /*return*/, Promise.resolve(results)];
+                    case 6:
+                        this.doClose(resultSet, callBackBuffer);
+                        return [2 /*return*/, Promise.resolve(results)];
+                    case 7: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    OracleQueryRunner.prototype.doClose = function (resultSet, callBackBuffer) {
+        var instance = this;
+        resultSet.close(function (err) {
+            if (err) {
+                console.error(err.message);
+            }
+            callBackBuffer().then(function () {
+            });
+            instance.databaseConnection.releaseCallback = callBackBuffer;
         });
     };
     /**
@@ -366,10 +423,10 @@ var OracleQueryRunner = (function () {
                         tableNamesString = tableNames.map(function (name) { return "'" + name + "'"; }).join(", ");
                         tablesSql = "SELECT TABLE_NAME FROM user_tables WHERE TABLE_NAME IN (" + tableNamesString + ")";
                         columnsSql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, NULLABLE, IDENTITY_COLUMN FROM all_tab_cols WHERE TABLE_NAME IN (" + tableNamesString + ")";
-                        indicesSql = "SELECT ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS, LISTAGG(cols.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY cols.COLUMN_NAME) AS COLUMN_NAMES\n                                FROM USER_INDEXES ind, USER_IND_COLUMNS cols \n                                WHERE ind.INDEX_NAME = cols.INDEX_NAME AND ind.TABLE_NAME IN (" + tableNamesString + ")\n                                GROUP BY ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS";
+                        indicesSql = "SELECT ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS, LISTAGG(cols.COLUMN_NAME, ',') WITHIN GROUP (ORDER BY cols.COLUMN_NAME) AS COLUMN_NAMES\n                                FROM USER_INDEXES ind, USER_IND_COLUMNS cols\n                                WHERE ind.INDEX_NAME = cols.INDEX_NAME AND ind.TABLE_NAME IN (" + tableNamesString + ")\n                                GROUP BY ind.INDEX_NAME, ind.TABLE_NAME, ind.UNIQUENESS";
                         foreignKeysSql = "SELECT * FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = '" + this.dbName + "' AND REFERENCED_COLUMN_NAME IS NOT NULL";
                         uniqueKeysSql = "SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = '" + this.dbName + "' AND CONSTRAINT_TYPE = 'UNIQUE'";
-                        constraintsSql = "SELECT cols.table_name, cols.column_name, cols.position, cons.constraint_type, cons.constraint_name\nFROM all_constraints cons, all_cons_columns cols WHERE cols.table_name IN (" + tableNamesString + ") \nAND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner ORDER BY cols.table_name, cols.position";
+                        constraintsSql = "SELECT cols.table_name, cols.column_name, cols.position, cons.constraint_type, cons.constraint_name\nFROM all_constraints cons, all_cons_columns cols WHERE cols.table_name IN (" + tableNamesString + ")\nAND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner ORDER BY cols.table_name, cols.position";
                         return [4 /*yield*/, Promise.all([
                                 this.query(tablesSql),
                                 this.query(columnsSql),
