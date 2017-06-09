@@ -54,8 +54,6 @@ export declare class OracleQueryRunner implements QueryRunner {
      * Executes a given SQL query.
      */
     query(query: string, parameters?: any[]): Promise<any>;
-    private fetchRowsFromRS(resultSet, callBackBuffer, results);
-    private doClose(resultSet, callBackBuffer);
     /**
      * Insert a new row with given values into given table.
      */

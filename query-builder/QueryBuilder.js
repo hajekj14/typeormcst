@@ -536,7 +536,7 @@ var QueryBuilder = (function () {
         sql += this.createLimitExpression();
         sql += this.createOffsetExpression();
         sql += this.createLockExpression();
-        sql = this.createSpecificExpression(sql);
+        sql = this.createLimitOffsetSpecificExpression(sql);
         sql = this.connection.driver.escapeQueryWithParameters(sql, this.expressionMap.parameters)[0];
         return sql.trim();
     };
@@ -553,7 +553,7 @@ var QueryBuilder = (function () {
         sql += this.createLimitExpression();
         sql += this.createOffsetExpression();
         sql += this.createLockExpression();
-        sql = this.createSpecificExpression(sql);
+        sql = this.createLimitOffsetSpecificExpression(sql);
         return sql.trim();
     };
     /**
@@ -570,7 +570,7 @@ var QueryBuilder = (function () {
         sql += this.createLimitExpression();
         sql += this.createOffsetExpression();
         sql += this.createLockExpression();
-        sql = this.createSpecificExpression(sql);
+        sql = this.createLimitOffsetSpecificExpression(sql);
         return this.connection.driver.escapeQueryWithParameters(sql, this.getParameters());
     };
     /**
@@ -1338,14 +1338,14 @@ var QueryBuilder = (function () {
                 .join(", ");
         return "";
     };
-    QueryBuilder.prototype.createSpecificExpression = function (sql) {
+    QueryBuilder.prototype.createLimitOffsetSpecificExpression = function (sql) {
         if ((this.expressionMap.offset || this.expressionMap.limit) && this.connection.driver instanceof OracleDriver_1.OracleDriver) {
             sql = "SELECT * FROM (" + sql + ") WHERE ";
             if (this.expressionMap.offset) {
-                sql += "\"RN\" > " + this.expressionMap.offset;
+                sql += this.escapeAlias("RN") + " >= " + this.expressionMap.offset;
             }
             if (this.expressionMap.limit) {
-                sql += (this.expressionMap.offset ? " AND " : "") + "\"RN\" < " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
+                sql += (this.expressionMap.offset ? " AND " : "") + this.escapeAlias("RN") + " <= " + ((this.expressionMap.offset || 0) + this.expressionMap.limit);
             }
         }
         return sql;
